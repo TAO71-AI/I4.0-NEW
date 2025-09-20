@@ -1,0 +1,427 @@
+# Import libraries
+from typing import Any
+from collections.abc import Iterator
+import base64
+import json
+import Services.chatbot.llama_utils as utils_llama
+import Services.chatbot.system_prompt as system_prompt
+import Utilities.logs as logs
+import messages as conv
+
+__models__: dict[str, dict[str, Any] | None] = {}
+ServiceConfiguration: dict[str, Any] | None = None
+
+def __check_service_configuration__() -> None:
+    if (ServiceConfiguration is None):
+        raise ValueError("Service configuration is not defined.")
+
+def SERVICE_LOAD_MODELS(Models: dict[str, dict[str, Any]]) -> None:
+    """
+    Load all the chatbot models.
+
+    Args:
+        Models (dict[str, dict[str, Any]]): All the models to load.
+    
+    Returns:
+        None
+    """
+    __check_service_configuration__()
+
+    for name, configuration in Models.values():
+        LoadModel(name, configuration)
+
+def SERVICE_OFFLOAD_MODELS(Names: list[str]) -> None:
+    """
+    Offload all the defined chatbot models.
+
+    Args:
+        Names (list[str]): Names of the models to offload.
+    
+    Returns:
+        None
+    """
+    # Define globals
+    global __models__
+
+    # Check configuration
+    __check_service_configuration__()
+    
+    for name in Names:
+        # Make sure the model is loaded
+        if (__models__[name] is None):
+            continue
+        
+        logs.WriteLog(logs.INFO, "[service_chatbot] Offloading model.")
+
+        # Offload the model
+        if (__models__[name]["type"] == "lcpp"):
+            __models__[name]["model"].close()
+        
+        __models__[name] = None
+        del __models__[name]
+
+def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dict[str, Any]) -> Iterator[dict[str, Any]]:
+    """
+    Inference the chatbot model.
+
+    Args:
+        Name (str): Name of the model.
+        UserPrompt (dict[str, Any]): Prompt of the user ("text", "files", "parameters").
+        UserParameters (dict[str, Any]): Parameters of the user ("key_info", "conversation_name").
+    """
+    __check_service_configuration__()
+
+    if (
+        "key_info" not in UserParameters or
+        "conversation_name" not in UserParameters
+    ):
+        raise ValueError("Required user parameters not defined.")
+    
+    if (
+        "text" not in UserPrompt or
+        "files" not in UserPrompt or
+        "parameters" not in UserPrompt
+    ):
+        raise ValueError("Required prompt parameters not defined.")
+
+    conversation = conv.Conversation.CreateConversationFromDB(f"{UserParameters['key_info']['key']}_{UserParameters['conversation_name']}")
+    tools = []
+    extraTools = []
+
+    if ("temperature" in UserPrompt["parameters"] and ServiceConfiguration["temperature"]["modified_by_user"]):
+        temperature = UserPrompt["parameters"]["temperature"]
+    elif ("temperature" in __models__[Name]):
+        temperature = __models__[Name]["temperature"]
+    else:
+        temperature = ServiceConfiguration["temperature"]["default"]
+    
+    if ("top_p" in UserPrompt["parameters"] and ServiceConfiguration["top_p"]["modified_by_user"]):
+        topP = UserPrompt["parameters"]["top_p"]
+    elif ("top_p" in __models__[Name]):
+        topP = __models__[Name]["top_p"]
+    else:
+        topP = ServiceConfiguration["top_p"]["default"]
+    
+    if ("top_k" in UserPrompt["parameters"] and ServiceConfiguration["top_k"]["modified_by_user"]):
+        topK = UserPrompt["parameters"]["top_k"]
+    elif ("top_k" in __models__[Name]):
+        topK = __models__[Name]["top_k"]
+    else:
+        topK = ServiceConfiguration["top_k"]["default"]
+    
+    if ("min_p" in UserPrompt["parameters"] and ServiceConfiguration["min_p"]["modified_by_user"]):
+        minP = UserPrompt["parameters"]["min_p"]
+    elif ("min_p" in __models__[Name]):
+        minP = __models__[Name]["min_p"]
+    else:
+        minP = ServiceConfiguration["min_p"]["default"]
+    
+    if ("typical_p" in UserPrompt["parameters"] and ServiceConfiguration["typical_p"]["modified_by_user"]):
+        typicalP = UserPrompt["parameters"]["typical_p"]
+    elif ("typical_p" in __models__[Name]):
+        typicalP = __models__[Name]["typical_p"]
+    else:
+        typicalP = ServiceConfiguration["typical_p"]["default"]
+    
+    if ("seed" in UserPrompt["parameters"] and ServiceConfiguration["seed"]["modified_by_user"]):
+        seed = UserPrompt["parameters"]["seed"]
+    elif ("seed" in __models__[Name]):
+        seed = __models__[Name]["seed"]
+    else:
+        seed = ServiceConfiguration["seed"]["default"]
+    
+    if ("presence_penalty" in UserPrompt["parameters"] and ServiceConfiguration["presence_penalty"]["modified_by_user"]):
+        presencePenalty = UserPrompt["parameters"]["presence_penalty"]
+    elif ("presence_penalty" in __models__[Name]):
+        presencePenalty = __models__[Name]["presence_penalty"]
+    else:
+        presencePenalty = ServiceConfiguration["presence_penalty"]["default"]
+    
+    if ("frequency_penalty" in UserPrompt["parameters"] and ServiceConfiguration["frequency_penalty"]["modified_by_user"]):
+        frequencyPenalty = UserPrompt["parameters"]["frequency_penalty"]
+    elif ("frequency_penalty" in __models__[Name]):
+        frequencyPenalty = __models__[Name]["frequency_penalty"]
+    else:
+        frequencyPenalty = ServiceConfiguration["frequency_penalty"]["default"]
+    
+    if ("repeat_penalty" in UserPrompt["parameters"] and ServiceConfiguration["repeat_penalty"]["modified_by_user"]):
+        repeatPenalty = UserPrompt["parameters"]["repeat_penalty"]
+    elif ("repeat_penalty" in __models__[Name]):
+        repeatPenalty = __models__[Name]["repeat_penalty"]
+    else:
+        repeatPenalty = ServiceConfiguration["repeat_penalty"]["default"]
+    
+    if ("tools" in UserPrompt["parameters"] and ServiceConfiguration["tools"]["modified_by_user"]):
+        userTools = UserPrompt["parameters"]["tools"]
+    elif ("tools" in __models__[Name]):
+        userTools = __models__[Name]["tools"]
+    else:
+        userTools = ServiceConfiguration["tools"]["default"]
+    
+    if (isinstance(userTools, str)):
+        userTools = userTools.split(" ")
+
+    for tool in system_prompt.GetDefaultTools():
+        if (tool.Name in userTools or userTools == "{all}"):
+            tools.append(tool.ToDictionary())
+
+    if ("extra_tools" in UserPrompt["parameters"] and ServiceConfiguration["extra_tools"]["modified_by_user"]):
+        eTools = UserPrompt["parameters"]["extra_tools"]
+    elif ("extra_tools" in __models__[Name]):
+        eTools = __models__[Name]["extra_tools"]
+    else:
+        eTools = ServiceConfiguration["extra_tools"]["default"]
+    
+    for tool in eTools:
+        if (
+            "name" not in tool or
+            "description" not in tool or
+            "parameters" not in tool or
+            "required" not in tool
+        ):
+            raise ValueError("Extra tools required argument not provided.")
+            
+        toolName = tool["name"]
+        toolDescription = tool["description"]
+        toolParameters = tool["parameters"]
+        toolRequired = tool["required"]
+
+        extraTools.append(system_prompt.ChatbotTool(
+            Name = toolName,
+            Description = toolDescription,
+            Parameters = toolParameters,
+            RequiredParameters = toolRequired
+        ).ToDictionary())
+    
+    if ("tool_choice" in UserPrompt["parameters"] and ServiceConfiguration["tool_choice"]["modified_by_user"]):
+        toolChoice = UserPrompt["parameters"]["tool_choice"]
+    elif ("tool_choice" in __models__[Name]):
+        toolChoice = __models__[Name]["tool_choice"]
+    else:
+        toolChoice = ServiceConfiguration["tool_choice"]["default"]
+    
+    toolChoice = toolChoice.lower()
+    
+    if (toolChoice != "none" and toolChoice != "auto" and toolChoice != "required"):
+        toolChoice = "auto"
+    
+    if ("max_length" in UserPrompt["parameters"] and ServiceConfiguration["max_length"]["modified_by_user"]):
+        maxLength = UserPrompt["parameters"]["max_length"]
+    elif ("max_length" in __models__[Name]):
+        maxLength = __models__[Name]["max_length"]
+    else:
+        maxLength = ServiceConfiguration["max_length"]
+    
+    if (maxLength > ServiceConfiguration["max_length"] and not ServiceConfiguration["max_length"]["allow_greater_than_default"]):
+        maxLength = ServiceConfiguration["max_length"]
+    
+    return InferenceModel(
+        Name,
+        conversation,
+        {
+            "temperature": temperature,
+            "top_p": topP,
+            "top_k": topK,
+            "min_p": minP,
+            "typical_p": typicalP,
+            "seed": seed,
+            "presence_penalty": presencePenalty,
+            "frequency_penalty": frequencyPenalty,
+            "repeat_penalty": repeatPenalty,
+            "tools": tools,
+            "extra_tools": extraTools,
+            "tool_choice": toolChoice,
+            "max_length": maxLength
+        }
+    )
+
+def InferenceModel(Name: str, Conversation: conv.Conversation, Configuration: dict[str, Any]) -> Iterator[dict[str, Any]]:
+    """
+    Inference the model.
+
+    Args:
+        Name (str): Name of the model.
+        Conversation (Conversation): Conversation of the model.
+        Configuration (dict[str, Any]): Configuration of the model.
+    """
+    __check_service_configuration__()
+    LoadModel(Name)
+
+    conversation = Conversation.GetConversation(False)
+
+    if (__models__[Name]["type"] == "lcpp"):
+        model: utils_llama.Llama = __models__[Name]["model"]
+        response = model.create_chat_completion(
+            messages = conversation,
+            tools = Configuration["tools"] + Configuration["extra_tools"],
+            tool_choice = Configuration["tool_choice"],
+            temperature = Configuration["temperature"],
+            top_p = Configuration["top_p"],
+            top_k = Configuration["top_k"],
+            min_p = Configuration["min_p"],
+            typical_p = Configuration["typical_p"],
+            steam = True,
+            seed = Configuration["seed"],
+            max_tokens = Configuration["max_length"],
+            presence_penalty = Configuration["presence_penalty"],
+            frequency_penalty = Configuration["frequency_penalty"],
+            repeat_penalty = Configuration["repeat_penalty"]
+        )
+        tools = []
+        currentToolIdx = None
+
+        if ("tool_start_token" in __models__[Name]):
+            toolStartToken = __models__[Name]["tool_start_token"]
+        elif ("tool_start_token" in ServiceConfiguration):
+            toolStartToken = ServiceConfiguration["tool_start_token"]
+        else:
+            toolStartToken = "<tool_call>"
+        
+        if ("tool_end_token" in __models__[Name]):
+            toolEndToken = __models__[Name]["tool_end_token"]
+        elif ("tool_end_token" in ServiceConfiguration):
+            toolEndToken = ServiceConfiguration["tool_end_token"]
+        else:
+            toolEndToken = "</tool_call>"
+        
+        logs.WriteLog(logs.INFO, "[service_chatbot] Inferencing chatbot model.")
+
+        for token in response:
+            if (not "content" in token["choices"][0]["delta"]):
+                continue
+
+            tokenText = token["choices"][0]["delta"]["content"]
+
+            if (toolEndToken in tokenText and currentToolIdx is not None):
+                tools[currentToolIdx] += tokenText[:tokenText.index(toolEndToken)]
+                currentToolIdx = None
+
+            if (toolStartToken in tokenText and currentToolIdx is None):
+                currentToolIdx = len(tools)
+                tools.append(tokenText[tokenText.index(toolStartToken) + len(toolStartToken):])
+            elif (currentToolIdx is not None):
+                tools[currentToolIdx] += tokenText
+            
+            yield {"text": tokenText}
+        
+        logs.WriteLog(logs.INFO, "[service_chatbot] Finished inference. Checking tools.")
+        
+        for tool in tools:
+            tool = tool.strip()
+            toolExists = False
+
+            try:
+                tool = json.loads(tool)
+
+                for bTool in Configuration["tools"]:
+                    if (tool["name"] == bTool["function"]["name"]):
+                        toolExists = True
+
+                        # TODO
+                        if (tool["name"] == "search_text"):
+                            pass
+                        elif (tool["name"] == "search_url"):
+                            pass
+                        elif (tool["name"] == "create_memory"):
+                            pass
+                        elif (tool["name"] == "edit_memory"):
+                            pass
+                        elif (tool["name"] == "delete_memory"):
+                            pass
+                
+                if (not toolExists):
+                    yield {"text": json.dumps(tool), "warnings": ["Unknown tool"]}
+            except Exception as ex:
+                logs.WriteLog(logs.ERROR, f"[service_chatbot] Error processing tool: {ex}")
+                yield {"errors": [f"Error processing tool: {ex}"]}
+        
+        logs.WriteLog(logs.INFO, "[service_chatbot] Finished inference. All tools processed.")
+
+def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
+    """
+    Load a chatbot model.
+
+    Args:
+        Name (str): Name of the model.
+        Configuration (dict[str, Any]): Configuration of the model.
+    
+    Returns:
+        None
+    """
+    # Define globals
+    global __models__
+
+    # Make sure the model is not loaded
+    if (Name in __models__ and __models__[Name] is not None):
+        return
+    
+    # Check configuration
+    __check_service_configuration__()
+    
+    logs.WriteLog(logs.INFO, "[service_chatbot] Loading model.")
+
+    # Get the model type
+    if ("type" in Configuration):
+        modelType = Configuration["type"]
+
+        if (not isinstance(modelType, str) or (modelType != "hf" and modelType != "lcpp")):
+            modelType = None
+    else:
+        modelType = None
+    
+    if (modelType is None):
+        raise AttributeError("[service_chatbot] Model type is not valid or not defined.")
+    
+    # Load the model
+    if (modelType == "lcpp"):
+        model = utils_llama.LoadLlamaModel(Configuration)
+
+    __models__[Name] = Configuration + model
+
+    # Test the inference
+    if ("test_inference" in Configuration and Configuration["test_inference"]):
+        logs.WriteLog(logs.INFO, "[service_chatbot] Testing inference of the model.")
+        files = []
+
+        if ("test_inference_files" in ServiceConfiguration):
+            for file in ServiceConfiguration["test_inference_files"]:
+                if (file["type"] != "image" and file["type"] != "video" and file["type"] != "audio"):
+                    logs.WriteLog(logs.WARNING, f"[service_chatbot] Unexpected file type during inference testing. Skipping file: `{file}`.")
+                    continue
+
+                with open(file["data"], "rb") as f:
+                    files.append({"type": file["type"], "data": base64.b64encode(f.read()).decode("utf-8")})
+        else:
+            logs.WriteLog(logs.INFO, "[service_chatbot] Inference test files not specified.")
+
+        response = InferenceModel(
+            Name,
+            conv.Conversation(
+                "INFERENCE TEST CONVERSATION",
+                [
+                    conv.Message(
+                        conv.ROLE_USER,
+                        "a " * (model["ctx"] - len(model["model"].metadata["tokenizer.chat_template"]) - 1),
+                        files
+                    )
+                ]
+            ),
+            {
+                "temperature": 0,
+                "top_p": 0.95,
+                "top_k": 40,
+                "min_p": 0.05,
+                "typical_p": 1,
+                "seed": None,
+                "presence_penalty": 0,
+                "frequency_penalty": 0,
+                "repeat_penalty": 1,
+                "tools": [],
+                "extra_tools": [],
+                "tool_choice": "none",
+                "max_length": 1
+            }
+        )
+
+        for _ in response:
+            pass

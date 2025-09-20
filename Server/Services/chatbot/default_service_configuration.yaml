@@ -1,0 +1,46 @@
+temperature:
+  default: 0.2
+  modified_by_user: true
+top_p:
+  default: 0.95
+  modified_by_user: true
+top_k:
+  default: 40
+  modified_by_user: true
+min_p:
+  default: 0.05
+  modified_by_user: true
+typical_p:
+  default: 1
+  modified_by_user: true
+seed:
+  default: null
+  modified_by_user: true
+presence_penalty:
+  default: 0
+  modified_by_user: true
+frequency_penalty:
+  default: 0
+  modified_by_user: true
+repeat_penalty:
+  default: 1
+  modified_by_user: true
+tools:
+  default: "{all}"
+  modified_by_user: true
+extra_tools:
+  default: []
+  modified_by_user: true
+tool_choice:
+  default: "auto"
+  modified_by_user: true
+tool_start_token: "<tool_call>"
+tool_end_token: "</tool_call>"
+max_length:
+  default: 99999
+  modified_by_user: true
+  allow_greater_than_default: false
+test_inference_files:
+  - {"type": "image", "data": "./TestAssets/test_image.png"}
+  - {"type": "audio", "data": "./TestAssets/test_audio.wav"}
+  - {"type": "video", "data": "./TestAssets/test_video.mp4"}

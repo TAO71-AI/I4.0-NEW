@@ -1,0 +1,108 @@
+# Services configuration
+## services:
+##   service_name:
+##     param1: value1
+##     param2: value2
+##     ...
+##   ...
+## services_configuration:
+##   chatbot:
+##     param1: value1
+##     param2: value2
+##     ...
+##   ...
+
+services: {}
+services_configuration: {}
+services_get_automatically: "cheapest"  # "fastest", "min_queue"
+
+# Server configuration
+internet:
+  follow_scrape_guidelines: true
+  reddit_subreddit_max_posts: 25
+  reddit_post_max_comments: 5  # Set to 0 to disable comments
+server_thrusted_admin_keys: []
+server_whitelist:
+  enabled: false
+  ip_whitelist: []
+  key_whitelist: []
+server_blacklist:
+  enabled: true
+  ip_blacklist: []
+  key_blacklist: []
+server_automatic_blacklist:
+  enabled: true
+  text_filter_service:
+    enabled: false
+    name: ""  # Keep in mind that the service here will be provided FREE OF CHARGE when using the automatic filter
+    not_safe_text_response: ""  # Use "%keyword%" to search for a keywork in the text, instead of comparing the exact text
+  image_filter_service:
+    enabled: false
+    name: ""
+    not_safe_text_response: ""
+  audio_filter_service:
+    enabled: false
+    name: ""
+    not_safe_text_response: ""
+  video_filter_service:
+    enabled: false
+    name: ""
+    not_safe_text_response: ""
+server_allowed_hashes:
+  hashes:
+    - "sha512"
+    - "sha384"
+    - "sha256"
+    - "sha224"
+    - "none"
+  warnings:
+    none:
+      - "You are not using a hash. The message is not encrypted; anyone can read it."
+    sha224:
+      - "You are using a weak hash. The message is encrypted; but it can be decrypted by anyone."
+server_listen:
+  sock_enabled: true
+  sock_ip: "0.0.0.0"
+  sock_port: 8060
+  ws_enabled: true
+  ws_ip: "0.0.0.0"
+  ws_port: 8061
+
+# Database configuration
+database_keys:
+  hash: "sha512"
+  public: ""  # If empty the database will not be encrypted
+  private: ""  # If empty the database will not be decrypted
+database:
+  host_type: "sock"
+  host: "127.0.0.1"
+  port: 8062
+  user: ""
+  pass: ""
+  db_name: ""
+  db_tables:
+    keys:
+      name: ""
+      # TODO
+    conversations:
+      name: ""
+      # TODO
+
+# Database server configuration
+database_server_allowed_hashes:
+  - "sha512"
+database_server_thrusted_keys: []
+database_server_ip_whitelist:
+  enabled: false
+  whitelist: []
+database_server_ip_blacklist:
+  enabled: true
+  include_server_blacklist: true
+  blacklist: []
+database_server_listen:
+  sock_enabled: true
+  sock_ip: "0.0.0.0"
+  sock_port: 8062
+  ws_enabled: true
+  ws_ip: "0.0.0.0"
+  ws_port: 8063
