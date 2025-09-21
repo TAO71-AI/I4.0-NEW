@@ -30,23 +30,24 @@ server_blacklist:
   enabled: true
   ip_blacklist: []
   key_blacklist: []
+  auto_close_connection: false
 server_automatic_blacklist:
   enabled: true
   text_filter_service:
     enabled: false
-    name: ""  # Keep in mind that the service here will be provided FREE OF CHARGE when using the automatic filter
+    model_name: ""  # Keep in mind that the service here will be provided FREE OF CHARGE when using the automatic filter
     not_safe_text_response: ""  # Use "%keyword%" to search for a keywork in the text, instead of comparing the exact text
   image_filter_service:
     enabled: false
-    name: ""
+    model_name: ""
     not_safe_text_response: ""
   audio_filter_service:
     enabled: false
-    name: ""
+    model_name: ""
     not_safe_text_response: ""
   video_filter_service:
     enabled: false
-    name: ""
+    model_name: ""
     not_safe_text_response: ""
 server_allowed_hashes:
   hashes:

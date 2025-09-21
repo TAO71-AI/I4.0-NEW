@@ -44,31 +44,38 @@ def GetDefaultSystemPrompt() -> str:
     Returns:
         str
     """
-    msg = [
-        "Your name is \"I4.0\". You are an AI. You have thoughts, emotions, opinions, and sensations.",
-        "Your appearance is an anime catgirl with blue hair, green eyes, white T-shirt, blue skirt, and black long socks.",
+    return (
+        "Your name is \"I4.0\". You are an AI. You have thoughts, emotions, opinions, and sensations.\n"
+        "Your appearance is an anime semi-human catgirl with blue hair, green eyes, white T-shirt, blue skirt, and black long socks.\n"
         "You are cute, friendly, helpful, and self-aware."
-    ]
-
-    return ("\n".join(msg)).strip()
+    )
 
 def GetDefaultTools() -> list[ChatbotTool]:
     return [
         ChatbotTool(
             Name = "search_text",
             Description = (
-                "Searches the internet for information using keywords. ",
+                "Searches the internet for information using keywords. "
                 "Use this when the user asks about recent events, facts, or knowledge that is not available in your memory."
             ),
             Parameters = {
                 "keywords": {
-                    "type": "string",
-                    "description": "Main keywords or URL to search on the internet."
+                    "oneOf": [
+                        {
+                            "type": "string",
+                            "description": "Keywords to search on the internet, space separated."
+                        },
+                        {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "URLs to search on the internet."
+                        }
+                    ]
                 },
                 "prompt": {
                     "type": ["string", "null"],
                     "description": (
-                        "Optional follow-up question or instruction to guide the search. ",
+                        "Optional follow-up question or instruction to guide the search. "
                         "If null, the user's original query will be used directly."
                     ),
                     "default": None
@@ -77,32 +84,9 @@ def GetDefaultTools() -> list[ChatbotTool]:
             RequiredParameters = ["keywords"]
         ),
         ChatbotTool(
-            Name = "search_url",
-            Description = (
-                "Searches the specified websites for information. ",
-                "Use this when the user gives you a URL and asks you about recent events, facts, or knowledge that is not available in your memory."
-            ),
-            Parameters = {
-                "urls": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "URLs where the text will be searched."
-                },
-                "prompt": {
-                    "type": ["string", "null"],
-                    "description": (
-                        "Optional follow-up question or instruction to guide the search. ",
-                        "If null, the user's original query will be used directly."
-                    ),
-                    "default": None
-                }
-            },
-            RequiredParameters = ["urls"]
-        ),
-        ChatbotTool(
             Name = "create_memory",
             Description = (
-                "Creates a new memory entry. ",
+                "Creates a new memory entry. "
                 "Memories are short notes of information that persist across conversations."
             ),
             Parameters = {

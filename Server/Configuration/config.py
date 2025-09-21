@@ -4,8 +4,8 @@ import yaml
 import os
 import Utilities.logs as logs
 
-DEFAULT_CONFIGURATION_FILE: str = "Configuration/default_configuration.yaml"
-CONFIGURATION_FILE: str = "config.yaml"
+DEFAULT_CONFIGURATION_FILE: str = "./Configuration/default_configuration.yaml"
+CONFIGURATION_FILE: str = "./config.yaml"
 Configuration: dict[str, Any] | None = None
 
 def ReadConfiguration(ConfigurationFile: str = CONFIGURATION_FILE, Create: bool = True) -> dict[str, Any]:
