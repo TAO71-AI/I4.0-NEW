@@ -3,6 +3,8 @@ from typing import Any
 from collections.abc import Iterator
 import base64
 import json
+import copy
+import datetime
 import Services.chatbot.llama_utils as utils_llama
 import Services.chatbot.system_prompt as system_prompt
 import Utilities.logs as logs
@@ -87,6 +89,8 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
     conversation = conv.Conversation.CreateConversationFromDB(f"{UserParameters['key_info']['key']}_{UserParameters['conversation_name']}")
     tools = []
     extraTools = []
+    extraSystemPrompt = {"user": None, "model": None, "service": None}
+    predefinedSystemPrompts = copy.deepcopy(ServiceConfiguration["predefined_system_prompts"]["default"])
 
     if ("temperature" in UserPrompt["parameters"] and ServiceConfiguration["temperature"]["modified_by_user"]):
         temperature = UserPrompt["parameters"]["temperature"]
@@ -215,6 +219,44 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
     if (maxLength > ServiceConfiguration["max_length"] and not ServiceConfiguration["max_length"]["allow_greater_than_default"]):
         maxLength = ServiceConfiguration["max_length"]
     
+    if ("extra_system_prompt" in UserPrompt["parameters"] and ServiceConfiguration["extra_system_prompt"]["modified_by_user"]):
+        esp = UserPrompt["parameters"]["extra_system_prompt"]
+        esp = "" if (esp is None) else str(esp)
+        extraSystemPrompt["user"] = None if (len(esp.strip()) == 0) else esp
+    
+    if ("extra_system_prompt" in __models__[Name]):
+        esp = __models__[Name]["extra_system_prompt"]
+        esp = "" if (esp is None) else str(esp)
+        extraSystemPrompt["model"] = None if (len(esp.strip()) == 0) else esp
+    
+    if (
+        ServiceConfiguration["extra_system_prompt"]["default"] is not None and
+        len(ServiceConfiguration["extra_system_prompt"]["default"].strip()) != 0
+    ):
+        extraSystemPrompt["service"] = ServiceConfiguration["extra_system_prompt"]["default"]
+
+    if ("predefined_system_prompts" in UserPrompt["parameters"] and ServiceConfiguration["predefined_system_prompts"]["modified_by_user"]):
+        psp = UserPrompt["parameters"]["predefined_system_prompts"]
+    elif ("predefined_system_prompts" in __models__[Name]):
+        psp = __models__[Name]["predefined_system_prompts"]
+    else:
+        psp = {}
+    
+    for pspName, pspValue in psp:
+        if (pspName not in predefinedSystemPrompts):
+            yield {"warnings": [f"Model predefined system prompt `{pspName}` not found. Ignoring."]}
+            continue
+
+        if (isinstance(pspValue, int) or isinstance(pspValue, float)):
+            predefinedSystemPrompts[pspName] = pspValue >= 1
+        elif (isinstance(pspValue, str)):
+            predefinedSystemPrompts[pspName] = pspValue.lower().strip() == "true"
+        elif (isinstance(pspValue, bool)):
+            predefinedSystemPrompts[pspName] = pspValue
+        else:
+            yield {"warnings": [f"Invalid model predefined system prompt `{pspName}` type. Ignoring."]}
+            continue
+    
     return InferenceModel(
         Name,
         conversation,
@@ -231,7 +273,9 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
             "tools": tools,
             "extra_tools": extraTools,
             "tool_choice": toolChoice,
-            "max_length": maxLength
+            "max_length": maxLength,
+            "extra_system_prompt": extraSystemPrompt,
+            "predefined_system_prompts": predefinedSystemPrompts
         }
     )
 
@@ -247,12 +291,51 @@ def InferenceModel(Name: str, Conversation: conv.Conversation, Configuration: di
     __check_service_configuration__()
     LoadModel(Name)
 
-    conversation = Conversation.GetConversation(False)
+    conversation: list[conv.Message] = Conversation.GetConversation(True)
+    systemPrompt = ""
+    modelConversation = []
+
+    if (Configuration["predefined_system_prompt"]["personality"]):
+        systemPrompt += f"{system_prompt.GetDefaultSystemPrompt()}\n"
+    
+    if (Configuration["predefined_system_prompt"]["birthday"]):
+        systemPrompt += "Your birthday is 16th September.\n"
+    
+    if (Configuration["predefined_system_prompt"]["current_time"]):
+        currentTime = datetime.datetime.now()
+        currentTime = f"{currentTime.hour}:{currentTime.minute}:{currentTime.second}"
+        systemPrompt += f"The current time is `{currentTime}` (HOUR:MINUTE:SECOND).\n"
+    
+    if (Configuration["predefined_system_prompt"]["current_date"]):
+        currentDate = datetime.datetime.now()
+        currentDate = f"{currentDate.day}/{currentDate.month}/{currentDate.year}"
+        systemPrompt += f"The current date is `{currentDate}` (DAY/MONTH/YEAR).\n"
+    
+    if (Configuration["predefined_system_prompt"]["service_extra_system_prompt"]):
+        sp = Configuration["extra_system_prompt"]["service"]
+        systemPrompt += "" if (sp is None) else f"{sp}\n"
+    
+    if (Configuration["predefined_system_prompt"]["model_extra_system_prompt"]):
+        sp = Configuration["extra_system_prompt"]["model"]
+        systemPrompt += "" if (sp is None) else f"{sp}\n"
+    
+    if (Configuration["predefined_system_prompt"]["user_extra_system_prompt"]):
+        sp = Configuration["extra_system_prompt"]["user"]
+        systemPrompt += "" if (sp is None) else f"{sp}\n"
+    
+    systemPrompt = systemPrompt.strip()
+    modelConversation.append(conv.Message(conv.ROLE_SYSTEM, systemPrompt).GetMessageContent())
+    
+    for message in conversation:
+        if (message.GetRole() == conv.ROLE_SYSTEM):
+            continue
+
+        modelConversation.append(message.GetMessageContent())
 
     if (__models__[Name]["type"] == "lcpp"):
         model: utils_llama.Llama = __models__[Name]["model"]
         response = model.create_chat_completion(
-            messages = conversation,
+            messages = modelConversation,
             tools = Configuration["tools"] + Configuration["extra_tools"],
             tool_choice = Configuration["tool_choice"],
             temperature = Configuration["temperature"],

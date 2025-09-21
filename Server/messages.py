@@ -73,6 +73,16 @@ class Message():
         """
         logs.WriteLog(logs.INFO, "[messages] Getting text of a message.")
         return self.__text__
+
+    def GetRole(self) -> int:
+        """
+        Get the role of the message.
+
+        Returns:
+            int
+        """
+        logs.WriteLog(logs.INFO, "[messages] Getting role of a message.")
+        return self.__role__
     
     def GetMessageContent(self) -> dict[str, str | list[dict[str, str]]]:
         """
