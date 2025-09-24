@@ -89,7 +89,7 @@ class Message():
         Get the content of the message.
         Example:
         ```json
-        "role": "user | assistant | system",
+        "role": "user | assistant | system | custom",
         "content": [
             {"type": "image", "image": "base64 image data"},
             {"type": "audio", "audio": "base64 audio data"},
@@ -250,7 +250,7 @@ class Conversation():
         pass  # TODO
 
     @staticmethod
-    def CreateConversationFromDB(Name: str) -> "Conversation":
+    def CreateConversationFromDB(Name: str, CreateIfNotExists: bool = False) -> "Conversation":
         """
         Create a conversation by downloading it from the database.
 
@@ -261,6 +261,11 @@ class Conversation():
             Conversation
         """
         conv = Conversation(Name, None)
-        conv.DownloadFromDB()
+        
+        try:
+            conv.DownloadFromDB()
+        except Exception as ex:
+            if (not CreateIfNotExists):
+                raise ex
 
         return conv

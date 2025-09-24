@@ -10,6 +10,9 @@ import Services.chatbot.system_prompt as system_prompt
 import Utilities.logs as logs
 import messages as conv
 
+MODULE_HANDLES_CONVERSATION = False
+MODULE_HANDLES_PRICING = False
+
 __models__: dict[str, dict[str, Any] | None] = {}
 ServiceConfiguration: dict[str, Any] | None = None
 
@@ -69,24 +72,11 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
     Args:
         Name (str): Name of the model.
         UserPrompt (dict[str, Any]): Prompt of the user ("text", "files", "parameters").
-        UserParameters (dict[str, Any]): Parameters of the user ("key_info", "conversation_name").
+        UserParameters (dict[str, Any]): Parameters of the user ("key_info", "conversation_name", "conversation").
     """
     __check_service_configuration__()
 
-    if (
-        "key_info" not in UserParameters or
-        "conversation_name" not in UserParameters
-    ):
-        raise ValueError("Required user parameters not defined.")
-    
-    if (
-        "text" not in UserPrompt or
-        "files" not in UserPrompt or
-        "parameters" not in UserPrompt
-    ):
-        raise ValueError("Required prompt parameters not defined.")
-
-    conversation = conv.Conversation.CreateConversationFromDB(f"{UserParameters['key_info']['key']}_{UserParameters['conversation_name']}")
+    conversation = UserParameters["conversation"]
     tools = []
     extraTools = []
     extraSystemPrompt = {"user": None, "model": None, "service": None}
@@ -242,7 +232,7 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
     else:
         psp = {}
     
-    for pspName, pspValue in psp:
+    for pspName, pspValue in psp.items():
         if (pspName not in predefinedSystemPrompts):
             yield {"warnings": [f"Model predefined system prompt `{pspName}` not found. Ignoring."]}
             continue

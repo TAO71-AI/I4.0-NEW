@@ -1,9 +1,12 @@
 from typing import Any
+from collections.abc import Iterator
 import os
 import types
 import importlib.util
 import yaml
 import json
+import base64
+import messages as conv
 import Utilities.install_requirements as requirements
 import Utilities.logs as logs
 
@@ -87,9 +90,30 @@ class Service():
             if (self.ServiceModule is not None):
                 self.SetModuleVariable(self.ServiceModule, "ServiceConfiguration", self.Configuration, True)
     
+    def UnloadModules(self, UnloadService: bool = True, UnloadRequirements: bool = True, UnloadConfiguration: bool = True) -> None:
+        if (self.ServiceModule is not None and UnloadService):
+            del self.ServiceModule
+            self.ServiceModule = None
+        
+        if (self.RequirementsModule is not None and UnloadRequirements):
+            del self.RequirementsModule
+            self.RequirementsModule = None
+        
+        if (self.Configuration is not None and UnloadConfiguration):
+            self.Configuration.clear()
+            self.Configuration = None
+    
+    @staticmethod
+    def ModuleContainsFunction(Module: types.ModuleType, FunctionName: str) -> bool:
+        return hasattr(Module, FunctionName) and callable(getattr(Module, FunctionName))
+    
+    @staticmethod
+    def ModuleContainsVariable(Module: types.ModuleType, VariableName: str) -> bool:
+        return hasattr(Module, VariableName) and not callable(getattr(Module, VariableName))
+    
     @staticmethod
     def RunModuleFunction(Module: types.ModuleType, FunctionName: str, Args: list[Any] = [], Kwargs: dict[str, Any] = {}) -> Any:
-        if (hasattr(Module, FunctionName) and callable(getattr(Module, FunctionName))):
+        if (Service.ModuleContainsFunction(Module, FunctionName)):
             func = getattr(Module, FunctionName)
             return func(*Args, **Kwargs)
         
@@ -97,7 +121,7 @@ class Service():
     
     @staticmethod
     def GetModuleVariable(Module: types.ModuleType, VarName: str, Default: Any | BaseException = BaseException) -> Any:
-        if (hasattr(Module, VarName) and not callable(getattr(Module, VarName))):
+        if (Service.ModuleContainsVariable(Module, VarName)):
             return getattr(Module, VarName)
         
         if (Default is BaseException):
@@ -107,13 +131,58 @@ class Service():
     
     @staticmethod
     def SetModuleVariable(Module: types.ModuleType, VarName: str, Value: Any, CreateIfNotExists: bool = True) -> None:
-        if (
-            (hasattr(Module, VarName) and not callable(getattr(Module, VarName))) or
-            (not hasattr(Module, VarName) and CreateIfNotExists)
-        ):
+        if (Service.ModuleContainsVariable(Module, VarName) or CreateIfNotExists):
             return setattr(Module, VarName, Value)
         
         raise TypeError("Not a variable or doesn't exists.")
+
+ServicesModules: dict[str, Service] = {}
+ServicesModels: dict[str, dict[str, dict[str, Any]]] = {}
+
+def __delete_modules_and_info__() -> None:
+    global ServicesModules, ServicesModels
+
+    if (ServicesModules is not None):
+        for _, service in ServicesModules.items():
+            service.UnloadModules(True, True, True)
+        
+        ServicesModules.clear()
+    
+    if (ServicesModels is not None):
+        ServicesModels.clear()
+
+def __load_modules_and_info__(Models: dict[str, dict[str, Any]]) -> None:
+    global ServicesModules, ServicesModels
+
+    for modelName, modelConfig in Models.items():
+        if ("service" not in modelConfig):
+            raise RuntimeError(f"Model service not defined (`{modelName}`).")
+        
+        service = None
+
+        for serv in GetServices():
+            if (modelConfig["service"] == serv.Name):
+                service = serv
+        
+        if (service is None):
+            raise RuntimeError(f"Invalid service for the model `{modelName}`.")
+        
+        if (modelConfig["service"] not in ServicesModules):
+            service.LoadModules(True, False, True)
+
+            if (
+                not Service.ModuleContainsFunction(service.ServiceModule, "SERVICE_LOAD_MODELS") or
+                not Service.ModuleContainsFunction(service.ServiceModule, "SERVICE_OFFLOAD_MODELS") or
+                not Service.ModuleContainsFunction(service.ServiceModule, "SERVICE_INFERENCE")
+            ):
+                raise RuntimeError(f"Service module does not contains the required functions (`{service.Name}`).")
+            
+            ServicesModules[modelConfig["service"]] = service
+        
+        if (modelConfig["service"] not in ServicesModels):
+            ServicesModels[modelConfig["service"]] = {}
+
+        ServicesModels[modelConfig["service"]][modelName] = modelConfig
 
 def GetServices() -> list[Service]:
     services = []
@@ -186,11 +255,93 @@ def InstallAllRequirements(Services: list[Service] | None = None) -> None:
             logs.PrintLog(logs.INFO, f"[services_manager] Installing requirements for the service `{service.Name}` (using module)...")
             service.LoadModules(False, True, False)
 
-            if (hasattr(service.RequirementsModule, "Install") and callable(getattr(service.RequirementsModule, "Install"))):
+            if (Service.ModuleContainsFunction(service.RequirementsModule, "Install")):
                 Service.RunModuleFunction(service.RequirementsModule, "Install", [None])
                 logs.PrintLog(logs.INFO, f"[services_manager] Requirements for the service `{service.Name}` installed!")
             else:
                 logs.PrintLog(
                     logs.ERROR,
-                    f"[services_manager] Could not install requirements for the service `{service.Name}`. Possibly no `Install function.`"
+                    f"[services_manager] Could not install requirements for the service `{service.Name}`. Possibly no `Install` function."
                 )
+
+def LoadModels(Models: dict[str, dict[str, Any]]) -> None:
+    global ServicesModules, ServicesModels
+    __load_modules_and_info__(Models)
+    
+    for serviceName, service in ServicesModules.items():
+        Service.RunModuleFunction(service.ServiceModule, "SERVICE_LOAD_MODELS", [ServicesModels[serviceName]])
+
+def OffloadModels(Names: list[str]) -> None:
+    global ServicesModules, ServicesModels
+    modelsToOffload = {}
+
+    for modelName, modelConfig in ServicesModels.items():
+        if (modelName in Names):
+            modelsToOffload[modelConfig["service"]] = modelName
+    
+    for _, service in ServicesModules.items():
+        Service.RunModuleFunction(service.ServiceModule, "SERVICE_OFFLOAD_MODELS", [modelsToOffload])
+
+def InferenceModel(
+    ModelName: str,
+    Prompt: dict[str, str | list[dict[str, str]] | dict[str, Any]],
+    UserParameters: dict[str, Any]
+) -> Iterator[dict[str, Any]]:
+    global ServicesModules, ServicesModels
+
+    if (
+        "key_info" not in UserParameters or
+        "conversation_name" not in UserParameters
+    ):
+        raise ValueError("Required user parameters not defined.")
+
+    modelConfiguration = ServicesModels[ModelName]
+    serviceName = modelConfiguration["service"]
+    serviceModule = ServicesModules[serviceName]
+
+    moduleHandlesConversation = Service.GetModuleVariable(serviceModule.ServiceModule, "MODULE_HANDLES_CONVERSATION", False)
+    moduleHandlesPricing = Service.GetModuleVariable(serviceModule.ServiceModule, "MODULE_HANDLES_PRICING", False)
+
+    text = Prompt["text"] if ("text" in Prompt) else ""
+    files = Prompt["files"] if ("files" in Prompt) else []
+    userConfig = Prompt["parameters"] if ("parameters" in Prompt) else {}
+    
+    # TODO: handle conversation
+    if (not moduleHandlesConversation):
+        conversation = conv.Conversation.CreateConversationFromDB(f"{UserParameters['key_info']['key']}_{UserParameters['conversation_name']}", True)
+
+    # TODO: handle pricing
+    if (not moduleHandlesPricing):
+        if ("pricing" in modelConfiguration):
+            modelPricing = modelConfiguration["pricing"]
+
+            inferencePrice = modelPricing["inference"] if ("inference" in modelPricing) else 0
+            text1mInputPrice = modelPricing["text_input_1m"] if ("text_input_1m" in modelPricing) else 0
+            text1mOutputPrice = modelPricing["text_output_1m"] if ("text_output_1m" in modelPricing) else 0
+            imagePrice = modelPricing["image"] if ("image" in modelPricing) else 0
+            audioPrice = modelPricing["audio"] if ("audio" in modelPricing) else 0
+            audio1secPrice = modelPricing["audio_1sec"] if ("audio_1sec" in modelPricing) else 0
+            videoPrice = modelPricing["video"] if ("video" in modelPricing) else 0
+            video1secPrice = modelPricing["video_1sec"] if ("video_1sec" in modelPricing) else 0
+            otherFilesPrice = modelPricing["other_files"] if ("other_files" in modelPricing) else 0
+
+            pricingFiles = [0, 0, 0, 0]  # images, audios, videos, other
+
+            for file in files:
+                if ("type" not in file):
+                    continue
+
+                if (file["type"] == "image"):
+                    pricingFiles[0] += 1
+                elif (file["type"] == "audio"):
+                    pricingFiles[1] += 1
+                elif (file["type"] == "video"):
+                    pricingFiles[2] += 1
+                else:
+                    pricingFiles[3] += 1
+            
+            pass  # TODO: Pricing
+        else:
+            logs.PrintLog(logs.WARNING, "[services_manager] Pricing not in model configuration. WILL BE PROVIDED FREE OF CHARGE.")
+    
+    pass
