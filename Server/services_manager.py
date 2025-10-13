@@ -1,11 +1,19 @@
 from typing import Any
 from collections.abc import Iterator
+from io import BytesIO
+from pydub import AudioSegment
 import os
+import time
 import types
 import importlib.util
 import yaml
 import json
 import base64
+import tiktoken
+import av
+import math
+import exceptions
+import keys_manager
 import messages as conv
 import Utilities.install_requirements as requirements
 import Utilities.logs as logs
@@ -120,12 +128,12 @@ class Service():
         raise TypeError("Not a function or doesn't exists.")
     
     @staticmethod
-    def GetModuleVariable(Module: types.ModuleType, VarName: str, Default: Any | BaseException = BaseException) -> Any:
+    def GetModuleVariable(Module: types.ModuleType, VarName: str, Default: Any | ValueError = ValueError) -> Any:
         if (Service.ModuleContainsVariable(Module, VarName)):
             return getattr(Module, VarName)
         
-        if (Default is BaseException):
-            raise TypeError("Not a variable or doesn't exists.")
+        if (Default is ValueError):
+            raise ValueError("Not a variable or doesn't exists.")
         
         return Default
     
@@ -192,6 +200,9 @@ def GetServices() -> list[Service]:
 
     for servDir in os.listdir(SERVICES_DIR):
         logs.WriteLog(logs.INFO, f"[services_manager] Getting service information of the directory `{servDir}`.")
+
+        if (" " in servDir):
+            raise RuntimeError("Service directory must not contain spaces.")
 
         pathDir = os.path.join(SERVICES_DIR, servDir)
         pathServFile = None
@@ -299,8 +310,8 @@ def InferenceModel(
     serviceName = modelConfiguration["service"]
     serviceModule = ServicesModules[serviceName]
 
-    moduleHandlesConversation = Service.GetModuleVariable(serviceModule.ServiceModule, "MODULE_HANDLES_CONVERSATION", False)
-    moduleHandlesPricing = Service.GetModuleVariable(serviceModule.ServiceModule, "MODULE_HANDLES_PRICING", False)
+    moduleHandlesConversation = Service.GetModuleVariable(serviceModule.ServiceModule, "MODULE_HANDLES_CONVERSATION")
+    moduleHandlesPricing = Service.GetModuleVariable(serviceModule.ServiceModule, "MODULE_HANDLES_PRICING")
 
     text = Prompt["text"] if ("text" in Prompt) else ""
     files = Prompt["files"] if ("files" in Prompt) else []
@@ -310,12 +321,12 @@ def InferenceModel(
     if (not moduleHandlesConversation):
         conversation = conv.Conversation.CreateConversationFromDB(f"{UserParameters['key_info']['key']}_{UserParameters['conversation_name']}", True)
 
-    # TODO: handle pricing
     if (not moduleHandlesPricing):
         if ("pricing" in modelConfiguration):
             modelPricing = modelConfiguration["pricing"]
 
             inferencePrice = modelPricing["inference"] if ("inference" in modelPricing) else 0
+            processingTime1secPrice = modelPricing["processing_time"] if ("processing_time" in modelPricing) else 0
             text1mInputPrice = modelPricing["text_input_1m"] if ("text_input_1m" in modelPricing) else 0
             text1mOutputPrice = modelPricing["text_output_1m"] if ("text_output_1m" in modelPricing) else 0
             imagePrice = modelPricing["image"] if ("image" in modelPricing) else 0
@@ -325,23 +336,100 @@ def InferenceModel(
             video1secPrice = modelPricing["video_1sec"] if ("video_1sec" in modelPricing) else 0
             otherFilesPrice = modelPricing["other_files"] if ("other_files" in modelPricing) else 0
 
-            pricingFiles = [0, 0, 0, 0]  # images, audios, videos, other
+            if (len(text) > 0):
+                enc = tiktoken.get_encoding("o200k_base")
+                encodedText = enc.encode(text)
+            else:
+                encodedText = []
+
+            price = inferencePrice
+            price += len(encodedText) * text1mInputPrice / 1000000.0
 
             for file in files:
                 if ("type" not in file):
                     continue
 
                 if (file["type"] == "image"):
-                    pricingFiles[0] += 1
+                    price += imagePrice
                 elif (file["type"] == "audio"):
-                    pricingFiles[1] += 1
+                    price += audioPrice
+                    audioBuffer = BytesIO(base64.b64decode(file["data"]))
+
+                    audio = AudioSegment.from_file(audioBuffer)
+                    durationInSeconds = len(audio) / 1000
+
+                    price += durationInSeconds * audio1secPrice
+                    audioBuffer.close()
                 elif (file["type"] == "video"):
-                    pricingFiles[2] += 1
+                    price += videoPrice
+                    videoBuffer = BytesIO(base64.b64decode(file["data"]))
+
+                    try:
+                        reader = av.open(videoBuffer)
+                        stream = next(s for s in reader.streams if (s.type == "video"))
+
+                        fps = float(stream.average_rate) if (stream.average_rate) else 0
+                        numberOfFrames = stream.frames
+                        duration = float(reader.duration / av.time_base) if (reader.duration) else (numberOfFrames / fps if (fps) else 0)
+                        durationInSeconds = math.floor(duration)
+
+                        price += durationInSeconds * video1secPrice
+                        videoBuffer.close()
+                    except Exception as ex:
+                        videoBuffer.close()
+                        raise RuntimeError(f"Could not calculate pricing for video. Reason: {ex}")
                 else:
-                    pricingFiles[3] += 1
+                    price += otherFilesPrice
             
-            pass  # TODO: Pricing
+            if (UserParameters["key_info"]["tokens"] < price):
+                raise exceptions.NotEnoughTokensException(price, UserParameters["key_info"]["tokens"])
+            
+            UserParameters["key_info"]["tokens"] -= price
         else:
             logs.PrintLog(logs.WARNING, "[services_manager] Pricing not in model configuration. WILL BE PROVIDED FREE OF CHARGE.")
-    
-    pass
+
+    processingTime = time.time()
+    exc = None
+
+    try:
+        for token in Service.RunModuleFunction(serviceModule.ServiceModule, "SERVICE_INFERENCE", [
+            ModelName,
+            {
+                "text": text,
+                "files": files,
+                "parameters": userConfig
+            },
+            UserParameters | {
+                "conversation": conversation if (moduleHandlesConversation) else None
+            }
+        ]):
+            outputToken = {
+                "response": {
+                    "text": token["text"] if ("text" in token) else "",
+                    "files": token["files"] if ("files" in token) else []
+                },
+                "warnings": token["warnings"] if ("warnings" in token) else [],
+                "errors": token["errors"] if ("errors" in token) else []
+            }
+
+            if (not moduleHandlesPricing):
+                tokenPrice = (time.time() - processingTime) * processingTime1secPrice
+                processingTime = time.time()
+
+                if (len(outputToken["response"]["text"]) > 0):
+                    tokenPrice += text1mOutputPrice / 1000000.0
+
+                if (UserParameters["key_info"]["tokens"] < tokenPrice):
+                    raise exceptions.NotEnoughTokensException(tokenPrice, UserParameters["key_info"]["tokens"])
+                
+                UserParameters["key_info"]["tokens"] -= tokenPrice
+            
+            yield outputToken
+    except Exception as ex:
+        exc = ex
+
+    apiKey = keys_manager.APIKey.FromDict(UserParameters["key_info"])
+    apiKey.SaveInDatabase()
+
+    if (exc is not None):
+        raise ex

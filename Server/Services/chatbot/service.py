@@ -194,11 +194,6 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
     else:
         toolChoice = ServiceConfiguration["tool_choice"]["default"]
     
-    toolChoice = toolChoice.lower()
-    
-    if (toolChoice != "none" and toolChoice != "auto" and toolChoice != "required"):
-        toolChoice = "auto"
-    
     if ("max_length" in UserPrompt["parameters"] and ServiceConfiguration["max_length"]["modified_by_user"]):
         maxLength = UserPrompt["parameters"]["max_length"]
     elif ("max_length" in __models__[Name]):
