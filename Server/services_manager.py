@@ -3,6 +3,7 @@ from collections.abc import Iterator
 from io import BytesIO
 from pydub import AudioSegment
 import os
+import copy
 import time
 import types
 import importlib.util
@@ -33,6 +34,7 @@ SERVICES_CONFIG_FILES = [
     "default_service_configuration.json",
     "default_config.json"
 ]
+Configuration: dict[str, Any] = {}
 
 class Service():
     def __init__(
@@ -97,6 +99,7 @@ class Service():
             
             if (self.ServiceModule is not None):
                 self.SetModuleVariable(self.ServiceModule, "ServiceConfiguration", self.Configuration, True)
+                self.SetModuleVariable(self.ServiceModule, "ServerConfiguration", copy.deepcopy(Configuration), True)
     
     def UnloadModules(self, UnloadService: bool = True, UnloadRequirements: bool = True, UnloadConfiguration: bool = True) -> None:
         if (self.ServiceModule is not None and UnloadService):
@@ -196,7 +199,7 @@ def GetServices() -> list[Service]:
     services = []
     inputServDir = os.listdir(SERVICES_DIR)
 
-    logs.WriteLog(logs.INFO, f"[services_manager] Fetched services: `{inputServDir}`")
+    logs.WriteLog(logs.INFO, f"[services_manager] Fetched services: `{inputServDir}`.")
 
     for servDir in os.listdir(SERVICES_DIR):
         logs.WriteLog(logs.INFO, f"[services_manager] Getting service information of the directory `{servDir}`.")

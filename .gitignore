@@ -3,3 +3,4 @@ env/
 .env/
 Server/Utilities/latest.txt
 update.sh
+latest.txt

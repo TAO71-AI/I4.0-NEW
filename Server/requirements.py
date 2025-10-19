@@ -6,9 +6,16 @@ GENERAL_REQUIREMENTS = [
     "beautifulsoup4",
     "tiktoken",
     "pydub",
-    "websockets>=15.0.0,<16.0.0"
+    "websockets>=15.0.0,<16.0.0",
+    "asyncio",
+    "av"
 ]
-requirements.InstallPackage(GENERAL_REQUIREMENTS)
 
-import services_manager as servMgr
-servMgr.InstallAllRequirements()
+def InstallRequirements() -> None:
+    requirements.InstallPackage(GENERAL_REQUIREMENTS)
+
+    import services_manager as servMgr
+    servMgr.InstallAllRequirements()
+
+if (__name__ == "__main__"):
+    InstallRequirements()

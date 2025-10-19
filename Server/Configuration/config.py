@@ -37,7 +37,7 @@ def ReadConfiguration(ConfigurationFile: str = CONFIGURATION_FILE, Create: bool 
             
             return conf
         else:
-            raise FileNotFoundError(f"[config] `{ConfigurationFile}` doesn't exists!")
+            raise FileNotFoundError(f"`{ConfigurationFile}` doesn't exists!")
     
     # Read the file
     conf = {}

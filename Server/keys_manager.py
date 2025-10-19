@@ -5,8 +5,9 @@ import datetime
 import database_client as db
 import Utilities.logs as logs
 
+Configuration: dict[str, Any] = {}
+
 class APIKey():
-    KEY_LENGTH = 512
     VERSION = 0
 
     def __init__(
@@ -19,13 +20,32 @@ class APIKey():
         AdminLevel: int = 0
     ):
         logs.WriteLog(logs.INFO, "[keys_manager] Creating API key.")
+
+        if (not isinstance(Configuration["server_api"]["min_length"]) or Configuration["server_api"]["min_length"] < 16):
+            raise ValueError("API key min length must be 16.")
+        
+        minLength = Configuration["server_api"]["min_length"]
+        maxLength = Configuration["server_api"]["max_length"]
+
+        if (maxLength is None):
+            maxLength = minLength
+        
+        if (minLength == maxLength):
+            length = minLength
+        else:
+            length = random.randint(minLength, maxLength)
+
         date = datetime.datetime.now()
         chars = "abcdefghijplnmopqrstuvwxyz"
         chars += chars.upper()
         chars += "0123456789!@#$%&/()=[]?-_.:,;<>*+"
 
+        chars = list(chars)
+        random.shuffle(chars)
+        chars = "".join(chars)
+
         self.__version__ = self.VERSION
-        self.Key = "".join([chars[random.randint(0, len(chars) - 1)] for _ in range(self.KEY_LENGTH)])
+        self.Key = "".join([chars[random.randint(0, len(chars) - 1)] for _ in range(length)])
         self.Tokens = Tokens
         self.CreationDate = {
             "day": date.day,

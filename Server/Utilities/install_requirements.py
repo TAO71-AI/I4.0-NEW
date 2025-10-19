@@ -19,7 +19,7 @@ def GetPIPCommand(InstallIfNotFound: bool = True) -> str | None:
     """
     for command in PIP_COMMANDS:
         logs.WriteLog(logs.INFO, f"[requirements_installation] Testing PIP command `{command}`...")
-        process = subprocess.run(command.split(" ") + ["--help"])
+        process = subprocess.run(command.split(" ") + ["--help"], text = True, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         
         if (process.returncode == 0):
             logs.WriteLog(logs.INFO, f"[requirements_installation] Got PIP command `{command}`!")
@@ -75,7 +75,7 @@ def InstallPackage(
             logs.WriteLog(logs.ERROR, "[requirements_installation] Could not get PIP command automatically.")
             raise exceptions.InstallationError("Could not get PIP command automatically.")
     
-    cmd = PIPCommand.split(" ") + PIPOptions + Packages
+    cmd = PIPCommand.split(" ") + ["install"] + PIPOptions + Packages
     env = copy.deepcopy(os.environ)
 
     for name, value in EnvVars.items():

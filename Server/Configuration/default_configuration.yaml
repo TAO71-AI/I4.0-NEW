@@ -17,10 +17,17 @@ services_configuration: {}
 services_get_automatically: "cheapest"  # "fastest", "min_queue"
 
 # Server configuration
-internet:
+server_internet:
   follow_scrape_guidelines: true
   reddit_subreddit_max_posts: 25
   reddit_post_max_comments: 5  # Set to 0 to disable comments
+  third_party_inference:
+    allow: false
+    download_models_list: "https://tao71.org/available_internet_models.json"
+    extra_models: {}
+server_api:
+  min_length: 512  # Min length: 16
+  max_length: 1024  # Replace with `null` to make this the same as min_length
 server_thrusted_admin_keys: []
 server_whitelist:
   enabled: false
@@ -64,10 +71,10 @@ server_allowed_hashes:
 server_listen:
   sock_enabled: true
   sock_ip: "0.0.0.0"
-  sock_port: 8060
+  sock_port: 8061
   ws_enabled: true
   ws_ip: "0.0.0.0"
-  ws_port: 8061
+  ws_port: 8060
 
 # Database configuration
 database_keys:
@@ -103,7 +110,7 @@ database_server_ip_blacklist:
 database_server_listen:
   sock_enabled: true
   sock_ip: "0.0.0.0"
-  sock_port: 8062
+  sock_port: 8063
   ws_enabled: true
   ws_ip: "0.0.0.0"
-  ws_port: 8063
+  ws_port: 8062

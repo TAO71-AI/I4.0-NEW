@@ -16,27 +16,28 @@ def Install(Env: dict[str, Any] | None = None) -> None:
         gpuType = gpu.DetectGPU()
         vulkanAvailable = gpu.GPUHasVulkan()
     
-    f16 = "CHATBOT_NO_F16" in Env and bool(Env["CHATBOT_NO_F16"])
+    f16 = not ("CHATBOT_NO_F16" in Env and bool(Env["CHATBOT_NO_F16"]))
     gpuType = gpu.GPUType.NO_GPU if ("CHATBOT_NO_GPU" in Env and bool(Env["CHATBOT_NO_GPU"])) else gpu.DetectGPU()
-    vulkanAvailable = False if ("CHATBOT_NO_VULKAN" in Env and bool(Env["CHATBOT_NO_VULKAN"])) else gpu.GPUHasVulkan()
+    vulkanAvailable = False if (("CHATBOT_NO_VULKAN" in Env and bool(Env["CHATBOT_NO_VULKAN"])) and gpuType == gpu.GPUType.NO_GPU) else gpu.GPUHasVulkan()
     unifiedMemory = not ("CHATBOT_NO_UNIFIED_MEMORY" in Env and bool(Env["CHATBOT_NO_UNIFIED_MEMORY"]))
     forceCublas = "CHATBOT_FORCE_CUBLAS" in Env and bool(Env["CHATBOT_FORCE_CUBLAS"]) if (gpuType == gpu.GPUType.NVIDIA) else None
     forceMMQ = "CHATBOT_FORCE_MMQ" in Env and bool(Env["CHATBOT_FORCE_MMQ"]) if (gpuType == gpu.GPUType.NVIDIA) else None
-    faAllQuants = not ("CHATBOT_NO_FA_ALL_QUANTS" in Env and bool(Env["CHATBOT_NO_FA_ALL_QUANTS"])) if (gpuType == gpu.GPUType.NVIDIA) else None
+    faAllQuants = not ("CHATBOT_NO_FA_ALL_QUANTS" in Env and bool(Env["CHATBOT_NO_FA_ALL_QUANTS"]))
 
     logs.PrintLog(
         logs.INFO,
         (
             "[service_chatbot] Install parameters:\n"
-            f"- GPU: {gpuType}\n"
+            f"- GPU: {gpuType.name}\n"
             f"- Vulkan: {vulkanAvailable}\n"
             f"- F16: {f16}\n"
             f"- Unified memory: {unifiedMemory}\n"
             f"- Force CUBLAS: {'No NVIDIA GPU' if (forceCublas is None) else forceCublas}\n"
             f"- Force MMQ: {'No NVIDIA GPU' if (forceMMQ is None) else forceMMQ}\n"
-            f"- FA all quants: {'No NVIDIA GPU' if (faAllQuants is None) else faAllQuants}"
+            f"- FA all quants: {faAllQuants}"
         )
     )
+    logs.PrintLog(logs.INFO, f"[service_chatbot] Installing for {gpuType.name}!")
     
     if (gpuType == gpu.GPUType.NVIDIA):
         lcppCmake = (
@@ -61,7 +62,8 @@ def Install(Env: dict[str, Any] | None = None) -> None:
         Packages = ["git+https://github.com/abetlen/llama-cpp-python.git@main"],
         EnvVars = {
             "CMAKE_ARGS": lcppCmake
-        }
+        },
+        PIPOptions = ["--verbose"]
     )
 
 if (__name__ == "__main__"):

@@ -46,7 +46,7 @@ def __get_requests_response__(URL: str) -> requests.Response:
 def Scrape_Base(URL: str) -> BeautifulSoup:
     logs.WriteLog(logs.INFO, "[internet] Running base scrapper.")
 
-    if (Configuration["internet"]["follow_scrape_guidelines"]):
+    if (Configuration["server_internet"]["follow_scrape_guidelines"]):
         baseURL = urlparse(URL)
         baseURL = f"{baseURL.scheme}://{baseURL.netloc}/"
 

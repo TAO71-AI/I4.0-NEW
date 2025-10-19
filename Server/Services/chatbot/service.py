@@ -15,10 +15,14 @@ MODULE_HANDLES_PRICING = False
 
 __models__: dict[str, dict[str, Any] | None] = {}
 ServiceConfiguration: dict[str, Any] | None = None
+ServerConfiguration: dict[str, Any] | None = None
 
 def __check_service_configuration__() -> None:
     if (ServiceConfiguration is None):
         raise ValueError("Service configuration is not defined.")
+    
+    if (ServiceConfiguration is None):
+        raise ValueError("Server configuration is not defined.")
 
 def SERVICE_LOAD_MODELS(Models: dict[str, dict[str, Any]]) -> None:
     """
@@ -355,7 +359,12 @@ def InferenceModel(Name: str, Conversation: conv.Conversation, Configuration: di
         logs.WriteLog(logs.INFO, "[service_chatbot] Inferencing chatbot model.")
 
         for token in response:
-            if (not "content" in token["choices"][0]["delta"]):
+            if (
+                not "choices" in token or
+                len(token["choices"]) == 0 or
+                not "delta" in token["choices"][0] or
+                not "content" in token["choices"][0]["delta"]
+            ):
                 continue
 
             tokenText = token["choices"][0]["delta"]["content"]
@@ -385,7 +394,7 @@ def InferenceModel(Name: str, Conversation: conv.Conversation, Configuration: di
                     if (tool["name"] == bTool["function"]["name"]):
                         toolExists = True
 
-                        # TODO
+                        # TODO: Create tools
                         if (tool["name"] == "search_text"):
                             pass
                         elif (tool["name"] == "search_url"):
