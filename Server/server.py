@@ -1,9 +1,12 @@
 try:
     from typing import Any, Iterator
     from concurrent.futures import ThreadPoolExecutor
+    import os
+    import json
     import asyncio
     import websockets
 
+    import encryption
     import services_manager
     import Utilities.logs as logs
     import Utilities.server_utils as server_utils
@@ -83,12 +86,62 @@ async def __on_client_connected__(Client: server_utils.Client) -> None:
             logs.WriteLog(logs.WARNING, f"[server] Could not close connection from client ({ex}). Ignoring.")
 
 def __process_client__(Message: str) -> Iterator[str]:
+    try:
+        message = json.loads(Message)
+        content = message["content"]
+        decryptionHash = message["hash"]
+        decryptionHash = encryption.ParseHash(decryptionHash)
+
+        content = encryption.Decrypt(
+            decryptionHash,
+            PrivateKey,
+            content,
+            config.Configuration["server_encryption"]["decryption_threads"]
+        )
+    except Exception as ex:
+        yield json.dumps({
+            "errors": [f"Error decrypting message ({ex})."],
+            "hash": None
+        })
+        return
+    
     pass  # TODO
 
 def StartServer() -> None:
+    global PrivateKey, PublicKey
+
+    if (
+        len(config.Configuration["server_encryption"]["public_key_file"].strip()) == 0 or
+        len(config.Configuration["server_encryption"]["private_key_file"].strip()) == 0 or
+        not os.path.exists(config.Configuration["server_encryption"]["public_key_file"]) or
+        not os.path.exists(config.Configuration["server_encryption"]["private_key_file"])
+    ):
+        PrivateKey, PublicKey = encryption.GenerateRSAKeys()
+
+        if (
+            not os.path.exists(config.Configuration["server_encryption"]["public_key_file"]) or
+            not os.path.exists(config.Configuration["server_encryption"]["private_key_file"])
+        ):
+            encryption.SaveKeys(
+                PrivateKey,
+                config.Configuration["server_encryption"]["private_key_file"],
+                config.Configuration["server_encryption"]["private_key_password"],
+                PublicKey,
+                config.Configuration["server_encryption"]["public_key_file"]
+            )
+    else:
+        PrivateKey, PublicKey = encryption.LoadKeys(
+            config.Configuration["server_encryption"]["private_key_file"],
+            config.Configuration["server_encryption"]["private_key_password"],
+            config.Configuration["server_encryption"]["public_key_file"]
+        )
+
     if (config.Configuration["server_listen"]["ws_enabled"]):
         asyncio.run(__start_websockets_server__)
 
 if (__name__ == "__main__"):
+    PrivateKey = None
+    PublicKey = None
+
     LoadModels()
     StartServer()

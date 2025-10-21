@@ -8,7 +8,8 @@ GENERAL_REQUIREMENTS = [
     "pydub",
     "websockets>=15.0.0,<16.0.0",
     "asyncio",
-    "av"
+    "av",
+    "cryptography"
 ]
 
 def InstallRequirements() -> None:
