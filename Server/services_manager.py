@@ -16,6 +16,7 @@ import math
 import exceptions
 import keys_manager
 import messages as conv
+import services_queue as queue
 import Utilities.install_requirements as requirements
 import Utilities.logs as logs
 
@@ -114,6 +115,10 @@ class Service():
             self.Configuration.clear()
             self.Configuration = None
     
+    def HasModel(self, ModelName: str) -> bool:
+        global ServicesModels
+        return ModelName in ServicesModels[self.Name]
+    
     @staticmethod
     def ModuleContainsFunction(Module: types.ModuleType, FunctionName: str) -> bool:
         return hasattr(Module, FunctionName) and callable(getattr(Module, FunctionName))
@@ -147,8 +152,8 @@ class Service():
         
         raise TypeError("Not a variable or doesn't exists.")
 
-ServicesModules: dict[str, Service] = {}
-ServicesModels: dict[str, dict[str, dict[str, Any]]] = {}
+ServicesModules: dict[str, Service] = {}  # {"service name": service class}
+ServicesModels: dict[str, dict[str, dict[str, Any]]] = {}  # {"service name": {"model name": model config}}
 
 def __delete_modules_and_info__() -> None:
     global ServicesModules, ServicesModels
@@ -285,6 +290,38 @@ def LoadModels(Models: dict[str, dict[str, Any]]) -> None:
     for serviceName, service in ServicesModules.items():
         Service.RunModuleFunction(service.ServiceModule, "SERVICE_LOAD_MODELS", [ServicesModels[serviceName]])
 
+def FindServiceForModel(ModelName: str, ReturnServiceName: bool = False) -> Service | str:
+    global ServicesModules
+
+    for _, servModule in ServicesModules.items():
+        if (servModule.HasModel(ModelName)):
+            return servModule.Name if (ReturnServiceName) else servModule
+    
+    raise RuntimeError("Could not find model in service.")
+
+def GetModelConfiguration(ModelName: str) -> dict[str, Any]:
+    def get_private_conf(D: dict[str, Any]) -> dict[str, Any]:
+        conf = copy.deepcopy(D)
+
+        for configParamName, configParamValue in conf.items():
+            if (
+                configParamName.startswith("_") or
+                configParamName.startswith(".") or
+                configParamName.startswith("_priv_") or
+                configParamName.startswith("_private_")
+            ):
+                conf.pop(configParamName)
+                continue
+
+            if (isinstance(configParamValue, dict)):
+                conf[configParamName] = get_private_conf(configParamValue)
+                continue
+        
+        return conf
+
+    global ServicesModels
+    return get_private_conf(ServicesModels[FindServiceForModel(ModelName)][ModelName])
+
 def OffloadModels(Names: list[str]) -> None:
     global ServicesModules, ServicesModels
     modelsToOffload = {}
@@ -308,10 +345,24 @@ def InferenceModel(
         "conversation_name" not in UserParameters
     ):
         raise ValueError("Required user parameters not defined.")
+    
+    if (ModelName not in ServicesModels or ModelName not in ServicesModules):
+        raise ValueError("Model name not found.")
 
     modelConfiguration = ServicesModels[ModelName]
     serviceName = modelConfiguration["service"]
     serviceModule = ServicesModules[serviceName]
+
+    if ("max_simul_users" in modelConfiguration and modelConfiguration["max_simul_users"] > 0):
+        maxSimulUsers = modelConfiguration["max_simul_users"]
+    else:
+        logs.WriteLog(logs.INFO, "[services_manager] Max simultaneously users not set in model configuration. Setting to 1.")
+        maxSimulUsers = 1
+
+    queueData = queue.GetQueueFor(ModelName)
+
+    if (queueData["users_waiting"] >= maxSimulUsers):
+        time.sleep(0.1)
 
     moduleHandlesConversation = Service.GetModuleVariable(serviceModule.ServiceModule, "MODULE_HANDLES_CONVERSATION")
     moduleHandlesPricing = Service.GetModuleVariable(serviceModule.ServiceModule, "MODULE_HANDLES_PRICING")
@@ -392,7 +443,9 @@ def InferenceModel(
             logs.PrintLog(logs.WARNING, "[services_manager] Pricing not in model configuration. WILL BE PROVIDED FREE OF CHARGE.")
 
     processingTime = time.time()
+    lastTokenTime = None
     exc = None
+    tokensProcessingTime = 0
 
     try:
         for token in Service.RunModuleFunction(serviceModule.ServiceModule, "SERVICE_INFERENCE", [
@@ -427,12 +480,26 @@ def InferenceModel(
                 
                 UserParameters["key_info"]["tokens"] -= tokenPrice
             
+            if (lastTokenTime is None):
+                queue.SetFTS(ModelName, (
+                    queueData["fts"] if (queueData["fts"] is not None) else 0 +
+                    (time.time() - processingTime)
+                ) / 2)
+            else:
+                tokensProcessingTime = (tokensProcessingTime + (time.time() - lastTokenTime)) / 2
+            
+            lastTokenTime = time.time()
             yield outputToken
     except Exception as ex:
         exc = ex
+    
+    queue.SetTPS(ModelName, (
+        queueData["tps"] if (queueData["tps"] is not None) else 0 +
+        tokensProcessingTime
+    ) / 2)
 
     apiKey = keys_manager.APIKey.FromDict(UserParameters["key_info"])
     apiKey.SaveInDatabase()
 
     if (exc is not None):
-        raise ex
+        raise exc

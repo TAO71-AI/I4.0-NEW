@@ -33,32 +33,39 @@ def GenerateRSAKeys(Size: int = 8192) -> tuple[rsa.RSAPrivateKey, rsa.RSAPublicK
     return privateKey, publicKey
 
 def SaveKeys(
-    PrivateKey: rsa.RSAPrivateKey,
-    PrivateFile: str,
+    PrivateKey: rsa.RSAPrivateKey | None,
+    PrivateFile: str | None,
     PrivatePassword: str,
-    PublicKey: rsa.RSAPublicKey,
-    PublicFile: str
-) -> None:
-    logs.WriteLog(logs.INFO, "[encryption] Saving public-private key pair to disk.")
+    PublicKey: rsa.RSAPublicKey | None,
+    PublicFile: str | None
+) -> tuple[bytes | None, bytes | None]:
+    logs.WriteLog(logs.INFO, "[encryption] Saving public-private key pair to disk (or getting values).")
 
-    if (len(PrivatePassword.strip()) == 0):
+    if (len(PrivatePassword.strip()) == 0 and PrivateKey is not None):
         logs.WriteLog(logs.WARNING, "[encryption] Private password is not secure or empty.")
 
     privatePem = PrivateKey.private_bytes(
         encoding = serialization.Encoding.PEM,
         format = serialization.PrivateFormat.PKCS8,
         encryption_algorithm = serialization.BestAvailableEncryption(PrivatePassword.encode("utf-8"))
-    )
+    ) if (PrivateKey is not None) else None
     publicPem = PublicKey.public_bytes(
         encoding = serialization.Encoding.PEM,
         format = serialization.PublicFormat.SubjectPublicKeyInfo
-    )
+    ) if (PublicKey is not None) else None
 
-    with open(PrivateFile, "wb") as f:
-        f.write(privatePem)
+    if (PrivateKey is not None and PrivateFile is not None):
+        with open(PrivateFile, "wb") as f:
+            f.write(privatePem)
     
-    with open(PublicFile, "wb") as f:
-        f.write(publicPem)
+    if (PublicKey is not None and PublicFile is not None):
+        with open(PublicFile, "wb") as f:
+            f.write(publicPem)
+    
+    return (
+        base64.b64encode(privatePem) if (privatePem is not None) else None,
+        base64.b64encode(publicPem) if (publicPem is not None) else None
+    )
 
 def LoadKeys(
     PrivateFile: str,

@@ -55,9 +55,9 @@ async def __on_client_connected__(Client: server_utils.Client) -> None:
             await asyncio.sleep(0)
 
     logs.WriteLog(logs.INFO, f"[server] Connected client from {Client.GetEndPoint()}.")
+    Client.TransferRate = config.Configuration["server_transfer_rate"] * 1024
 
     loop = asyncio.get_event_loop()
-    fullMessage = ""
 
     try:
         while (True):
@@ -65,23 +65,25 @@ async def __on_client_connected__(Client: server_utils.Client) -> None:
 
             if (message == "ping"):
                 continue
-            elif (message.endswith("--END--")):
-                fullMessage += message[:message.rfind("--END--")]
-
-                with ThreadPoolExecutor() as executor:
-                    iterator = await loop.run_in_executor(executor, __process_client__, fullMessage)
-
-                asyncio.create_task(send_items(iterator))
+            elif (message == "get_transfer_rate"):
+                transferRate = config.Configuration["server_transfer_rate"]
+                await Client.Send(str(transferRate))
+            elif (message == "get_public_key"):
+                _, publicBytes = encryption.SaveKeys(None, None, "", PublicKey, None)
+                await Client.Send(publicBytes.decode("utf-8"))
             elif (message == "close"):
                 await Client.Close()
                 break
             else:
-                fullMessage += message
+                with ThreadPoolExecutor() as executor:
+                    iterator = await loop.run_in_executor(executor, __process_client__, message)
+
+                asyncio.create_task(send_items(iterator))
     except Exception as ex:
         logs.WriteLog(logs.ERROR, f"[server] Error while receiving from client ({ex}). The connection will be closed.")
 
         try:
-            Client.Close()
+            await Client.Close()
         except Exception as ex:
             logs.WriteLog(logs.WARNING, f"[server] Could not close connection from client ({ex}). Ignoring.")
 
@@ -89,11 +91,11 @@ def __process_client__(Message: str) -> Iterator[str]:
     try:
         message = json.loads(Message)
         content = message["content"]
-        decryptionHash = message["hash"]
-        decryptionHash = encryption.ParseHash(decryptionHash)
+        clientHash = message["hash"]
+        clientHash = encryption.ParseHash(clientHash)
 
         content = encryption.Decrypt(
-            decryptionHash,
+            clientHash,
             PrivateKey,
             content,
             config.Configuration["server_encryption"]["decryption_threads"]
@@ -135,6 +137,12 @@ def StartServer() -> None:
             config.Configuration["server_encryption"]["private_key_password"],
             config.Configuration["server_encryption"]["public_key_file"]
         )
+    
+    if (config.Configuration["server_transfer_rate"] < 1 or config.Configuration["server_transfer_rate"] > 8192):
+        newServerTransferRate = max(1, min(config.Configuration["server_transfer_rate"], 8192))
+
+        logs.PrintLog(logs.WARNING, f"[server] Server transfer rate is too low or too high. Adjusting to {newServerTransferRate}.")
+        config.Configuration["server_transfer_rate"] = newServerTransferRate
 
     if (config.Configuration["server_listen"]["ws_enabled"]):
         asyncio.run(__start_websockets_server__)

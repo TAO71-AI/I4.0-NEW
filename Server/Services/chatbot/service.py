@@ -5,6 +5,7 @@ import base64
 import json
 import copy
 import datetime
+import services_manager as services
 import Services.chatbot.llama_utils as utils_llama
 import Services.chatbot.system_prompt as system_prompt
 import Utilities.logs as logs
@@ -13,7 +14,7 @@ import messages as conv
 MODULE_HANDLES_CONVERSATION = False
 MODULE_HANDLES_PRICING = False
 
-__models__: dict[str, dict[str, Any] | None] = {}
+__models__: dict[str, dict[str, Any]] = {}
 ServiceConfiguration: dict[str, Any] | None = None
 ServerConfiguration: dict[str, Any] | None = None
 
@@ -57,17 +58,16 @@ def SERVICE_OFFLOAD_MODELS(Names: list[str]) -> None:
     
     for name in Names:
         # Make sure the model is loaded
-        if (__models__[name] is None):
+        if (__models__[name]["_private_model"] is None):
             continue
         
         logs.WriteLog(logs.INFO, "[service_chatbot] Offloading model.")
 
         # Offload the model
-        if (__models__[name]["type"] == "lcpp"):
-            __models__[name]["model"].close()
+        if (__models__[name]["_private_type"] == "lcpp"):
+            __models__[name]["_private_model"].close()
         
-        __models__[name] = None
-        del __models__[name]
+        __models__[name]["_private_model"] = None
 
 def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dict[str, Any]) -> Iterator[dict[str, Any]]:
     """
@@ -246,6 +246,30 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
             yield {"warnings": [f"Invalid model predefined system prompt `{pspName}` type. Ignoring."]}
             continue
     
+    if ("extra_parameters" in __models__[Name]):
+        extraParameters = __models__[Name]["extra_parameters"]
+    else:
+        extraParameters = {}
+    
+    if ("reasoning" in UserPrompt["parameters"]):
+        reasoningLevel = UserPrompt["parameters"]["reasoning"]
+    else:
+        reasoningLevel = __models__[Name]["reasoning"]["default_mode"]
+
+    if (reasoningLevel == "reasoning"):
+        reasoningLevel = __models__[Name]["reasoning"]["default_reasoning_level"]
+    elif (reasoningLevel == "nonreasoning"):
+        reasoningLevel = __models__[Name]["reasoning"]["non_reasoning_level"]
+    elif (reasoningLevel == "auto"):
+        pass  # TODO: Get auto level
+    elif (reasoningLevel in __models__[Name]["reasoning"]["levels"]):
+        pass
+    else:
+        raise ValueError("Invalid reasoning mode or level.")
+    
+    if (reasoningLevel in __models__[Name]["reasoning"]["_private_parameters"]):
+        extraParameters |= __models__[Name]["reasoning"]["_private_parameters"][reasoningLevel]
+    
     return InferenceModel(
         Name,
         conversation,
@@ -264,7 +288,9 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
             "tool_choice": toolChoice,
             "max_length": maxLength,
             "extra_system_prompt": extraSystemPrompt,
-            "predefined_system_prompts": predefinedSystemPrompts
+            "predefined_system_prompts": predefinedSystemPrompts,
+            "extra_parameters": extraParameters,
+            "reasoning": reasoningLevel
         }
     )
 
@@ -313,16 +339,45 @@ def InferenceModel(Name: str, Conversation: conv.Conversation, Configuration: di
         systemPrompt += "" if (sp is None) else f"{sp}\n"
     
     systemPrompt = systemPrompt.strip()
+
+    if (Configuration["reasoning"] in __models__[Name]["reasoning"]["_private_system_prompt"]["levels"]):
+        if (__models__[Name]["reasoning"]["_private_system_prompt"]["position"] == "start"):
+            systemPrompt = __models__[Name]["reasoning"]["_private_system_prompt"]["levels"][Configuration["reasoning"]] + __models__[Name]["reasoning"]["_private_system_prompt"]["separator"] + systemPrompt
+        else:
+            systemPrompt += __models__[Name]["reasoning"]["_private_system_prompt"]["separator"] + __models__[Name]["reasoning"]["_private_system_prompt"]["levels"][Configuration["reasoning"]]
+
     modelConversation.append(conv.Message(conv.ROLE_SYSTEM, systemPrompt).GetMessageContent())
     
     for message in conversation:
         if (message.GetRole() == conv.ROLE_SYSTEM):
             continue
 
-        modelConversation.append(message.GetMessageContent())
+        content = message.GetMessageContent()
 
-    if (__models__[Name]["type"] == "lcpp"):
-        model: utils_llama.Llama = __models__[Name]["model"]
+        if (message.GetRole() == conv.ROLE_USER and conversation.index(message) == len(conversation) - 1):
+            if (Configuration["reasoning"] in __models__[Name]["reasoning"]["_private_user_prompt"]["levels"]):
+                contentText = (-1, None)
+
+                for cont in content["content"]:
+                    if (cont["type"] == "text"):
+                        contentText = (content["content"].index(cont), cont["text"])
+
+                        if (__models__[Name]["reasoning"]["_private_user_prompt"]["position"] == "start"):
+                            break
+                
+                if (contentText[0] == -1 or contentText[1] is None):
+                    contentText = (len(content["content"]), {"type": "text", "text": ""})
+                    content["content"].append(contentText[1])
+
+                if (__models__[Name]["reasoning"]["_private_user_prompt"]["position"] == "start"):
+                    content["content"][contentText[0]]["text"] = __models__[Name]["reasoning"]["_private_user_prompt"]["levels"][Configuration["reasoning"]] + __models__[Name]["reasoning"]["_private_user_prompt"]["separator"] + content["content"][contentText[0]]["text"]
+                else:
+                    content["content"][contentText[0]]["text"] += __models__[Name]["reasoning"]["_private_user_prompt"]["separator"] + __models__[Name]["reasoning"]["_private_user_prompt"]["levels"][Configuration["reasoning"]]
+
+        modelConversation.append(content)
+
+    if (__models__[Name]["_private_type"] == "lcpp"):
+        model: utils_llama.Llama = __models__[Name]["_private_model"]
         response = model.create_chat_completion(
             messages = modelConversation,
             tools = Configuration["tools"] + Configuration["extra_tools"],
@@ -429,7 +484,7 @@ def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
     global __models__
 
     # Make sure the model is not loaded
-    if (Name in __models__ and __models__[Name] is not None):
+    if (Name in __models__ and __models__[Name]["_private_model"] is not None):
         return
     
     # Check configuration
@@ -438,8 +493,8 @@ def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
     logs.WriteLog(logs.INFO, "[service_chatbot] Loading model.")
 
     # Get the model type
-    if ("type" in Configuration):
-        modelType = Configuration["type"]
+    if ("_private_type" in Configuration):
+        modelType = Configuration["_private_type"]
 
         if (not isinstance(modelType, str) or (modelType != "hf" and modelType != "lcpp")):
             modelType = None
@@ -478,7 +533,7 @@ def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
                 [
                     conv.Message(
                         conv.ROLE_USER,
-                        "a " * (model["ctx"] - len(model["model"].metadata["tokenizer.chat_template"]) - 1),
+                        "a " * (model["n_ctx"] - len(model["_private_model"].metadata["tokenizer.chat_template"]) - 1),
                         files
                     )
                 ]
