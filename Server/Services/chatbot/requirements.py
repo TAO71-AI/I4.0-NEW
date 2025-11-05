@@ -59,7 +59,7 @@ def Install(Env: dict[str, Any] | None = None) -> None:
             lcppCmake = "-DGGML_BLAS=1 -DGGML_BLAS_VENDOR=OpenBLAS"
     
     req.InstallPackage(
-        Packages = ["git+https://github.com/abetlen/llama-cpp-python.git@main"],
+        Packages = ["git+https://github.com/TAO71-AI/llama-cpp-python-JamePeng.git@main"],
         EnvVars = {
             "CMAKE_ARGS": lcppCmake
         },
