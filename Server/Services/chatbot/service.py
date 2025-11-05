@@ -374,6 +374,19 @@ def InferenceModel(Name: str, Conversation: conv.Conversation, Configuration: di
                 else:
                     content["content"][contentText[0]]["text"] += __models__[Name]["reasoning"]["_private_user_prompt"]["separator"] + __models__[Name]["reasoning"]["_private_user_prompt"]["levels"][Configuration["reasoning"]]
 
+        for contentData in content["content"]:
+            if (contentData["type"] not in __models__[Name]["multimodal"]):
+                content["content"].remove(contentData)
+                continue
+
+            if (__models__[Name]["_private_type"] == "lcpp"):
+                if (contentData["type"] == "image"):
+                    contentData["image_url"] = {"url": f"data:image;base64,{contentData['image']}"}
+
+                    contentData["type"] = "image_url"
+                    contentData.pop("image")
+                # TODO: Add video and audio
+
         modelConversation.append(content)
 
     if (__models__[Name]["_private_type"] == "lcpp"):

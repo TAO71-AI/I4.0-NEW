@@ -786,6 +786,27 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             }
         }
     
+    # Set multimodal type
+    if ("multimodal" in Configuration):
+        multimodal = Configuration["multimodal"]
+
+        if (isinstance(multimodal, str)):
+            multimodal = multimodal.split(" ")
+        elif (not isinstance(multimodal, list)):
+            multimodal = ["text"]
+    else:
+        multimodal = ["text"]
+    
+    for mul in multimodal:
+        if (
+            mul != "text" and
+            mul != "image" and
+            mul != "video" and
+            mul != "audio"
+        ):
+            logs.PrintLog(logs.WARNING, f"[llama_utils] Multimodal type '{mul}' not supported.")
+            continue
+    
     # Save the parameters in a dictionary
     modelParamsLCPP = {
         "model_path": modelPath,
@@ -836,7 +857,8 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             "_private_parameters": reasoning["parameters"],
             "_private_user_prompt": reasoning["user_prompt"],
             "_private_system_prompt": reasoning["system_prompt"]
-        }
+        },
+        "multimodal": multimodal
     }
 
     # Remove parameters for the user
