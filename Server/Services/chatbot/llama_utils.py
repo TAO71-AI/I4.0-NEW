@@ -612,9 +612,17 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         
         ftypeK = StringToFtype(ftypeK)
 
-        if (ftypeK is None):
+        if (ftypeK is None or (
+            ftypeK != FTYPE_F32 and
+            ftypeK != FTYPE_F16 and
+            ftypeK != FTYPE_Q8_0 and 
+            ftypeK != FTYPE_Q4_0 and
+            ftypeK != FTYPE_Q4_1 and
+            ftypeK != FTYPE_Q5_0 and
+            ftypeK != FTYPE_Q5_1
+        )):
             ftypeK = None
-            logs.PrintLog(logs.WARNING, "[llama_utils] `ftype_k` not found. Set to None.")
+            logs.PrintLog(logs.WARNING, "[llama_utils] `ftype_k` not found or invalid. Set to None.")
     else:
         ftypeK = None
         logs.WriteLog(logs.INFO, "[llama_utils] `ftype_k` not defined. Set to None.")
@@ -628,9 +636,17 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         
         ftypeV = StringToFtype(ftypeV)
 
-        if (ftypeV is None):
+        if (ftypeV is None or (
+            ftypeV != FTYPE_F32 and
+            ftypeV != FTYPE_F16 and
+            ftypeV != FTYPE_Q8_0 and 
+            ftypeV != FTYPE_Q4_0 and
+            ftypeV != FTYPE_Q4_1 and
+            ftypeV != FTYPE_Q5_0 and
+            ftypeV != FTYPE_Q5_1
+        )):
             ftypeV = None
-            logs.PrintLog(logs.WARNING, "[llama_utils] `ftype_v` not found. Set to None.")
+            logs.PrintLog(logs.WARNING, "[llama_utils] `ftype_v` not found or invalid. Set to None.")
     else:
         ftypeV = None
         logs.WriteLog(logs.INFO, "[llama_utils] `ftype_v` not defined. Set to None.")
