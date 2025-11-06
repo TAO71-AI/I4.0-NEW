@@ -4,6 +4,7 @@ from io import BytesIO
 from pydub import AudioSegment
 import os
 import copy
+import shutil
 import time
 import types
 import importlib.util
@@ -32,8 +33,8 @@ SERVICES_REQUIREMENTS_FILES = [
 SERVICES_CONFIG_FILES = [
     "default_service_configuration.yaml",
     "default_config.yaml",
-    "default_service_configuration.json",
-    "default_config.json"
+    #"default_service_configuration.json",
+    #"default_config.json"
 ]
 Configuration: dict[str, Any] = {}
 
@@ -236,13 +237,19 @@ def GetServices() -> list[Service]:
                 pathReqFile = fp
                 break
         
-        for name in SERVICES_CONFIG_FILES:
-            fp = os.path.join(pathDir, name)
-            logs.WriteLog(logs.INFO, f"[services_manager] Got service configuration file at `{fp}`.")
+        if (os.path.exists(f"./config_{servDir}.yaml")):
+            pathDefConfig = f"./config_{servDir}.yaml"
+            logs.WriteLog(logs.INFO, f"[services_manager] Got service configuration file at `{fp}`. No need to copy.")
+        else:
+            for name in SERVICES_CONFIG_FILES:
+                fp = os.path.join(pathDir, name)
+                logs.WriteLog(logs.INFO, f"[services_manager] Got service configuration file at `{fp}`. Copying.")
 
-            if (os.path.exists(fp)):
-                pathDefConfig = fp
-                break
+                if (os.path.exists(fp)):
+                    shutil.copy2(fp, f"./config_{servDir}.yaml")
+                    pathDefConfig = f"./config_{servDir}.yaml"
+
+                    break
         
         services.append(Service(
             Name = servDir,

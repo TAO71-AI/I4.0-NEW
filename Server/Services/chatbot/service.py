@@ -37,7 +37,7 @@ def SERVICE_LOAD_MODELS(Models: dict[str, dict[str, Any]]) -> None:
     """
     __check_service_configuration__()
 
-    for name, configuration in Models.values():
+    for name, configuration in Models.items():
         LoadModel(name, configuration)
 
 def SERVICE_OFFLOAD_MODELS(Names: list[str]) -> None:
@@ -304,7 +304,7 @@ def InferenceModel(Name: str, Conversation: conv.Conversation, Configuration: di
         Configuration (dict[str, Any]): Configuration of the model.
     """
     __check_service_configuration__()
-    LoadModel(Name)
+    LoadModel(Name, __models__[Name])
 
     conversation: list[conv.Message] = Conversation.GetConversation(True)
     systemPrompt = ""
@@ -314,7 +314,7 @@ def InferenceModel(Name: str, Conversation: conv.Conversation, Configuration: di
         systemPrompt += f"{system_prompt.GetDefaultSystemPrompt()}\n"
     
     if (Configuration["predefined_system_prompt"]["birthday"]):
-        systemPrompt += "Your birthday is 16th September.\n"
+        systemPrompt += "I4.0's birthday is 16th September.\n"
     
     if (Configuration["predefined_system_prompt"]["current_time"]):
         currentTime = datetime.datetime.now()
@@ -340,7 +340,7 @@ def InferenceModel(Name: str, Conversation: conv.Conversation, Configuration: di
     
     systemPrompt = systemPrompt.strip()
 
-    if (Configuration["reasoning"] in __models__[Name]["reasoning"]["_private_system_prompt"]["levels"]):
+    if ("reasoning" in Configuration and Configuration["reasoning"] in __models__[Name]["reasoning"]["_private_system_prompt"]["levels"]):
         if (__models__[Name]["reasoning"]["_private_system_prompt"]["position"] == "start"):
             systemPrompt = __models__[Name]["reasoning"]["_private_system_prompt"]["levels"][Configuration["reasoning"]] + __models__[Name]["reasoning"]["_private_system_prompt"]["separator"] + systemPrompt
         else:
@@ -355,7 +355,7 @@ def InferenceModel(Name: str, Conversation: conv.Conversation, Configuration: di
         content = message.GetMessageContent()
 
         if (message.GetRole() == conv.ROLE_USER and conversation.index(message) == len(conversation) - 1):
-            if (Configuration["reasoning"] in __models__[Name]["reasoning"]["_private_user_prompt"]["levels"]):
+            if ("reasoning" in Configuration and Configuration["reasoning"] in __models__[Name]["reasoning"]["_private_user_prompt"]["levels"]):
                 contentText = (-1, None)
 
                 for cont in content["content"]:
@@ -400,7 +400,7 @@ def InferenceModel(Name: str, Conversation: conv.Conversation, Configuration: di
             top_k = Configuration["top_k"],
             min_p = Configuration["min_p"],
             typical_p = Configuration["typical_p"],
-            steam = True,
+            stream = True,
             seed = Configuration["seed"],
             max_tokens = Configuration["max_length"],
             presence_penalty = Configuration["presence_penalty"],
@@ -506,12 +506,17 @@ def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
     logs.WriteLog(logs.INFO, "[service_chatbot] Loading model.")
 
     # Get the model type
-    if ("_private_type" in Configuration):
+    if ("type" in Configuration):
+        modelType = Configuration["type"]
+        
+        Configuration["_private_type"] = Configuration["type"]
+        Configuration.pop("type")
+    elif ("_private_type" in Configuration):
         modelType = Configuration["_private_type"]
-
-        if (not isinstance(modelType, str) or (modelType != "hf" and modelType != "lcpp")):
-            modelType = None
     else:
+        modelType = None
+    
+    if (not isinstance(modelType, str) or (modelType != "hf" and modelType != "lcpp")):
         modelType = None
     
     if (modelType is None):
@@ -521,7 +526,7 @@ def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
     if (modelType == "lcpp"):
         model = utils_llama.LoadLlamaModel(Configuration)
 
-    __models__[Name] = Configuration + model
+    __models__[Name] = Configuration | model
 
     # Test the inference
     if ("test_inference" in Configuration and Configuration["test_inference"]):
@@ -546,7 +551,7 @@ def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
                 [
                     conv.Message(
                         conv.ROLE_USER,
-                        "a " * (model["n_ctx"] - len(model["_private_model"].metadata["tokenizer.chat_template"]) - 1),
+                        ServiceConfiguration["test_inference_prompt"],
                         files
                     )
                 ]
@@ -564,9 +569,21 @@ def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
                 "tools": [],
                 "extra_tools": [],
                 "tool_choice": "none",
-                "max_length": 1
+                "max_length": ServiceConfiguration["test_inference_max_length"],
+                "predefined_system_prompt": {
+                    "personality": False,
+                    "birthday": False,
+                    "current_time": False,
+                    "current_date": False,
+                    "service_extra_system_prompt": False,
+                    "model_extra_system_prompt": False,
+                    "user_extra_system_prompt": False
+                }
             }
         )
+        testInferenceResponse = ""
 
-        for _ in response:
-            pass
+        for token in response:
+            testInferenceResponse += token["text"]
+        
+        logs.WriteLog(logs.INFO, f"[service_chatbot] Test inference response for model `{Name}`:\n```markdown\n{testInferenceResponse}\n```")

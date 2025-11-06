@@ -13,7 +13,6 @@
 ##   ...
 
 services: {}
-services_configuration: {}
 services_get_automatically: "cheapest"  # "fastest", "min_queue"
 
 # Server configuration
@@ -72,8 +71,8 @@ server_encryption:
   allowed_hashes: "all"  # "all", ["sha224", "sha256"...]
   force_response_hash: null  # "sha224", "sha256", "sha384", "sha512"...
   decryption_threads: 2  # -1 for all threads
-  public_key_file: ""  # If the `public_key_file` or `private_key_file` are empty a new file will be generated
-  private_key_file: ""
+  public_key_file: "server_public.pem"
+  private_key_file: "server_private.pem"
   private_key_password: "changeme"
 server_listen:
   sock_enabled: true

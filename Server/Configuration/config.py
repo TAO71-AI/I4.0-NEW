@@ -54,5 +54,5 @@ def ReadConfiguration(ConfigurationFile: str = CONFIGURATION_FILE, Create: bool 
     return conf
 
 # Read the configuration
-logs.WriteLog("[config] Reading configuration file.")
+logs.WriteLog(logs.INFO, "[config] Reading configuration file.")
 Configuration = ReadConfiguration(CONFIGURATION_FILE, True)

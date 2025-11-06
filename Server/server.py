@@ -2,7 +2,9 @@ try:
     from typing import Any, Iterator
     from concurrent.futures import ThreadPoolExecutor
     import os
+    import sys
     import json
+    import time
     import asyncio
     import websockets
 
@@ -40,7 +42,7 @@ async def __start_websockets_server__() -> None:
 
     logs.PrintLog(
         logs.INFO,
-        f"WebSockets server listening at `{config.Configuration['server_listen']['ws_ip']}:{config.Configuration['server_listen']['ws_port']}`."
+        f"[server] WebSockets server listening at `{config.Configuration['server_listen']['ws_ip']}:{config.Configuration['server_listen']['ws_port']}`."
     )
     await server.wait_closed()
 
@@ -145,11 +147,33 @@ def StartServer() -> None:
         config.Configuration["server_transfer_rate"] = newServerTransferRate
 
     if (config.Configuration["server_listen"]["ws_enabled"]):
-        asyncio.run(__start_websockets_server__)
+        asyncio.run(__start_websockets_server__())
+
+def CloseServer() -> None:
+    logs.PrintLog(logs.INFO, "[server] Closing server.")
+    services_manager.OffloadModels(list(config.Configuration["services"].keys()))
+    
+    exit(0)
 
 if (__name__ == "__main__"):
+    if (os.path.exists("./latest.txt")):
+        with open("./latest.txt", "w") as f:
+            f.write("")
+
     PrivateKey = None
     PublicKey = None
 
     LoadModels()
-    StartServer()
+    
+    try:
+        StartServer()
+    except KeyboardInterrupt:
+        CloseServer()
+
+    interactiveMode = sys.argv.count("--interactive") > 0 or sys.argv.count("-it") > 0
+
+    while (True):
+        if (interactiveMode):
+            prompt = input(">$ ")
+        else:
+            time.sleep(0.1)

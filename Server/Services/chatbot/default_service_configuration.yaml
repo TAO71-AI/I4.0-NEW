@@ -57,3 +57,5 @@ test_inference_files:
   - {"type": "image", "data": "./TestAssets/test_image.png"}
   - {"type": "audio", "data": "./TestAssets/test_audio.wav"}
   - {"type": "video", "data": "./TestAssets/test_video.mp4"}
+test_inference_prompt: "Hey!"
+test_inference_max_length: 1000

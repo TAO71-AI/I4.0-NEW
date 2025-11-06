@@ -85,7 +85,7 @@ def LoadKeys(
         password = PrivatePassword.encode("utf-8"),
         backend = default_backend()
     )
-    publicKey = serialization.load_der_public_key(
+    publicKey = serialization.load_pem_public_key(
         publicPem,
         backend = default_backend()
     )

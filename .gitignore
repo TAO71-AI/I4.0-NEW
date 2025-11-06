@@ -1,5 +1,8 @@
 __pycache__/
 env/
 .env/
+Server/config.yaml
+Server/config_*.yaml
+*.pem
 update.sh
 latest.txt

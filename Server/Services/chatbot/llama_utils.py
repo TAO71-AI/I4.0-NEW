@@ -13,12 +13,7 @@ from llama_cpp import (
     LLAMA_SPLIT_MODE_NONE as SPM_NONE,
 
     # ROPE scaling types
-    LLAMA_ROPE_SCALING_TYPE_LINEAR as ROPE_LINEAR,
-    LLAMA_ROPE_SCALING_TYPE_LONGROPE as ROPE_LONGROPE,
-    LLAMA_ROPE_SCALING_TYPE_MAX_VALUE as ROPE_MAX_VALUE,
-    LLAMA_ROPE_SCALING_TYPE_NONE as ROPE_NONE,
-    LLAMA_ROPE_SCALING_TYPE_UNSPECIFIED as ROPE_UNSPECIFIED,
-    LLAMA_ROPE_SCALING_TYPE_YARN as ROPE_YARN,
+    llama_rope_scaling_type,
 
     # Pooling types
     LLAMA_POOLING_TYPE_CLS as POOLING_CLS,
@@ -71,24 +66,26 @@ from llama_cpp.llama_chat_format import (
     NanoLlavaChatHandler as CH_NanoLlava,
     Llama3VisionAlphaChatHandler as CH_Llama3VisionAlpha,
     MiniCPMv26ChatHandler as CH_MiniCPMv26,
-    Qwen25VLChatHandler as CH_Qwen25VL
+    Qwen25VLChatHandler as CH_Qwen25VL,
+    Qwen3VLChatHandler as CH_Qwen3VL
 )
 from typing import Any
 import copy
+import time
 import Utilities.logs as logs
 
-__FTYPES__: dict[str | list[str], int] = {
-    ["f32", "fp32"]: FTYPE_F32,
+__FTYPES__: dict[str | tuple[str, ...], int] = {
+    ("f32", "fp32"): FTYPE_F32,
     "bf16": FTYPE_BF16,
-    ["f16", "fp16"]: FTYPE_F16,
+    ("f16", "fp16"): FTYPE_F16,
     "q8_0": FTYPE_Q8_0,
     "q6_k": FTYPE_Q6_K,
-    ["q5_k_m", "q5_k"]: FTYPE_Q5_K_M,
+    ("q5_k_m", "q5_k"): FTYPE_Q5_K_M,
     "q5_k_s": FTYPE_Q5_K_S,
-    ["q4_k_m", "q4_k"]: FTYPE_Q4_K_M,
+    ("q4_k_m", "q4_k"): FTYPE_Q4_K_M,
     "q4_k_s": FTYPE_Q4_K_S,
     "q3_k_l": FTYPE_Q3_K_L,
-    ["q3_k_m", "q3_k"]: FTYPE_Q3_K_M,
+    ("q3_k_m", "q3_k"): FTYPE_Q3_K_M,
     "q3_k_s": FTYPE_Q3_K_S,
     "q2_k": FTYPE_Q2_K,
 
@@ -113,20 +110,20 @@ __FTYPES__: dict[str | list[str], int] = {
     "iq4_xs": FTYPE_IQ4_XS,
     "iq4_nl": FTYPE_IQ4_NL
 }
-__SPLIT_MODES__: dict[str | list[str], int] = {
+__SPLIT_MODES__: dict[str | tuple[str, ...], int] = {
     "layer": SPM_LAYER,
     "row": SPM_ROW,
     "none": SPM_NONE
 }
-__ROPE_SCALING_TYPES__: dict[str | list[str], int] = {
-    "linear": ROPE_LINEAR,
-    "longrope": ROPE_LONGROPE,
-    ["max_value", "max-value", "max value"]: ROPE_MAX_VALUE,
-    "none": ROPE_NONE,
-    "unspecified": ROPE_UNSPECIFIED,
-    "yarn": ROPE_YARN
+__ROPE_SCALING_TYPES__: dict[str | tuple[str, ...], int] = {
+    "linear": llama_rope_scaling_type.LLAMA_ROPE_SCALING_TYPE_LINEAR,
+    "longrope": llama_rope_scaling_type.LLAMA_ROPE_SCALING_TYPE_LONGROPE,
+    ("max_value", "max-value", "max value"): llama_rope_scaling_type.LLAMA_ROPE_SCALING_TYPE_MAX_VALUE,
+    "none": llama_rope_scaling_type.LLAMA_ROPE_SCALING_TYPE_NONE,
+    "unspecified": llama_rope_scaling_type.LLAMA_ROPE_SCALING_TYPE_UNSPECIFIED,
+    "yarn": llama_rope_scaling_type.LLAMA_ROPE_SCALING_TYPE_YARN
 }
-__POOLING_TYPES__: dict[str | list[str], int] = {
+__POOLING_TYPES__: dict[str | tuple[str, ...], int] = {
     "cls": POOLING_CLS,
     "mean": POOLING_MEAN,
     "last": POOLING_LAST,
@@ -279,7 +276,7 @@ def StringToChatHandler(ChatHandler: str, Mmproj: str) -> CH_Llava15 | CH_Llava1
         Mmproj (str): Path to the MMPROJ file.
     
     Returns:
-        CH_Llava15 | CH_Llava16 | CH_Llama3VisionAlpha | CH_MiniCPMv26 | CH_Moondream | CH_NanoLlava | CH_Qwen25VL | None
+        CH_Llava15 | CH_Llava16 | CH_Llama3VisionAlpha | CH_MiniCPMv26 | CH_Moondream | CH_NanoLlava | CH_Qwen25VL | CH_Qwen3VL | None
     """
     # Lower the chat handler name
     chatHandler = ChatHandler.lower()
@@ -299,6 +296,8 @@ def StringToChatHandler(ChatHandler: str, Mmproj: str) -> CH_Llava15 | CH_Llava1
         return CH_NanoLlava(clip_model_path = Mmproj, verbose = False)
     elif (chatHandler == "qwen2.5vl" or chatHandler == "qwen2.5-vl"):
         return CH_Qwen25VL(clip_model_path = Mmproj, verbose = False)
+    elif (chatHandler == "qwen3vl" or chatHandler == "qwen3-vl"):
+        return CH_Qwen3VL(clip_model_path = Mmproj, verbose = False, thinking_budget = None)
 
     return None
 
@@ -318,7 +317,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         mmproj = None
         chatHandler = None
 
-        logs.WriteLog("[llama_utils] Checking model path.")
+        logs.WriteLog(logs.INFO, "[llama_utils] Checking model path.")
 
         if (isinstance(Configuration["model_path"], dict)):
             if ("llm" in Configuration["model_path"]):
@@ -471,10 +470,10 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         ropeScalingType = StringToRopeScalingType(ropeScalingType)
 
         if (ropeScalingType is None):
-            ropeScalingType = ROPE_UNSPECIFIED
+            ropeScalingType = llama_rope_scaling_type.LLAMA_ROPE_SCALING_TYPE_UNSPECIFIED
             logs.PrintLog(logs.WARNING, "[llama_utils] `rope_scaling_type` not found. Set to `unspecified`.")
     else:
-        ropeScalingType = ROPE_UNSPECIFIED
+        ropeScalingType = llama_rope_scaling_type.LLAMA_ROPE_SCALING_TYPE_UNSPECIFIED
         logs.WriteLog(logs.INFO, "[llama_utils] `rope_scaling_type` not defined. Set to `unspecified`.")
     
     # Get rope_freq_base
@@ -854,7 +853,6 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         "flash_attn": flashAttn,
         "swa_full": swaFull,
         "no_perf": False,
-        "chat_handler": chatHandler,
         "verbose": False,
         "type_k": ftypeK,
         "type_v": ftypeV,
@@ -876,6 +874,8 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         },
         "multimodal": multimodal
     }
+
+    modelParamsLCPP["chat_handler"] = chatHandler
 
     # Remove parameters for the user
     modelParams.pop("model_path")
@@ -904,19 +904,22 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
     modelParams.pop("flash_attn")
     modelParams.pop("swa_full")
     modelParams.pop("no_perf")
-    modelParams.pop("chat_handler")
+    #modelParams.pop("chat_handler")
     modelParams.pop("verbose")
     modelParams.pop("spm_infill")
     modelParams.pop("cache_type")
 
     # Load the model
     logs.WriteLog(logs.INFO, "[llama_utils] Loading model...")
+    loadingTime = time.time()
 
     model = Llama(**modelParamsLCPP)
     model.set_cache(cacheType)
 
-    logs.WriteLog(logs.INFO, "> Model loaded.")
+    loadingTime = time.time() - loadingTime
+
+    logs.WriteLog(logs.INFO, f"[llama_utils] Model loaded in {round(loadingTime, 3)} seconds.")
     return {
         "_private_model": model,
         "_private_type": "lcpp"
-    } + copy.deepcopy(modelParams)
+    } | copy.deepcopy(modelParams)
