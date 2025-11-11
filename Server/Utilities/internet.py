@@ -2,16 +2,34 @@ from bs4 import BeautifulSoup
 from typing import Any
 from urllib.parse import urlparse
 from urllib.robotparser import RobotFileParser
+from ddgs.ddgs import DDGS
 import requests
 import re
 import Utilities.format_conversion as format_conversion
 import Utilities.logs as logs
 import exceptions
 
+__DDGS__ = DDGS()
 SCRAPE_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 }
 Configuration: dict[str, Any] = {}
+
+def __get_requests_response__(URL: str) -> requests.Response:
+    response = requests.get(URL, headers = SCRAPE_HEADERS)
+    response.raise_for_status()
+
+    return response
+
+def SearchText(Keywords: str) -> list[str]:
+    results = __DDGS__.text(
+        query = Keywords,
+        region = Configuration["server_internet"]["search_region"],
+        safesearch = "moderate" if (Configuration["server_internet"]["search_safesearch"]) else "off",
+        max_results = Configuration["server_internet"]["search_max_results"],
+        backend = Configuration["server_internet"]["search_backend"]
+    )
+    return [r["href"] for r in results]
 
 def GetBaseURL(URL: str) -> str:
     if ("/" in URL):
@@ -37,11 +55,28 @@ def GetBaseURL(URL: str) -> str:
     logs.WriteLog(logs.INFO, "[internet] Got base URL.")
     return url
 
-def __get_requests_response__(URL: str) -> requests.Response:
-    response = requests.get(URL, headers = SCRAPE_HEADERS)
-    response.raise_for_status()
-
-    return response
+def GetURLInfo(URL: str) -> dict[str, str]:
+    if ("://" in URL):
+        protocol = URL[:URL.find("://")]
+        website = URL[URL.find("://") + 3:]
+    else:
+        protocol = "http"
+        website = URL
+    
+    if ("/" in website):
+        website = website[:website.find("/")]
+    
+    if (website.count(".") == 1):
+        subdomain = None
+    elif (website.count(".") >= 2):
+        subdomain = ".".join(website.split(".")[:-2])
+        website = ".".join(website.split(".")[-2:])
+    
+    return {
+        "protocol": protocol,
+        "website": website,
+        "subdomain": subdomain
+    }
 
 def Scrape_Base(URL: str) -> BeautifulSoup:
     logs.WriteLog(logs.INFO, "[internet] Running base scrapper.")

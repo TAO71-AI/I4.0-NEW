@@ -917,8 +917,9 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
     model.set_cache(cacheType)
 
     loadingTime = time.time() - loadingTime
+    loadingTime = round(loadingTime, 3)
 
-    logs.WriteLog(logs.INFO, f"[llama_utils] Model loaded in {round(loadingTime, 3)} seconds.")
+    logs.WriteLog(logs.INFO, f"[llama_utils] Model loaded in {loadingTime} seconds.")
     return {
         "_private_model": model,
         "_private_type": "lcpp"

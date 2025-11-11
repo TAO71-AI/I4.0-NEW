@@ -9,7 +9,8 @@ GENERAL_REQUIREMENTS = [
     "websockets>=15.0.0,<16.0.0",
     "asyncio",
     "av",
-    "cryptography"
+    "cryptography",
+    "ddgs"
 ]
 
 def InstallRequirements() -> None:

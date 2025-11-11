@@ -54,6 +54,27 @@ def GetDefaultSystemPrompt() -> str:
 
 def GetDefaultTools() -> list[ChatbotTool]:
     return [
+        # Search tools
+        ChatbotTool(
+            Name = "scrape_website",
+            Description = (
+                "Scrapes websites for information."
+            ),
+            Parameters = {
+                "urls": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "URLs to search on the internet."
+                },
+                "prompt": {
+                    "type": "string",
+                    "description": (
+                        "Follow-up question or instruction to guide the search."
+                    )
+                }
+            },
+            RequiredParameters = ["urls", "prompt"]
+        ),
         ChatbotTool(
             Name = "search_text",
             Description = (
@@ -62,29 +83,23 @@ def GetDefaultTools() -> list[ChatbotTool]:
             ),
             Parameters = {
                 "keywords": {
-                    "oneOf": [
-                        {
-                            "type": "string",
-                            "description": "Keywords to search on the internet, space separated."
-                        },
-                        {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "URLs to search on the internet."
-                        }
-                    ]
+                    "type": "string",
+                    "description": (
+                        "Keywords to search on the internet, space separated. "
+                        "Special keywords are allowed, examples: `filetype:`, `intitle:`, `inurl:`"
+                    )
                 },
                 "prompt": {
-                    "type": ["string", "null"],
+                    "type": "string",
                     "description": (
-                        "Optional follow-up question or instruction to guide the search. "
-                        "If null, the user's original query will be used directly."
-                    ),
-                    "default": None
+                        "Follow-up question or instruction to guide the search."
+                    )
                 }
             },
-            RequiredParameters = ["keywords"]
+            RequiredParameters = ["keywords", "prompt"]
         ),
+
+        # Memory tools
         ChatbotTool(
             Name = "create_memory",
             Description = (

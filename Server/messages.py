@@ -5,7 +5,8 @@ import Utilities.logs as logs
 ROLE_USER: int = 0
 ROLE_ASSISTANT: int = 1
 ROLE_SYSTEM: int = 2
-ROLE_CUSTOM: int = 3
+ROLE_TOOL: int = 3
+ROLE_CUSTOM: int = 4
 
 class Message():
     def __init__(self, Role: int, Text: str | None = None, Files: list[dict[str, str | bytes]] | None = None, CustomRole: str | None = None) -> None:
@@ -114,6 +115,8 @@ class Message():
             msg["role"] = "assistant"
         elif (self.__role__ == ROLE_SYSTEM):
             msg["role"] = "system"
+        elif (self.__role__ == ROLE_TOOL):
+            msg["role"] = "tool"
         elif (self.__role__ == ROLE_CUSTOM):
             msg["role"] = self.__custom_role__ if (self.__custom_role__ is not None) else "other"
         else:

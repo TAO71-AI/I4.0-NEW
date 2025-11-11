@@ -156,6 +156,8 @@ def CloseServer() -> None:
     exit(0)
 
 if (__name__ == "__main__"):
+    import Utilities.internet as internet
+
     if (os.path.exists("./latest.txt")):
         with open("./latest.txt", "w") as f:
             f.write("")
@@ -163,17 +165,17 @@ if (__name__ == "__main__"):
     PrivateKey = None
     PublicKey = None
 
-    LoadModels()
+    #LoadModels()
     
     try:
         StartServer()
     except KeyboardInterrupt:
         CloseServer()
 
-    interactiveMode = sys.argv.count("--interactive") > 0 or sys.argv.count("-it") > 0
+    #interactiveMode = sys.argv.count("--interactive") > 0 or sys.argv.count("-it") > 0
 
-    while (True):
-        if (interactiveMode):
-            prompt = input(">$ ")
-        else:
-            time.sleep(0.1)
+    #while (True):
+    #    if (interactiveMode):
+    #        prompt = input(">$ ")
+    #    else:
+    #        time.sleep(0.1)
