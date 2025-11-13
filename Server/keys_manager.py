@@ -17,7 +17,7 @@ class APIKey():
         ExpireDate: dict[str, int] | datetime.datetime | None = None,
         AllowedIPs: list[str] | None = None,
         PrioritizeModels: list[str] = [],
-        AdminLevel: int = 0
+        Groups: list[str] | None = None
     ):
         logs.WriteLog(logs.INFO, "[keys_manager] Creating API key.")
 
@@ -73,7 +73,14 @@ class APIKey():
         }
         self.AllowedIPs = AllowedIPs
         self.PrioritizeModels = PrioritizeModels
-        self.AdminLevel = AdminLevel
+        self.Groups = Configuration["server_api"]["default_groups"] if (Groups is None) else Groups
+    
+    def IsAdmin(self: Self) -> None:
+        for group in self.Groups:
+            if (group in Configuration["server_api"]["admin_groups"]):
+                return True
+        
+        return False
     
     def SaveInDatabase(self: Self) -> None:
         pass  # TODO

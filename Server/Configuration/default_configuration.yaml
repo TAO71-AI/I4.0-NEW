@@ -31,7 +31,8 @@ server_internet:
 server_api:
   min_length: 512  # Min length: 16
   max_length: 1024  # Replace with `null` to make this the same as min_length
-server_thrusted_admin_keys: []
+  default_groups: []
+  admin_groups: []
 server_whitelist:
   enabled: false
   ip_whitelist: []
