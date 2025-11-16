@@ -371,6 +371,8 @@ def InferenceModel(
     if (queueData["users_waiting"] >= maxSimulUsers):
         time.sleep(0.1)
 
+    # TODO: Automatic blacklist
+
     moduleHandlesConversation = Service.GetModuleVariable(serviceModule.ServiceModule, "MODULE_HANDLES_CONVERSATION")
     moduleHandlesPricing = Service.GetModuleVariable(serviceModule.ServiceModule, "MODULE_HANDLES_PRICING")
 

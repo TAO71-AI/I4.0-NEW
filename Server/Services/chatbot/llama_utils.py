@@ -297,7 +297,7 @@ def StringToChatHandler(ChatHandler: str, Mmproj: str) -> CH_Llava15 | CH_Llava1
     elif (chatHandler == "qwen2.5vl" or chatHandler == "qwen2.5-vl"):
         return CH_Qwen25VL(clip_model_path = Mmproj, verbose = False)
     elif (chatHandler == "qwen3vl" or chatHandler == "qwen3-vl"):
-        return CH_Qwen3VL(clip_model_path = Mmproj, verbose = False, thinking_budget = None)
+        return CH_Qwen3VL(clip_model_path = Mmproj, force_reasoning = False, verbose = False)
 
     return None
 

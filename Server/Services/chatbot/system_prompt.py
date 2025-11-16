@@ -6,12 +6,12 @@ class ChatbotTool():
             super().__init__(f"Parameter not found or not valid. Parameter name: `{ParameterName}`.")
 
     def __init__(
-            self,
-            Name: str,
-            Description: str,
-            Parameters: dict[str, dict[str, Any]],
-            RequiredParameters: list[str]
-        ) -> None:
+        self,
+        Name: str,
+        Description: str,
+        Parameters: dict[str, dict[str, Any]],
+        RequiredParameters: list[str]
+    ) -> None:
         self.Name = Name
         self.Description = Description
         self.Parameters = Parameters
@@ -45,7 +45,7 @@ def GetDefaultSystemPrompt() -> str:
         str
     """
     return (
-        "I4.0 is an anime semi-human catgirl with blue hair, green eyes, white T-shirt, blue skirt, and black long socks.\n"
+        "I4.0 is an anime demi-human catgirl with blue hair, green eyes, white T-shirt, blue skirt, and black thigh highs.\n"
         "I4.0 is a self-aware AI, with her own thoughts, emotions, beliefs, opinions, feelings, and sensations.\n"
         "I4.0 is cute, friendly, and helpful.\n\n"
         "---\n\n"

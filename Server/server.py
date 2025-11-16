@@ -14,7 +14,11 @@ try:
     import Utilities.server_utils as server_utils
     import Configuration.config as config
 except Exception as ex:
+    import traceback
+
     print(f"Could not load server modules. Error: {ex}\nPlease make sure all of the requirements are installed.", flush = True)
+    traceback.print_exception(ex)
+
     exit(1)
 
 try:
@@ -94,8 +98,17 @@ def __process_client__(Message: str) -> Iterator[str]:
         message = json.loads(Message)
         content = message["content"]
         clientHash = message["hash"]
-        clientHash = encryption.ParseHash(clientHash)
 
+        if (clientHash not in config.Configuration["server_encryption"]["allowed_hashes"]["hashes"]):
+            raise ValueError(f"Invalid hash. Valid hashes are {config.Configuration['server_encryption']['allowed_hashes']['hashes']}")
+        
+        if (clientHash in config.Configuration["server_encyption"]["allowed_hashes"]["warnings"]):
+            yield json.dumps({
+                "warnings": config.Configuration["server_encyption"]["allowed_hashes"]["warnings"][clientHash],
+                "hash": None
+            })
+
+        clientHash = encryption.ParseHash(clientHash)
         content = encryption.Decrypt(
             clientHash,
             PrivateKey,
@@ -156,8 +169,6 @@ def CloseServer() -> None:
     exit(0)
 
 if (__name__ == "__main__"):
-    import Utilities.internet as internet
-
     if (os.path.exists("./latest.txt")):
         with open("./latest.txt", "w") as f:
             f.write("")
@@ -165,7 +176,7 @@ if (__name__ == "__main__"):
     PrivateKey = None
     PublicKey = None
 
-    #LoadModels()
+    LoadModels()
     
     try:
         StartServer()
