@@ -105,7 +105,7 @@ def __process_client__(Message: str) -> Iterator[str]:
         if (clientHash in config.Configuration["server_encyption"]["allowed_hashes"]["warnings"]):
             yield json.dumps({
                 "warnings": config.Configuration["server_encyption"]["allowed_hashes"]["warnings"][clientHash],
-                "hash": None
+                "hash": "none"
             })
 
         clientHash = encryption.ParseHash(clientHash)
@@ -118,7 +118,7 @@ def __process_client__(Message: str) -> Iterator[str]:
     except Exception as ex:
         yield json.dumps({
             "errors": [f"Error decrypting message ({ex})."],
-            "hash": None
+            "hash": "none"
         })
         return
     

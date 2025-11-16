@@ -74,6 +74,7 @@ server_encryption:
   public_key_file: "server_public.pem"
   private_key_file: "server_private.pem"
   private_key_password: "changeme"
+server_transfer_rate: 8192  # in KB. Min 1, max 8192
 server_listen:
   ws_enabled: true
   ws_ip: "0.0.0.0"
@@ -99,6 +100,10 @@ database_server_ip_whitelist:
 database_server_ip_blacklist:
   enabled: true
   blacklist: []
+database_server_transfer_rate: 8192  # in KB. Min 1, max 8192
+database_server_clone:
+  servers: []
+  wait_time: 600  # Seconds, 0 is not allowed
 database_server_listen:
   ws_enabled: true
   ws_ip: "0.0.0.0"
