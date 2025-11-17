@@ -177,6 +177,8 @@ if (__name__ == "__main__"):
     PublicKey = None
 
     LoadModels()
+
+    # TODO: Thread for model offloading
     
     try:
         StartServer()

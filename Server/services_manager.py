@@ -380,7 +380,6 @@ def InferenceModel(
     files = Prompt["files"] if ("files" in Prompt) else []
     userConfig = Prompt["parameters"] if ("parameters" in Prompt) else {}
     
-    # TODO: handle conversation
     if (not moduleHandlesConversation):
         conversation = conv.Conversation.CreateConversationFromDB(f"{UserParameters['key_info']['key']}_{UserParameters['conversation_name']}", True)
 
@@ -509,6 +508,9 @@ def InferenceModel(
 
     apiKey = keys_manager.APIKey.FromDict(UserParameters["key_info"])
     apiKey.SaveInDatabase()
+
+    if (not moduleHandlesConversation):
+        conversation.UploadToDB()
 
     if (exc is not None):
         raise exc

@@ -151,6 +151,11 @@ def __get_value_from_dictionary__(Key: Any, Dictionary: dict[Any | list[Any], An
             # Check if the key is found
             if (Key in key):
                 return (value, list(Dictionary.keys()).index(key))
+        elif (isinstance(key, tuple)):
+            k = list(key)
+
+            if (Key in k):
+                return (value, list(Dictionary.keys()).index(key))
         elif (Key == key):
             return (value, list(Dictionary.keys()).index(key))
     
@@ -614,11 +619,9 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         if (ftypeK is None or (
             ftypeK != FTYPE_F32 and
             ftypeK != FTYPE_F16 and
-            ftypeK != FTYPE_Q8_0 and 
-            ftypeK != FTYPE_Q4_0 and
-            ftypeK != FTYPE_Q4_1 and
+            ftypeK != FTYPE_Q8_0 and
             ftypeK != FTYPE_Q5_0 and
-            ftypeK != FTYPE_Q5_1
+            ftypeK != FTYPE_Q4_0
         )):
             ftypeK = None
             logs.PrintLog(logs.WARNING, "[llama_utils] `ftype_k` not found or invalid. Set to None.")
@@ -638,11 +641,9 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         if (ftypeV is None or (
             ftypeV != FTYPE_F32 and
             ftypeV != FTYPE_F16 and
-            ftypeV != FTYPE_Q8_0 and 
-            ftypeV != FTYPE_Q4_0 and
-            ftypeV != FTYPE_Q4_1 and
+            ftypeV != FTYPE_Q8_0 and
             ftypeV != FTYPE_Q5_0 and
-            ftypeV != FTYPE_Q5_1
+            ftypeV != FTYPE_Q4_0
         )):
             ftypeV = None
             logs.PrintLog(logs.WARNING, "[llama_utils] `ftype_v` not found or invalid. Set to None.")
