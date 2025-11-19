@@ -272,37 +272,57 @@ def StringToCacheType(CacheType: str, CapacityInBytes: int = 2 ^ 30) -> LlamaDis
     
     return None
 
-def StringToChatHandler(ChatHandler: str, Mmproj: str) -> CH_Llava15 | CH_Llava16 | CH_Llama3VisionAlpha | CH_MiniCPMv26 | CH_Moondream | CH_NanoLlava | CH_Qwen25VL | None:
+def StringToChatHandler(
+    ChatHandler: str,
+    Mmproj: str,
+    UseGPU: bool,
+    ImageTokens: tuple[int, int]
+) -> CH_Llava15 | CH_Llava16 | CH_Llama3VisionAlpha | CH_MiniCPMv26 | CH_Moondream | CH_NanoLlava | CH_Qwen25VL | None:
     """
     Converts a string (chat handler name) into a class.
 
     Args:
         ChatHandler (str): The chat handler name.
         Mmproj (str): Path to the MMPROJ file.
+        UseGPU (bool): Use the GPU for the mmproj.
+        ImageTokens (tuple[int, int]): Min and max image tokens.
     
     Returns:
         CH_Llava15 | CH_Llava16 | CH_Llama3VisionAlpha | CH_MiniCPMv26 | CH_Moondream | CH_NanoLlava | CH_Qwen25VL | CH_Qwen3VL | None
     """
     # Lower the chat handler name
     chatHandler = ChatHandler.lower()
+    generalArgs = {
+        "clip_model_path": Mmproj,
+        "use_gpu": UseGPU,
+        "image_min_tokens": ImageTokens[0],
+        "image_max_tokens": ImageTokens[1],
+        "verbose": False
+    }
+
+    if (ImageTokens[1] < ImageTokens[0] and ImageTokens[1] > -1):
+        raise ValueError("[llama_utils] `mmproj_max_image_tokens` can't be less than `mmproj_min_image_tokens`.")
 
     # Get and return the chat handler
     if (chatHandler == "llava15"):
-        return CH_Llava15(clip_model_path = Mmproj, verbose = False)
+        return CH_Llava15(**generalArgs)
     elif (chatHandler == "llava16"):
-        return CH_Llava16(clip_model_path = Mmproj, verbose = False)
+        return CH_Llava16(**generalArgs)
     elif (chatHandler == "llama3visionalpha" or chatHandler == "llama-3-vision-alpha" or chatHandler == "llama3-vision-alpha"):
-        return CH_Llama3VisionAlpha(clip_model_path = Mmproj, verbose = False)
+        return CH_Llama3VisionAlpha(**generalArgs)
     elif (chatHandler == "minicpmv2.6" or chatHandler == "mini-cpm-v2.6"):
-        return CH_MiniCPMv26(clip_model_path = Mmproj, verbose = False)
+        return CH_MiniCPMv26(**generalArgs)
     elif (chatHandler == "moondream"):
-        return CH_Moondream(clip_model_path = Mmproj, verbose = False)
+        return CH_Moondream(**generalArgs)
     elif (chatHandler == "nanollava"):
-        return CH_NanoLlava(clip_model_path = Mmproj, verbose = False)
+        return CH_NanoLlava(**generalArgs)
     elif (chatHandler == "qwen2.5vl" or chatHandler == "qwen2.5-vl"):
-        return CH_Qwen25VL(clip_model_path = Mmproj, verbose = False)
+        return CH_Qwen25VL(**generalArgs)
     elif (chatHandler == "qwen3vl" or chatHandler == "qwen3-vl"):
-        return CH_Qwen3VL(clip_model_path = Mmproj, force_reasoning = False, verbose = False)
+        if (ImageTokens[0] < 1024):
+            logs.PrintLog(logs.WARNING, "[llama_utils] For Qwen3-VL it's recommended to set `mmproj_min_image_tokens` to 1024.")
+
+        return CH_Qwen3VL(**generalArgs, force_reasoning = False, add_vision_id = True)
 
     return None
 
@@ -347,8 +367,22 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         if (not isinstance(chatHandler, str) and chatHandler is not None):
             raise AttributeError("[llama_utils] Invalid `chat_handler`.")
         
+        mmprojGPU = Configuration["mmproj_use_gpu"] if ("mmproj_use_gpu" in Configuration) else True
+
+        if (not isinstance(mmprojGPU, bool)):
+            raise AttributeError("[llama_utils] Invalid `mmproj_use_gpu`.")
+        
+        minImageTokens = Configuration["mmproj_min_img_tokens"] if ("mmproj_min_img_tokens" in Configuration) else -1
+        maxImageTokens = Configuration["mmproj_max_img_tokens"] if ("mmproj_max_img_tokens" in Configuration) else -1
+
+        if (not isinstance(minImageTokens, int)):
+            raise AttributeError("[llama_utils] Invalid `mmproj_min_img_tokens`.")
+        
+        if (not isinstance(maxImageTokens, int)):
+            raise AttributeError("[llama_utils] Invalid `mmproj_max_img_tokens`.")
+        
         if (mmproj is not None and chatHandler is not None):
-            chatHandler = StringToChatHandler(chatHandler, mmproj)
+            chatHandler = StringToChatHandler(chatHandler, mmproj, mmprojGPU, (minImageTokens, maxImageTokens))
         
         if (mmproj is not None and chatHandler is None):
             raise AttributeError("[llama_utils] `mmproj` requires a valid `chat_handler`.")
