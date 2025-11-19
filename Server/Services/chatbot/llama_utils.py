@@ -276,7 +276,8 @@ def StringToChatHandler(
     ChatHandler: str,
     Mmproj: str,
     UseGPU: bool,
-    ImageTokens: tuple[int, int]
+    ImageTokens: tuple[int, int],
+    Verbose: bool
 ) -> CH_Llava15 | CH_Llava16 | CH_Llama3VisionAlpha | CH_MiniCPMv26 | CH_Moondream | CH_NanoLlava | CH_Qwen25VL | None:
     """
     Converts a string (chat handler name) into a class.
@@ -297,7 +298,7 @@ def StringToChatHandler(
         "use_gpu": UseGPU,
         "image_min_tokens": ImageTokens[0],
         "image_max_tokens": ImageTokens[1],
-        "verbose": False
+        "verbose": Verbose
     }
 
     if (ImageTokens[1] < ImageTokens[0] and ImageTokens[1] > -1):
@@ -336,6 +337,13 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
     Returns:
         dict[str, Llama | Any]
     """
+    # Get all the verbose parameters
+    verbose = Configuration["verbose"] if ("verbose" in Configuration) else False
+    mmprojVerbose = Configuration["mmproj_verbose"] if ("mmproj_verbose" in Configuration) else False
+
+    if (not isinstance(verbose, bool)):
+        raise AttributeError("[llama_utils] Invalid `verbose`.")
+
     # Get the model path (and mmproj if provided)
     if ("model_path" in Configuration):
         modelPath = None
@@ -372,17 +380,23 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         if (not isinstance(mmprojGPU, bool)):
             raise AttributeError("[llama_utils] Invalid `mmproj_use_gpu`.")
         
-        minImageTokens = Configuration["mmproj_min_img_tokens"] if ("mmproj_min_img_tokens" in Configuration) else -1
-        maxImageTokens = Configuration["mmproj_max_img_tokens"] if ("mmproj_max_img_tokens" in Configuration) else -1
+        minImageTokens = Configuration["mmproj_min_image_tokens"] if ("mmproj_min_image_tokens" in Configuration) else -1
+        maxImageTokens = Configuration["mmproj_max_image_tokens"] if ("mmproj_max_image_tokens" in Configuration) else -1
 
         if (not isinstance(minImageTokens, int)):
-            raise AttributeError("[llama_utils] Invalid `mmproj_min_img_tokens`.")
+            raise AttributeError("[llama_utils] Invalid `mmproj_min_image_tokens`.")
         
         if (not isinstance(maxImageTokens, int)):
-            raise AttributeError("[llama_utils] Invalid `mmproj_max_img_tokens`.")
+            raise AttributeError("[llama_utils] Invalid `mmproj_max_image_tokens`.")
         
         if (mmproj is not None and chatHandler is not None):
-            chatHandler = StringToChatHandler(chatHandler, mmproj, mmprojGPU, (minImageTokens, maxImageTokens))
+            chatHandler = StringToChatHandler(
+                chatHandler,
+                mmproj,
+                mmprojGPU,
+                (minImageTokens, maxImageTokens),
+                mmprojVerbose
+            )
         
         if (mmproj is not None and chatHandler is None):
             raise AttributeError("[llama_utils] `mmproj` requires a valid `chat_handler`.")
@@ -888,11 +902,11 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         "flash_attn": flashAttn,
         "swa_full": swaFull,
         "no_perf": False,
-        "verbose": False,
         "type_k": ftypeK,
         "type_v": ftypeV,
         "spm_infill": spmInfill,
-        "cache_type": cacheType
+        "cache_type": cacheType,
+        "verbose": verbose
     }
     modelParams = copy.deepcopy(modelParamsLCPP) | {
         "reasoning": {
@@ -939,7 +953,6 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
     modelParams.pop("flash_attn")
     modelParams.pop("swa_full")
     modelParams.pop("no_perf")
-    #modelParams.pop("chat_handler")
     modelParams.pop("verbose")
     modelParams.pop("spm_infill")
     modelParams.pop("cache_type")

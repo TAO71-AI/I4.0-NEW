@@ -48,7 +48,6 @@ async def __start_websockets_server__() -> None:
         logs.INFO,
         f"[server] WebSockets server listening at `{config.Configuration['server_listen']['ws_ip']}:{config.Configuration['server_listen']['ws_port']}`."
     )
-    await server.wait_closed()
 
 async def __on_ws_client_connected__(ClientWS: Any) -> None:
     client = server_utils.Client(ClientWS, ClientWS.remote_address)
@@ -180,15 +179,18 @@ if (__name__ == "__main__"):
 
     # TODO: Thread for model offloading
     
-    try:
-        StartServer()
-    except KeyboardInterrupt:
-        CloseServer()
+    StartServer()
+    interactiveMode = sys.argv.count("--interactive") > 0 or sys.argv.count("-it") > 0
 
-    #interactiveMode = sys.argv.count("--interactive") > 0 or sys.argv.count("-it") > 0
-
-    #while (True):
-    #    if (interactiveMode):
-    #        prompt = input(">$ ")
-    #    else:
-    #        time.sleep(0.1)
+    while (True):
+        try:
+            if (interactiveMode):
+                prompt = input(">$ ")
+                logs.WriteLog(logs.INFO, f"[server] (interactive mode) Wrote prompt '{prompt}'.")
+            else:
+                time.sleep(0.1)
+        except KeyboardInterrupt:
+            break
+    
+    print("", flush = True)
+    CloseServer()

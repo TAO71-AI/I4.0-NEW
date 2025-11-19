@@ -74,7 +74,7 @@ server_encryption:
   public_key_file: "server_public.pem"
   private_key_file: "server_private.pem"
   private_key_password: "changeme"
-server_transfer_rate: 8192  # in KB. Min 1, max 8192
+server_transfer_rate: 8192  # in KB. Min 1, max 8192 (~8 MB)
 server_listen:
   ws_enabled: true
   ws_ip: "0.0.0.0"
