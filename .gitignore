@@ -4,6 +4,7 @@ env/
 Server/config.yaml
 Server/config_*.yaml
 Server/Database/
+Server/TOS.md
 *.pem
 update.sh
 latest.txt

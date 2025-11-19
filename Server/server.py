@@ -54,6 +54,8 @@ async def __on_ws_client_connected__(ClientWS: Any) -> None:
     await __on_client_connected__(client)
 
 async def __on_client_connected__(Client: server_utils.Client) -> None:
+    global TOSContent
+
     async def send_items(Iterator: Iterator[str]) -> None:
         for item in Iterator:
             await Client.Send(item)
@@ -76,8 +78,9 @@ async def __on_client_connected__(Client: server_utils.Client) -> None:
             elif (message == "get_public_key"):
                 _, publicBytes = encryption.SaveKeys(None, None, "", PublicKey, None)
                 await Client.Send(publicBytes.decode("utf-8"))
+            elif (message == "get_tos"):
+                await Client.Send(TOSContent)
             elif (message == "close"):
-                await Client.Close()
                 break
             else:
                 with ThreadPoolExecutor() as executor:
@@ -86,7 +89,7 @@ async def __on_client_connected__(Client: server_utils.Client) -> None:
                 asyncio.create_task(send_items(iterator))
     except Exception as ex:
         logs.WriteLog(logs.ERROR, f"[server] Error while receiving from client ({ex}). The connection will be closed.")
-
+    finally:
         try:
             await Client.Close()
         except Exception as ex:
@@ -166,6 +169,13 @@ def CloseServer() -> None:
     services_manager.OffloadModels(list(config.Configuration["services"].keys()))
     
     exit(0)
+
+if (not os.path.exists(config.Configuration["server_tos_file"])):
+    with open(config.Configuration["server_tos_file"], "x") as f:
+        f.write("# TOS\n\nNo TOS for now.\n")
+
+with open(config.Configuration["server_tos_file"], "r") as f:
+    TOSContent = f.read()
 
 if (__name__ == "__main__"):
     if (os.path.exists("./latest.txt")):
