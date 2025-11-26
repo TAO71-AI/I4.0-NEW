@@ -338,36 +338,39 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         dict[str, Llama | Any]
     """
     # Get all the verbose parameters
-    verbose = Configuration["verbose"] if ("verbose" in Configuration) else False
-    mmprojVerbose = Configuration["mmproj_verbose"] if ("mmproj_verbose" in Configuration) else False
+    verbose = Configuration["_private_verbose"] if ("_private_verbose" in Configuration) else False
+    mmprojVerbose = Configuration["_private_mmproj_verbose"] if ("_private_mmproj_verbose" in Configuration) else False
 
     if (not isinstance(verbose, bool)):
-        raise AttributeError("[llama_utils] Invalid `verbose`.")
+        raise AttributeError("[llama_utils] Invalid `_private_verbose`.")
+    
+    if (not isinstance(mmprojVerbose, bool)):
+        raise AttributeError("[llama_utils] Invalid `_private_mmproj_verbose`.")
 
     # Get the model path (and mmproj if provided)
-    if ("model_path" in Configuration):
+    if ("_private_model_path" in Configuration):
         modelPath = None
         mmproj = None
         chatHandler = None
 
         logs.WriteLog(logs.INFO, "[llama_utils] Checking model path.")
 
-        if (isinstance(Configuration["model_path"], dict)):
-            if ("llm" in Configuration["model_path"]):
-                modelPath = Configuration["model_path"]["llm"]
-            elif ("base" in Configuration["model_path"]):
-                modelPath = Configuration["model_path"]["base"]
+        if (isinstance(Configuration["_private_model_path"], dict)):
+            if ("llm" in Configuration["_private_model_path"]):
+                modelPath = Configuration["_private_model_path"]["llm"]
+            elif ("base" in Configuration["_private_model_path"]):
+                modelPath = Configuration["_private_model_path"]["base"]
             
-            if ("mmproj" in Configuration["model_path"]):
-                mmproj = Configuration["model_path"]["mmproj"]
+            if ("mmproj" in Configuration["_private_model_path"]):
+                mmproj = Configuration["_private_model_path"]["mmproj"]
             
-            if ("chat_handler" in Configuration["model_path"]):
-                chatHandler = Configuration["model_path"]["chat_handler"]
-        elif (isinstance(Configuration["model_path"], str)):
-            modelPath = Configuration["model_path"]
+            if ("chat_handler" in Configuration["_private_model_path"]):
+                chatHandler = Configuration["_private_model_path"]["chat_handler"]
+        elif (isinstance(Configuration["_private_model_path"], str)):
+            modelPath = Configuration["_private_model_path"]
         
         if (not isinstance(modelPath, str)):
-            raise AttributeError("[llama_utils] Invalid `model_path`.")
+            raise AttributeError("[llama_utils] Invalid `_private_model_path`.")
         
         if (not isinstance(mmproj, str) and mmproj is not None):
             raise AttributeError("[llama_utils] Invalid `mmproj`.")
@@ -375,10 +378,10 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         if (not isinstance(chatHandler, str) and chatHandler is not None):
             raise AttributeError("[llama_utils] Invalid `chat_handler`.")
         
-        mmprojGPU = Configuration["mmproj_use_gpu"] if ("mmproj_use_gpu" in Configuration) else True
+        mmprojGPU = Configuration["_private_mmproj_use_gpu"] if ("_private_mmproj_use_gpu" in Configuration) else True
 
         if (not isinstance(mmprojGPU, bool)):
-            raise AttributeError("[llama_utils] Invalid `mmproj_use_gpu`.")
+            raise AttributeError("[llama_utils] Invalid `_private_mmproj_use_gpu`.")
         
         minImageTokens = Configuration["mmproj_min_image_tokens"] if ("mmproj_min_image_tokens" in Configuration) else -1
         maxImageTokens = Configuration["mmproj_max_image_tokens"] if ("mmproj_max_image_tokens" in Configuration) else -1
@@ -405,63 +408,63 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             chatHandler = None
             logs.WriteLog(logs.INFO, "[llama_utils] `chat_handler` will not be used because `mmproj` is None.")
     else:
-        raise AttributeError("[llama_utils] `model_path` must be in the configuration of the model.")
+        raise AttributeError("[llama_utils] `_private_model_path` must be in the configuration of the model.")
     
     # Get the GPU layers
-    if ("gpu_layers" in Configuration):
-        gpuLayers = Configuration["gpu_layers"]
+    if ("_private_gpu_layers" in Configuration):
+        gpuLayers = Configuration["_private_gpu_layers"]
 
         if (not isinstance(gpuLayers, int)):
-            raise AttributeError("[llama_utils] Invalid `gpu_layers`.")
+            raise AttributeError("[llama_utils] Invalid `_private_gpu_layers`.")
     else:
-        gpuLayers = 0
-        logs.WriteLog(logs.INFO, "[llama_utils] `gpu_layers` not defined. Set to 0.")
+        gpuLayers = -1
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_gpu_layers` not defined. Set to -1.")
     
     # Get the split_mode
-    if ("split_mode" in Configuration):
-        splitMode = Configuration["split_mode"]
+    if ("_private_split_mode" in Configuration):
+        splitMode = Configuration["_private_split_mode"]
 
         if (not isinstance(splitMode, str)):
-            raise AttributeError("[llama_utils] Invalid `split_mode`.")
+            raise AttributeError("[llama_utils] Invalid `_private_split_mode`.")
         
         splitMode = StringToSplitMode(splitMode)
 
         if (splitMode is None):
             splitMode = SPM_LAYER
-            logs.PrintLog(logs.WARNING, "[llama_utils] `split_mode` not found. Set to `layer`.")
+            logs.PrintLog(logs.WARNING, "[llama_utils] `_private_split_mode` not found. Set to `layer`.")
     else:
         splitMode = SPM_LAYER
-        logs.WriteLog(logs.INFO, "[llama_utils] `split_mode` not defined. Set to `layer`.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_split_mode` not defined. Set to `layer`.")
     
     # Get the main GPU
-    if ("main_gpu" in Configuration):
-        mainGPU = Configuration["main_gpu"]
+    if ("_private_main_gpu" in Configuration):
+        mainGPU = Configuration["_private_main_gpu"]
 
         if (not isinstance(mainGPU, int)):
-            raise AttributeError("[llama_utils] Invalid `main_gpu`.")
+            raise AttributeError("[llama_utils] Invalid `_private_main_gpu`.")
     else:
         mainGPU = 0
-        logs.WriteLog(logs.INFO, "[llama_utils] `main_gpu` not defined. Set to 0.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_main_gpu` not defined. Set to 0.")
     
     # Get mmap
-    if ("use_mmap" in Configuration):
-        mmap = Configuration["use_mmap"]
+    if ("_private_use_mmap" in Configuration):
+        mmap = Configuration["_private_use_mmap"]
 
         if (not isinstance(mmap, bool)):
-            raise AttributeError("[llama_utils] Invalid `use_mmap`.")
+            raise AttributeError("[llama_utils] Invalid `_private_use_mmap`.")
     else:
         mmap = True
-        logs.WriteLog(logs.INFO, "[llama_utils] `use_mmap` not defined. Set to True.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_use_mmap` not defined. Set to True.")
     
     # Get mlock
-    if ("use_mlock" in Configuration):
-        mlock = Configuration["use_mlock"]
+    if ("_private_use_mlock" in Configuration):
+        mlock = Configuration["_private_use_mlock"]
 
         if (not isinstance(mlock, bool)):
-            raise AttributeError("[llama_utils] Invalid `use_mlock`.")
+            raise AttributeError("[llama_utils] Invalid `_private_use_mlock`.")
     else:
         mlock = False
-        logs.WriteLog(logs.INFO, "[llama_utils] `use_mlock` not defined. Set to False.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_use_mlock` not defined. Set to False.")
     
     # Get ctx
     if ("ctx" in Configuration):
@@ -474,186 +477,186 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         logs.WriteLog(logs.INFO, "[llama_utils] `ctx` not defined. Set to 2048.")
     
     # Get batch
-    if ("batch" in Configuration):
-        batch = Configuration["batch"]
+    if ("_private_batch" in Configuration):
+        batch = Configuration["_private_batch"]
 
         if (not isinstance(batch, int)):
-            raise AttributeError("[llama_utils] Invalid `batch`.")
+            raise AttributeError("[llama_utils] Invalid `_private_batch`.")
     else:
         batch = 512
-        logs.WriteLog(logs.INFO, "[llama_utils] `batch` not defined. Set to 512.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_batch` not defined. Set to 512.")
     
     # Get ubatch
-    if ("ubatch" in Configuration):
-        ubatch = Configuration["ubatch"]
+    if ("_private_ubatch" in Configuration):
+        ubatch = Configuration["_private_ubatch"]
 
         if (not isinstance(ubatch, int)):
-            raise AttributeError("[llama_utils] Invalid `ubatch`.")
+            raise AttributeError("[llama_utils] Invalid `_private_ubatch`.")
     else:
         ubatch = 512
-        logs.WriteLog(logs.INFO, "[llama_utils] `ubatch` not defined. Set to 512.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_ubatch` not defined. Set to 512.")
     
     # Get threads
-    if ("threads" in Configuration):
-        threads = Configuration["threads"]
+    if ("_private_threads" in Configuration):
+        threads = Configuration["_private_threads"]
 
         if (not isinstance(threads, int) and threads is not None):
-            raise AttributeError("[llama_utils] Invalid `threads`.")
+            raise AttributeError("[llama_utils] Invalid `_private_threads`.")
     else:
         threads = None
-        logs.WriteLog(logs.INFO, "[llama_utils] `threads` not defined. Set to None.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_threads` not defined. Set to None.")
     
     # Get batch_threads
-    if ("batch_threads" in Configuration):
-        batchThreads = Configuration["batch_threads"]
+    if ("_private_batch_threads" in Configuration):
+        batchThreads = Configuration["_private_batch_threads"]
 
         if (not isinstance(batchThreads, int) and batchThreads is not None):
-            raise AttributeError("[llama_utils] Invalid `batch_threads`.")
+            raise AttributeError("[llama_utils] Invalid `_private_batch_threads`.")
     else:
         batchThreads = None
-        logs.WriteLog(logs.INFO, "[llama_utils] `batch_threads` not defined. Set to None.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_batch_threads` not defined. Set to None.")
     
     # Get rope_scaling_type
-    if ("rope_scaling_type" in Configuration):
-        ropeScalingType = Configuration["rope_scaling_type"]
+    if ("_private_rope_scaling_type" in Configuration):
+        ropeScalingType = Configuration["_private_rope_scaling_type"]
 
         if (not isinstance(ropeScalingType, str)):
-            raise AttributeError("[llama_utils] Invalid `rope_scaling_type`.")
+            raise AttributeError("[llama_utils] Invalid `_private_rope_scaling_type`.")
         
         ropeScalingType = StringToRopeScalingType(ropeScalingType)
 
         if (ropeScalingType is None):
             ropeScalingType = llama_rope_scaling_type.LLAMA_ROPE_SCALING_TYPE_UNSPECIFIED
-            logs.PrintLog(logs.WARNING, "[llama_utils] `rope_scaling_type` not found. Set to `unspecified`.")
+            logs.PrintLog(logs.WARNING, "[llama_utils] `_private_rope_scaling_type` not found. Set to `unspecified`.")
     else:
         ropeScalingType = llama_rope_scaling_type.LLAMA_ROPE_SCALING_TYPE_UNSPECIFIED
-        logs.WriteLog(logs.INFO, "[llama_utils] `rope_scaling_type` not defined. Set to `unspecified`.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_rope_scaling_type` not defined. Set to `unspecified`.")
     
     # Get rope_freq_base
-    if ("rope_freq_base" in Configuration):
-        ropeFreqBase = Configuration["rope_freq_base"]
+    if ("_private_rope_freq_base" in Configuration):
+        ropeFreqBase = Configuration["_private_rope_freq_base"]
 
         if (not isinstance(ropeFreqBase, int) and not isinstance(ropeFreqBase, float)):
-            raise AttributeError("[llama_utils] Invalid `rope_freq_base`.")
+            raise AttributeError("[llama_utils] Invalid `_private_rope_freq_base`.")
     else:
         ropeFreqBase = 0
-        logs.WriteLog(logs.INFO, "[llama_utils] `rope_freq_base` not defined. Set to 0.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_rope_freq_base` not defined. Set to 0.")
     
     # Get rope_freq_scale
-    if ("rope_freq_scale" in Configuration):
-        ropeFreqScale = Configuration["rope_freq_scale"]
+    if ("_private_rope_freq_scale" in Configuration):
+        ropeFreqScale = Configuration["_private_rope_freq_scale"]
 
         if (not isinstance(ropeFreqScale, int) and not isinstance(ropeFreqScale, float)):
-            raise AttributeError("[llama_utils] Invalid `rope_freq_scale`.")
+            raise AttributeError("[llama_utils] Invalid `_private_rope_freq_scale`.")
     else:
         ropeFreqScale = 0
-        logs.WriteLog(logs.INFO, "[llama_utils] `rope_freq_scale` not defined. Set to 0.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_rope_freq_scale` not defined. Set to 0.")
     
     # Get yarn_ext_factor
-    if ("yarn_ext_factor" in Configuration):
-        yarnExtFactor = Configuration["yarn_ext_factor"]
+    if ("_private_yarn_ext_factor" in Configuration):
+        yarnExtFactor = Configuration["_private_yarn_ext_factor"]
 
         if (not isinstance(yarnExtFactor, int) and not isinstance(yarnExtFactor, float)):
-            raise AttributeError("[llama_utils] Invalid `yarn_ext_factor`.")
+            raise AttributeError("[llama_utils] Invalid `_private_yarn_ext_factor`.")
     else:
         yarnExtFactor = -1
-        logs.WriteLog(logs.INFO, "[llama_utils] `yarn_ext_factor` not defined. Set to -1.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_yarn_ext_factor` not defined. Set to -1.")
     
     # Get yarn_attn_factor
-    if ("yarn_attn_factor" in Configuration):
-        yarnAttnFactor = Configuration["yarn_attn_factor"]
+    if ("_private_yarn_attn_factor" in Configuration):
+        yarnAttnFactor = Configuration["_private_yarn_attn_factor"]
 
         if (not isinstance(yarnAttnFactor, int) and not isinstance(yarnAttnFactor, float)):
-            raise AttributeError("[llama_utils] Invalid `yarn_attn_factor`.")
+            raise AttributeError("[llama_utils] Invalid `_private_yarn_attn_factor`.")
     else:
         yarnAttnFactor = 1
-        logs.WriteLog(logs.INFO, "[llama_utils] `yarn_attn_factor` not defined. Set to 1.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_yarn_attn_factor` not defined. Set to 1.")
     
     # Get yarn_beta_fast
-    if ("yarn_beta_fast" in Configuration):
-        yarnBetaFast = Configuration["yarn_beta_fast"]
+    if ("_private_yarn_beta_fast" in Configuration):
+        yarnBetaFast = Configuration["_private_yarn_beta_fast"]
 
         if (not isinstance(yarnBetaFast, int) and not isinstance(yarnBetaFast, float)):
-            raise AttributeError("[llama_utils] Invalid `yarn_beta_fast`.")
+            raise AttributeError("[llama_utils] Invalid `_private_yarn_beta_fast`.")
     else:
         yarnBetaFast = 32
-        logs.WriteLog(logs.INFO, "[llama_utils] `yarn_beta_fast` not defined. Set to 32.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_yarn_beta_fast` not defined. Set to 32.")
     
     # Get yarn_beta_slow
-    if ("yarn_beta_slow" in Configuration):
-        yarnBetaSlow = Configuration["yarn_beta_slow"]
+    if ("_private_yarn_beta_slow" in Configuration):
+        yarnBetaSlow = Configuration["_private_yarn_beta_slow"]
 
         if (not isinstance(yarnBetaSlow, int) and not isinstance(yarnBetaSlow, float)):
-            raise AttributeError("[llama_utils] Invalid `yarn_beta_slow`.")
+            raise AttributeError("[llama_utils] Invalid `_private_yarn_beta_slow`.")
     else:
         yarnBetaSlow = 1
-        logs.WriteLog(logs.INFO, "[llama_utils] `yarn_beta_slow` not defined. Set to 1.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_yarn_beta_slow` not defined. Set to 1.")
     
     # Get yarn_orig_ctx
-    if ("yarn_orig_ctx" in Configuration):
-        yarnOrigCtx = Configuration["yarn_orig_ctx"]
+    if ("_private_yarn_orig_ctx" in Configuration):
+        yarnOrigCtx = Configuration["_private_yarn_orig_ctx"]
 
         if (not isinstance(yarnOrigCtx, int)):
-            raise AttributeError("[llama_utils] Invalid `yarn_orig_ctx`.")
+            raise AttributeError("[llama_utils] Invalid `_private_yarn_orig_ctx`.")
     else:
         yarnOrigCtx = 0
-        logs.WriteLog(logs.INFO, "[llama_utils] `yarn_orig_ctx` not defined. Set to 0.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_yarn_orig_ctx` not defined. Set to 0.")
     
     # Get pooling_type
-    if ("pooling_type" in Configuration):
-        poolingType = Configuration["pooling_type"]
+    if ("_private_pooling_type" in Configuration):
+        poolingType = Configuration["_private_pooling_type"]
 
         if (not isinstance(poolingType, str)):
-            raise AttributeError("[llama_utils] Invalid `pooling_type`.")
+            raise AttributeError("[llama_utils] Invalid `_private_pooling_type`.")
         
         poolingType = StringToPoolingType(poolingType)
 
         if (poolingType is None):
             poolingType = POOLING_UNSPECIFIED
-            logs.PrintLog(logs.WARNING, "[llama_utils] `pooling_type` not found. Set to `unspecified`.")
+            logs.PrintLog(logs.WARNING, "[llama_utils] `_private_pooling_type` not found. Set to `unspecified`.")
     else:
         poolingType = POOLING_UNSPECIFIED
-        logs.WriteLog(logs.INFO, "[llama_utils] `pooling_type` not defined. Set to `unspecified`.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_pooling_type` not defined. Set to `unspecified`.")
     
     # Get offload_kqv
-    if ("offload_kqv" in Configuration):
-        offloadKqv = Configuration["offload_kqv"]
+    if ("_private_offload_kqv" in Configuration):
+        offloadKqv = Configuration["_private_offload_kqv"]
 
         if (not isinstance(offloadKqv, bool)):
-            raise AttributeError("[llama_utils] Invalid `offload_kqv`.")
+            raise AttributeError("[llama_utils] Invalid `_private_offload_kqv`.")
     else:
         offloadKqv = True
-        logs.WriteLog(logs.INFO, "[llama_utils] `offload_kqv` not defined. Set to True.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_offload_kqv` not defined. Set to True.")
     
     # Get offload_op
-    if ("offload_op" in Configuration):
-        offloadOp = Configuration["offload_op"]
+    if ("_private_offload_op" in Configuration):
+        offloadOp = Configuration["_private_offload_op"]
 
         if (not isinstance(offloadOp, bool) and offloadOp is not None):
-            raise AttributeError("[llama_utils] Invalid `offload_op`.")
+            raise AttributeError("[llama_utils] Invalid `_private_offload_op`.")
     else:
         offloadOp = None
-        logs.WriteLog(logs.INFO, "[llama_utils] `offload_op` not defined. Set to None.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_offload_op` not defined. Set to None.")
     
     # Get flash_attn
-    if ("flash_attn" in Configuration):
-        flashAttn = Configuration["flash_attn"]
+    if ("_private_flash_attn" in Configuration):
+        flashAttn = Configuration["_private_flash_attn"]
 
         if (not isinstance(flashAttn, bool)):
-            raise AttributeError("[llama_utils] Invalid `flash_attn`.")
+            raise AttributeError("[llama_utils] Invalid `_private_flash_attn`.")
     else:
         flashAttn = False
-        logs.WriteLog(logs.INFO, "[llama_utils] `flash_attn` not defined. Set to False.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_flash_attn` not defined. Set to False.")
     
     # Get swa_full
-    if ("swa_full" in Configuration):
-        swaFull = Configuration["swa_full"]
+    if ("_private_swa_full" in Configuration):
+        swaFull = Configuration["_private_swa_full"]
 
         if (not isinstance(swaFull, bool) and swaFull is not None):
-            raise AttributeError("[llama_utils] Invalid `swa_full`.")
+            raise AttributeError("[llama_utils] Invalid `_private_swa_full`.")
     else:
         swaFull = None
-        logs.WriteLog(logs.INFO, "[llama_utils] `swa_full` not defined. Set to None.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_swa_full` not defined. Set to None.")
     
     # Set ftype_k
     if ("ftype_k" in Configuration):
@@ -700,30 +703,30 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         logs.WriteLog(logs.INFO, "[llama_utils] `ftype_v` not defined. Set to None.")
     
     # Set spm_infill
-    if ("spm_infill" in Configuration):
-        spmInfill = Configuration["spm_infill"]
+    if ("_private_spm_infill" in Configuration):
+        spmInfill = Configuration["_private_spm_infill"]
 
         if (not isinstance(spmInfill, bool)):
-            raise AttributeError("[llama_utils] Invalid `spm_infill`.")
+            raise AttributeError("[llama_utils] Invalid `_private_spm_infill`.")
     else:
         spmInfill = False
-        logs.WriteLog(logs.INFO, "[llama_utils] `spm_infill` not defined. Set to False.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_spm_infill` not defined. Set to False.")
     
     # Set cache_type
-    if ("cache_type" in Configuration):
-        cacheType = Configuration["cache_type"]
+    if ("_private_cache_type" in Configuration):
+        cacheType = Configuration["_private_cache_type"]
 
         if (cacheType is not None):
             if (not isinstance(cacheType, str)):
-                raise AttributeError("[llama_utils] Invalid `cache_type`.")
+                raise AttributeError("[llama_utils] Invalid `_private_cache_type`.")
             
             cacheType = StringToCacheType(cacheType)
 
             if (cacheType is None):
-                logs.PrintLog(logs.WARNING, "[llama_utils] `cache_type` not found. Set to None.")
+                logs.PrintLog(logs.WARNING, "[llama_utils] `_private_cache_type` not found. Set to None.")
     else:
         cacheType = None
-        logs.WriteLog(logs.INFO, "[llama_utils] `cache_type` not defined. Set to None.")
+        logs.WriteLog(logs.INFO, "[llama_utils] `_private_cache_type` not defined. Set to None.")
     
     # Set reasoning configuration
     if ("reasoning" in Configuration):
@@ -743,12 +746,12 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         if ("levels" in reasoningConfiguration):
             reasoningLevels = reasoningConfiguration["levels"]
 
-        if ("auto" in reasoningConfiguration):
-            if ("classifier" in reasoningConfiguration["auto"]):
-                autoReasoningClassifier = reasoningConfiguration["auto"]["classifier"]
+        if ("_private_auto" in reasoningConfiguration):
+            if ("classifier" in reasoningConfiguration["_private_auto"]):
+                autoReasoningClassifier = reasoningConfiguration["_private_auto"]["classifier"]
             
-            if ("convert" in reasoningConfiguration["auto"]):
-                autoReasoningConvert = reasoningConfiguration["auto"]["convert"]
+            if ("convert" in reasoningConfiguration["_private_auto"]):
+                autoReasoningConvert = reasoningConfiguration["_private_auto"]["convert"]
         
         if ("default_mode" in reasoningConfiguration):
             defaultMode = reasoningConfiguration["default_mode"]
@@ -779,36 +782,36 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         else:
             logs.WriteLog(logs.INFO, f"[llama_utils] Reasoning end token not detected in config. Using default `{reasoningEndToken}`.")
         
-        if ("parameters" in reasoningConfiguration):
-            reasoningParameters = reasoningConfiguration["parameters"]
+        if ("_private_parameters" in reasoningConfiguration):
+            reasoningParameters = reasoningConfiguration["_private_parameters"]
         
-        if ("user_prompt" in reasoningConfiguration):
-            if ("position" in reasoningConfiguration["user_prompt"]):
-                reasoningUserPrompt["position"] = reasoningConfiguration["user_prompt"]["position"]
+        if ("_private_user_prompt" in reasoningConfiguration):
+            if ("position" in reasoningConfiguration["_private_user_prompt"]):
+                reasoningUserPrompt["position"] = reasoningConfiguration["_private_user_prompt"]["position"]
             else:
                 logs.PrintLog(logs.INFO, f"[llama_utils] Position not set at user prompt (reasoning). Using default `{reasoningUserPrompt['position']}`.")
             
-            if ("separator" in reasoningConfiguration["user_prompt"]):
-                reasoningUserPrompt["separator"] = reasoningConfiguration["user_prompt"]["separator"]
+            if ("separator" in reasoningConfiguration["_private_user_prompt"]):
+                reasoningUserPrompt["separator"] = reasoningConfiguration["_private_user_prompt"]["separator"]
             else:
                 logs.PrintLog(logs.INFO, f"[llama_utils] Separator not set at user prompt (reasoning). Using default `{reasoningUserPrompt['separator']}`.")
             
-            if ("levels" in reasoningConfiguration["user_prompt"]):
-                reasoningUserPrompt["levels"] = reasoningConfiguration["user_prompt"]["levels"]
+            if ("levels" in reasoningConfiguration["_private_user_prompt"]):
+                reasoningUserPrompt["levels"] = reasoningConfiguration["_private_user_prompt"]["levels"]
             
-        if ("system_prompt" in reasoningConfiguration):
-            if ("position" in reasoningConfiguration["system_prompt"]):
-                reasoningSystemPrompt["position"] = reasoningConfiguration["system_prompt"]["position"]
+        if ("_private_system_prompt" in reasoningConfiguration):
+            if ("position" in reasoningConfiguration["_private_system_prompt"]):
+                reasoningSystemPrompt["position"] = reasoningConfiguration["_private_system_prompt"]["position"]
             else:
                 logs.PrintLog(logs.INFO, f"[llama_utils] Position not set at system prompt (reasoning). Using default `{reasoningSystemPrompt['position']}`.")
             
-            if ("separator" in reasoningConfiguration["system_prompt"]):
-                reasoningSystemPrompt["separator"] = reasoningConfiguration["system_prompt"]["separator"]
+            if ("separator" in reasoningConfiguration["_private_system_prompt"]):
+                reasoningSystemPrompt["separator"] = reasoningConfiguration["_private_system_prompt"]["separator"]
             else:
                 logs.PrintLog(logs.INFO, f"[llama_utils] Separator not set at system prompt (reasoning). Using default `{reasoningSystemPrompt['separator']}`.")
             
-            if ("levels" in reasoningConfiguration["system_prompt"]):
-                reasoningSystemPrompt["levels"] = reasoningConfiguration["system_prompt"]["levels"]
+            if ("levels" in reasoningConfiguration["_private_system_prompt"]):
+                reasoningSystemPrompt["levels"] = reasoningConfiguration["_private_system_prompt"]["levels"]
         
         reasoning = {
             "auto": {
@@ -906,56 +909,9 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         "type_v": ftypeV,
         "spm_infill": spmInfill,
         "cache_type": cacheType,
+        "chat_handler": chatHandler,
         "verbose": verbose
     }
-    modelParams = copy.deepcopy(modelParamsLCPP) | {
-        "reasoning": {
-            "_private_auto": reasoning["auto"],
-            "levels": reasoning["levels"],
-            "default_mode": reasoning["default_mode"],
-            "non_reasoning_level": reasoning["non_reasoning_level"],
-            "default_reasoning_level": reasoning["default_reasoning_level"],
-            "start_token": reasoning["start_token"],
-            "end_token": reasoning["end_token"],
-            "_private_parameters": reasoning["parameters"],
-            "_private_user_prompt": reasoning["user_prompt"],
-            "_private_system_prompt": reasoning["system_prompt"]
-        },
-        "multimodal": multimodal
-    }
-
-    modelParamsLCPP["chat_handler"] = chatHandler
-
-    # Remove parameters for the user
-    modelParams.pop("model_path")
-    modelParams.pop("n_gpu_layers")
-    modelParams.pop("split_mode")
-    modelParams.pop("main_gpu")
-    modelParams.pop("vocab_only")
-    modelParams.pop("use_mmap")
-    modelParams.pop("use_mlock")
-    modelParams.pop("n_batch")
-    modelParams.pop("n_ubatch")
-    modelParams.pop("n_threads")
-    modelParams.pop("n_threads_batch")
-    modelParams.pop("rope_scaling_type")
-    modelParams.pop("rope_freq_base")
-    modelParams.pop("rope_freq_scale")
-    modelParams.pop("yarn_ext_factor")
-    modelParams.pop("yarn_attn_factor")
-    modelParams.pop("yarn_beta_fast")
-    modelParams.pop("yarn_beta_slow")
-    modelParams.pop("yarn_orig_ctx")
-    modelParams.pop("pooling_type")
-    modelParams.pop("logits_all")
-    modelParams.pop("offload_kqv")
-    modelParams.pop("op_offload")
-    modelParams.pop("flash_attn")
-    modelParams.pop("swa_full")
-    modelParams.pop("no_perf")
-    modelParams.pop("verbose")
-    modelParams.pop("spm_infill")
-    modelParams.pop("cache_type")
 
     # Load the model
     logs.WriteLog(logs.INFO, "[llama_utils] Loading model...")
@@ -970,5 +926,6 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
     logs.WriteLog(logs.INFO, f"[llama_utils] Model loaded in {loadingTime} seconds.")
     return {
         "_private_model": model,
-        "_private_type": "lcpp"
-    } | copy.deepcopy(modelParams)
+        "_private_type": "lcpp",
+        "reasoning": reasoning
+    }

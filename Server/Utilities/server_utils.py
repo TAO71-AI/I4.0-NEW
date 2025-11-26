@@ -38,10 +38,12 @@ class Client():
         message = ""
 
         while (True):
-            result = self.__receive__()
+            result = await self.__receive__()
 
             if (result == "--END--"):
                 break
+
+            message += result
         
         return message
 
@@ -50,9 +52,9 @@ class Client():
         chunks = [Message[i:i + self.TransferRate] for i in range(0, len(Message), self.TransferRate)]
 
         for chunk in chunks:
-            self.__send__(chunk)
+            await self.__send__(chunk)
         
-        self.__send__("--END--")
+        await self.__send__("--END--")
 
     async def Close(self) -> None:
         if (isinstance(self.__socket__, WS_ServerConnection)):

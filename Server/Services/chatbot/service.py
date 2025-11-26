@@ -1,11 +1,10 @@
 # Import libraries
 from typing import Any
-from collections.abc import Iterator
+from collections.abc import Generator
 import base64
 import json
 import copy
 import datetime
-import services_manager as services
 import Services.chatbot.llama_utils as utils_llama
 import Services.chatbot.system_prompt as system_prompt
 import Utilities.logs as logs
@@ -70,7 +69,7 @@ def SERVICE_OFFLOAD_MODELS(Names: list[str]) -> None:
         
         __models__[name]["_private_model"] = None
 
-def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dict[str, Any]) -> Iterator[dict[str, Any]]:
+def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dict[str, Any]) -> Generator[dict[str, Any]]:
     """
     Inference the chatbot model.
 
@@ -204,10 +203,10 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
     elif ("max_length" in __models__[Name]):
         maxLength = __models__[Name]["max_length"]
     else:
-        maxLength = ServiceConfiguration["max_length"]
+        maxLength = ServiceConfiguration["max_length"]["default"]
     
-    if (maxLength > ServiceConfiguration["max_length"] and not ServiceConfiguration["max_length"]["allow_greater_than_default"]):
-        maxLength = ServiceConfiguration["max_length"]
+    if (maxLength > ServiceConfiguration["max_length"]["default"] and not ServiceConfiguration["max_length"]["allow_greater_than_default"]):
+        maxLength = ServiceConfiguration["max_length"]["default"]
     
     if ("extra_system_prompt" in UserPrompt["parameters"] and ServiceConfiguration["extra_system_prompt"]["modified_by_user"]):
         esp = UserPrompt["parameters"]["extra_system_prompt"]
@@ -247,8 +246,8 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
             yield {"warnings": [f"Invalid model predefined system prompt `{pspName}` type. Ignoring."]}
             continue
     
-    if ("extra_parameters" in __models__[Name]):
-        extraParameters = __models__[Name]["extra_parameters"]
+    if ("_private_extra_parameters" in __models__[Name]):
+        extraParameters = __models__[Name]["_private_extra_parameters"]
     else:
         extraParameters = {}
     
@@ -268,7 +267,10 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
     else:
         raise ValueError("Invalid reasoning mode or level.")
     
-    if (reasoningLevel in __models__[Name]["reasoning"]["_private_parameters"]):
+    if (
+        "_private_parameters" in __models__[Name]["reasoning"] and
+        reasoningLevel in __models__[Name]["reasoning"]["_private_parameters"]
+    ):
         extraParameters |= __models__[Name]["reasoning"]["_private_parameters"][reasoningLevel]
     
     return InferenceModel(
@@ -295,7 +297,7 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
         }
     )
 
-def InferenceModel(Name: str, Conversation: conv.Conversation, Configuration: dict[str, Any]) -> Iterator[dict[str, Any]]:
+def InferenceModel(Name: str, Conversation: conv.Conversation, Configuration: dict[str, Any]) -> Generator[dict[str, Any]]:
     """
     Inference the model.
 
@@ -347,12 +349,9 @@ def InferenceModel(Name: str, Conversation: conv.Conversation, Configuration: di
         else:
             systemPrompt += __models__[Name]["reasoning"]["_private_system_prompt"]["separator"] + __models__[Name]["reasoning"]["_private_system_prompt"]["levels"][Configuration["reasoning"]]
 
-    modelConversation.append(conv.Message(conv.ROLE_SYSTEM, systemPrompt).GetMessageContent())
+    modelConversation.append(conv.Message(conv.ROLE_CUSTOM, systemPrompt, CustomRole = "system").GetMessageContent())
     
     for message in conversation:
-        if (message.GetRole() == conv.ROLE_SYSTEM):
-            continue
-
         content = message.GetMessageContent()
 
         if (message.GetRole() == conv.ROLE_USER and conversation.index(message) == len(conversation) - 1):
@@ -520,12 +519,13 @@ def InferenceModel(Name: str, Conversation: conv.Conversation, Configuration: di
 
                         inputText = inputText.strip()
                         inputText = inputText[:trimResponseLength]
+                        inputText = f"<tool_response>\n{inputText}\n</tool_response>"
 
                         Conversation.AppendMessage(conv.Message(
-                            conv.ROLE_TOOL,
+                            conv.ROLE_CUSTOM,
                             inputText,
                             {},
-                            None
+                            "tool"
                         ))
                         Conversation.AppendMessage(conv.Message(
                             conv.ROLE_USER,
@@ -578,12 +578,7 @@ def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
     logs.WriteLog(logs.INFO, "[service_chatbot] Loading model.")
 
     # Get the model type
-    if ("type" in Configuration):
-        modelType = Configuration["type"]
-        
-        Configuration["_private_type"] = Configuration["type"]
-        Configuration.pop("type")
-    elif ("_private_type" in Configuration):
+    if ("_private_type" in Configuration):
         modelType = Configuration["_private_type"]
     else:
         modelType = None

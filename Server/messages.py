@@ -1,12 +1,11 @@
+from typing import Self
 import base64
 import copy
 import Utilities.logs as logs
 
 ROLE_USER: int = 0
 ROLE_ASSISTANT: int = 1
-ROLE_SYSTEM: int = 2
-ROLE_TOOL: int = 3
-ROLE_CUSTOM: int = 4
+ROLE_CUSTOM: int = 2
 
 class Message():
     def __init__(self, Role: int, Text: str | None = None, Files: list[dict[str, str | bytes]] | None = None, CustomRole: str | None = None) -> None:
@@ -75,7 +74,7 @@ class Message():
         logs.WriteLog(logs.INFO, "[messages] Getting text of a message.")
         return self.__text__
 
-    def GetRole(self) -> int:
+    def GetRole(self) -> int | str | None:
         """
         Get the role of the message.
 
@@ -83,7 +82,7 @@ class Message():
             int
         """
         logs.WriteLog(logs.INFO, "[messages] Getting role of a message.")
-        return self.__role__
+        return self.__role__ if (self.__role__ != ROLE_CUSTOM) else self.__custom_role__
     
     def GetMessageContent(self) -> dict[str, str | list[dict[str, str]]]:
         """
@@ -113,10 +112,6 @@ class Message():
             msg["role"] = "user"
         elif (self.__role__ == ROLE_ASSISTANT):
             msg["role"] = "assistant"
-        elif (self.__role__ == ROLE_SYSTEM):
-            msg["role"] = "system"
-        elif (self.__role__ == ROLE_TOOL):
-            msg["role"] = "tool"
         elif (self.__role__ == ROLE_CUSTOM):
             msg["role"] = self.__custom_role__ if (self.__custom_role__ is not None) else "other"
         else:
@@ -250,15 +245,34 @@ class Conversation():
         Returns:
             None
         """
+        if (not self.ExistsInDB()):
+            raise FileNotFoundError("Conversation doesn't exist in database. Unable to download.")
+
         pass  # TODO
 
+    def DeleteFromDB(self) -> None:
+        if (not self.ExistsInDB()):
+            return
+        
+        pass  # TODO
+
+    def ExistsInDB(self) -> bool:
+        """
+        Checks if the conversation exists in the database.
+
+        Returns:
+            bool
+        """
+        return False  # TODO
+
     @staticmethod
-    def CreateConversationFromDB(Name: str, CreateIfNotExists: bool = False) -> "Conversation":
+    def CreateConversationFromDB(Name: str, CreateIfNotExists: bool = False) -> Self:
         """
         Create a conversation by downloading it from the database.
 
         Args:
             Name (str): Name of the conversation in the server.
+            CreateIfNotExists (bool): Create the conversation if it doesn't exists in the database.
         
         Returns:
             Conversation
@@ -267,7 +281,7 @@ class Conversation():
         
         try:
             conv.DownloadFromDB()
-        except Exception as ex:
+        except FileNotFoundError as ex:
             if (not CreateIfNotExists):
                 raise ex
 

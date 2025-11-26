@@ -7,7 +7,7 @@ import base64
 import os
 import Utilities.logs as logs
 
-def ParseHash(HashName: str) -> hashes.HashAlgorithm:
+def ParseHash(HashName: str) -> hashes.HashAlgorithm | None:
     if (HashName == "sha224"):
         return hashes.SHA224()
     elif (HashName == "sha256"):
@@ -18,6 +18,8 @@ def ParseHash(HashName: str) -> hashes.HashAlgorithm:
         return hashes.SHA512()
     elif (HashName == "sha1"):
         return hashes.SHA1()
+    elif (HashName == "none"):
+        return None
     
     raise ValueError("Invalid hash name.")
 
@@ -92,7 +94,10 @@ def LoadKeys(
 
     return (privateKey, publicKey)
 
-def Encrypt(Hash: hashes.HashAlgorithm, PublicKey: rsa.RSAPublicKey, Data: str | bytes) -> str | bytes:
+def Encrypt(Hash: hashes.HashAlgorithm | None, PublicKey: rsa.RSAPublicKey, Data: str | bytes) -> str | bytes:
+    if (Hash is None):
+        return Data
+    
     if (isinstance(Data, bytes)):
         returnAsBytes = True
         data = Data
@@ -128,7 +133,7 @@ def Encrypt(Hash: hashes.HashAlgorithm, PublicKey: rsa.RSAPublicKey, Data: str |
     
     return result.decode("utf-8")
 
-def Decrypt(Hash: hashes.HashAlgorithm, PrivateKey: rsa.RSAPrivateKey, Data: str | bytes, MaxThreads: int) -> str | bytes:
+def Decrypt(Hash: hashes.HashAlgorithm | None, PrivateKey: rsa.RSAPrivateKey, Data: str | bytes, MaxThreads: int) -> str | bytes:
     def _decrypt(Key: bytes, Nonce: bytes, Idx: int, Chunk: bytes, ChunkSize: int) -> tuple[int, bytes]:
         nonceInt = int.from_bytes(Nonce, "big")
         blocksPerChunks = ChunkSize // 16
@@ -139,6 +144,9 @@ def Decrypt(Hash: hashes.HashAlgorithm, PrivateKey: rsa.RSAPrivateKey, Data: str
         decryptor = cipher.decryptor()
 
         return (Idx, decryptor.update(Chunk) + decryptor.finalize())
+    
+    if (Hash is None):
+        return Data
 
     if (isinstance(Data, bytes)):
         returnAsBytes = True

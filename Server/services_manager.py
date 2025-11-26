@@ -1,5 +1,5 @@
 from typing import Any
-from collections.abc import Iterator
+from collections.abc import Generator
 from io import BytesIO
 from pydub import AudioSegment
 import os
@@ -308,26 +308,27 @@ def FindServiceForModel(ModelName: str, ReturnServiceName: bool = False) -> Serv
 
 def GetModelConfiguration(ModelName: str) -> dict[str, Any]:
     def get_private_conf(D: dict[str, Any]) -> dict[str, Any]:
-        conf = copy.deepcopy(D)
+        conf = {}
 
-        for configParamName, configParamValue in conf.items():
+        for configParamName, configParamValue in D.items():
             if (
                 configParamName.startswith("_") or
                 configParamName.startswith(".") or
                 configParamName.startswith("_priv_") or
                 configParamName.startswith("_private_")
             ):
-                conf.pop(configParamName)
                 continue
 
             if (isinstance(configParamValue, dict)):
                 conf[configParamName] = get_private_conf(configParamValue)
                 continue
+
+            conf[configParamName] = D[configParamName]
         
-        return conf
+        return copy.deepcopy(conf)
 
     global ServicesModels
-    return get_private_conf(ServicesModels[FindServiceForModel(ModelName)][ModelName])
+    return get_private_conf(ServicesModels[FindServiceForModel(ModelName, True)][ModelName])
 
 def OffloadModels(Names: list[str]) -> None:
     global ServicesModules, ServicesModels
@@ -344,7 +345,7 @@ def InferenceModel(
     ModelName: str,
     Prompt: dict[str, str | list[dict[str, str]] | dict[str, Any]],
     UserParameters: dict[str, Any]
-) -> Iterator[dict[str, Any]]:
+) -> Generator[dict[str, Any]]:
     global ServicesModules, ServicesModels
 
     if (
@@ -353,11 +354,12 @@ def InferenceModel(
     ):
         raise ValueError("Required user parameters not defined.")
     
-    if (ModelName not in ServicesModels or ModelName not in ServicesModules):
+    serviceName = FindServiceForModel(ModelName, True)
+    
+    if (ModelName not in ServicesModels[serviceName]):
         raise ValueError("Model name not found.")
 
-    modelConfiguration = ServicesModels[ModelName]
-    serviceName = modelConfiguration["service"]
+    modelConfiguration = ServicesModels[serviceName][ModelName]
     serviceModule = ServicesModules[serviceName]
 
     if ("max_simul_users" in modelConfiguration and modelConfiguration["max_simul_users"] > 0):
@@ -381,7 +383,7 @@ def InferenceModel(
     userConfig = Prompt["parameters"] if ("parameters" in Prompt) else {}
     
     if (not moduleHandlesConversation):
-        conversation = conv.Conversation.CreateConversationFromDB(f"{UserParameters['key_info']['key']}_{UserParameters['conversation_name']}", True)
+        conversation = conv.Conversation.CreateConversationFromDB(f"{UserParameters['key_info']['Key']}_{UserParameters['conversation_name']}", True)
 
     if (not moduleHandlesPricing):
         if ("pricing" in modelConfiguration):
@@ -443,10 +445,10 @@ def InferenceModel(
                 else:
                     price += otherFilesPrice
             
-            if (UserParameters["key_info"]["tokens"] < price):
-                raise exceptions.NotEnoughTokensException(price, UserParameters["key_info"]["tokens"])
+            if (UserParameters["key_info"]["Tokens"] < price):
+                raise exceptions.NotEnoughTokensException(price, UserParameters["key_info"]["Tokens"])
             
-            UserParameters["key_info"]["tokens"] -= price
+            UserParameters["key_info"]["Tokens"] -= price
         else:
             logs.PrintLog(logs.WARNING, "[services_manager] Pricing not in model configuration. WILL BE PROVIDED FREE OF CHARGE.")
 
@@ -483,10 +485,10 @@ def InferenceModel(
                 if (len(outputToken["response"]["text"]) > 0):
                     tokenPrice += text1mOutputPrice / 1000000.0
 
-                if (UserParameters["key_info"]["tokens"] < tokenPrice):
-                    raise exceptions.NotEnoughTokensException(tokenPrice, UserParameters["key_info"]["tokens"])
+                if (UserParameters["key_info"]["Tokens"] < tokenPrice):
+                    raise exceptions.NotEnoughTokensException(tokenPrice, UserParameters["key_info"]["Tokens"])
                 
-                UserParameters["key_info"]["tokens"] -= tokenPrice
+                UserParameters["key_info"]["Tokens"] -= tokenPrice
             
             if (lastTokenTime is None):
                 queue.SetFTS(ModelName, (
@@ -507,7 +509,7 @@ def InferenceModel(
     ) / 2)
 
     apiKey = keys_manager.APIKey.FromDict(UserParameters["key_info"])
-    apiKey.SaveInDatabase()
+    apiKey.UploadToDatabase()
 
     if (not moduleHandlesConversation):
         conversation.UploadToDB()

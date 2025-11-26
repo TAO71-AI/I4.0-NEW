@@ -21,8 +21,8 @@ class APIKey():
     ):
         logs.WriteLog(logs.INFO, "[keys_manager] Creating API key.")
 
-        if (not isinstance(Configuration["server_api"]["min_length"]) or Configuration["server_api"]["min_length"] < 16):
-            raise ValueError("API key min length must be 16.")
+        if (not isinstance(Configuration["server_api"]["min_length"], int) or Configuration["server_api"]["min_length"] < 16):
+            raise ValueError("API key min length must be an integer of at least 16.")
         
         minLength = Configuration["server_api"]["min_length"]
         maxLength = Configuration["server_api"]["max_length"]
@@ -82,12 +82,21 @@ class APIKey():
         
         return False
     
-    def SaveInDatabase(self: Self) -> None:
+    def UploadToDatabase(self: Self) -> None:
         pass  # TODO
 
     @staticmethod
     def CreateFromDatabase(Key: str) -> Self:
         pass  # TODO
+
+    def DeleteFromDB(self) -> None:
+        if (not self.ExistsInDB()):
+            return
+        
+        pass  # TODO
+
+    def ExistsInDB(self) -> bool:
+        return False  # TODO
 
     @staticmethod
     def GetAllFromDatabase() -> list[Self]:

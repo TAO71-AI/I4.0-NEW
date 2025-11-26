@@ -37,25 +37,37 @@ server_blacklist:
   enabled: true
   ip_blacklist: []
   key_blacklist: []
-  auto_close_connection: false
 server_automatic_blacklist:
   enabled: true
-  text_filter_service:
+  text_filter_service:  # Requires the "text_classification" module
     enabled: false
     model_name: ""  # Keep in mind that the service here will be provided FREE OF CHARGE when using the automatic filter
-    not_safe_text_response: ""  # Use "%keyword%" to search for a keywork in the text, instead of comparing the exact text
-  image_filter_service:
+    keyword: ""  # Keyword to filter - example: "NSFW" in `michellejieli/NSFW_text_classifier`
+    threshold: 0  # Threshold to exceed to filter the prompt - from 0 to 1
+    action: "ban"  # "ban", "warn", "raise" - action to take if the prompt is filtered
+    extra_service_params: {}  # Extra parameters for the service inference
+  image_filter_service:  # Requires the "image_classification" module
     enabled: false
     model_name: ""
-    not_safe_text_response: ""
-  audio_filter_service:
+    keyword: ""
+    threshold: 0
+    action: "ban"
+    extra_service_params: {}
+  audio_filter_service:  # No classifier yet, doesn't work for now
     enabled: false
     model_name: ""
-    not_safe_text_response: ""
-  video_filter_service:
+    keyword: ""
+    threshold: 0
+    action: "ban"
+    extra_service_params: {}
+  video_filter_service:  # No classifier yet, current workaround is to pick random frames (or all frames) from the video and use the image filter
     enabled: false
     model_name: ""
-    not_safe_text_response: ""
+    keyword: ""
+    threshold: 0
+    action: "ban"
+    extra_service_params: {}
+    frames_split: 10  # Pick a frame every 10 frames - minimum is 1
 server_encryption:
   allowed_hashes:
     hashes:
@@ -76,6 +88,7 @@ server_encryption:
   private_key_password: "changeme"
 server_transfer_rate: 8192  # in KB. Min 1, max 8192 (~8 MB)
 server_tos_file: "./TOS.md"
+server_temp_dir: "./Temp"
 server_listen:
   ws_enabled: true
   ws_ip: "0.0.0.0"
@@ -105,6 +118,7 @@ database_server_transfer_rate: 8192  # in KB. Min 1, max 8192
 database_server_clone:
   servers: []
   wait_time: 600  # Seconds, 0 is not allowed
+database_server_db_dir: "./Database"
 database_server_listen:
   ws_enabled: true
   ws_ip: "0.0.0.0"
