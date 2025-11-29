@@ -2,6 +2,7 @@
 from typing import Any
 import yaml
 import os
+import shutil
 import Utilities.logs as logs
 
 DEFAULT_CONFIGURATION_FILE: str = "./Configuration/default_configuration.yaml"
@@ -30,12 +31,9 @@ def ReadConfiguration(ConfigurationFile: str = CONFIGURATION_FILE, Create: bool 
     if (not os.path.exists(ConfigurationFile)):
         if (Create):
             logs.PrintLog(logs.INFO, "[config] Writting configuration file.")
-            conf = ReadConfiguration(DEFAULT_CONFIGURATION_FILE, False)
+            shutil.copy(DEFAULT_CONFIGURATION_FILE, ConfigurationFile)
 
-            with open(ConfigurationFile, "x", encoding = "utf-8") as configFile:
-                yaml.dump(conf, configFile)
-            
-            return conf
+            return ReadConfiguration(ConfigurationFile, False)
         else:
             raise FileNotFoundError(f"`{ConfigurationFile}` doesn't exists!")
     

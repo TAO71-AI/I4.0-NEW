@@ -42,6 +42,8 @@ class Client():
 
             if (result == "--END--"):
                 break
+            elif (len(result.strip()) == 0):
+                await self.Close()
 
             message += result
         

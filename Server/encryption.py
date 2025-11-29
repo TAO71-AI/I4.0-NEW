@@ -69,7 +69,7 @@ def SaveKeys(
         base64.b64encode(publicPem) if (publicPem is not None) else None
     )
 
-def LoadKeys(
+def LoadKeysFromFile(
     PrivateFile: str,
     PrivatePassword: str,
     PublicFile: str
@@ -82,15 +82,29 @@ def LoadKeys(
     with open(PublicFile, "rb") as f:
         publicPem = f.read()
     
-    privateKey = serialization.load_pem_private_key(
-        privatePem,
-        password = PrivatePassword.encode("utf-8"),
-        backend = default_backend()
-    )
-    publicKey = serialization.load_pem_public_key(
-        publicPem,
-        backend = default_backend()
-    )
+    return LoadKeysFromContent(privatePem, PrivatePassword, publicPem)
+
+def LoadKeysFromContent(
+    PrivateContent: str | bytes | None,
+    PrivatePassword: str,
+    PublicContent: str | bytes | None
+) -> tuple[rsa.RSAPrivateKey | None, rsa.RSAPublicKey | None]:
+    if (PrivateContent is None):
+        privateKey = None
+    else:
+        privateKey = serialization.load_pem_private_key(
+            data = PrivateContent.encode("utf-8") if (isinstance(PrivateContent, str)) else PrivateContent,
+            password = PrivatePassword.encode("utf-8"),
+            backend = default_backend()
+        )
+    
+    if (PublicContent is None):
+        publicKey = None
+    else:
+        publicKey = serialization.load_pem_public_key(
+            data = PublicContent.encode("utf-8") if (isinstance(PublicContent, str)) else PublicContent,
+            backend = default_backend()
+        )
 
     return (privateKey, publicKey)
 

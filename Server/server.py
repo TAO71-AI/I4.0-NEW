@@ -37,7 +37,7 @@ def LoadModels() -> None:
         logs.PrintLog(logs.INFO, "[server] Loading all modules...")
         services_manager.LoadModels(config.Configuration["services"])
     except Exception as ex:
-        logs.PrintLog(logs.ERROR, f"[server] Could not load models. Error: {ex}")
+        logs.PrintLog(logs.CRITICAL, f"[server] Could not load models. Error: {ex}")
         raise RuntimeError(f"Could not load models: {ex}")
 
 def __start_websockets_server__() -> None:
@@ -55,26 +55,64 @@ def __start_websockets_server__() -> None:
             f"[server] WebSockets server listening at `{config.Configuration['server_listen']['ws_ip']}:{config.Configuration['server_listen']['ws_port']}`."
         )
         
-        while (ServerStarted):
-            await asyncio.sleep(0.1)
-        
-        server.close(True)
+        try:
+            while (ServerStarted):
+                await asyncio.sleep(0.1)
+        finally:
+            server.close(True)
+            await server.wait_closed()
     
     loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
-    loop.run_until_complete(__start__())
-    loop.close()
+    try:
+        loop.run_until_complete(__start__())
+    finally:
+        loop.close()
 
 async def __on_ws_client_connected__(ClientWS: Any) -> None:
     client = server_utils.Client(ClientWS, ClientWS.remote_address)
     await __on_client_connected__(client)
 
 async def __on_client_connected__(Client: server_utils.Client) -> None:
-    global TOSContent
+    global TOSContent, ServerStarted
 
-    async def send_items(Gen: Generator[str]) -> None:
+    async def send_items(Gen: Generator[dict[str, Any]]) -> None:
         for item in Gen:
-            await Client.Send(item)
+            if (not ServerStarted):
+                return
+
+            if (config.Configuration["server_encryption"]["force_response_hash"] is None):
+                responseHash = item["_hash"]
+            else:
+                responseHash = config.Configuration["server_encryption"]["force_response_hash"]
+            
+            responseHashParsed = encryption.ParseHash(responseHash)
+            responsePublicKey = None if (item["_public_key"] is None) else encryption.LoadKeysFromContent(None, "", item["_public_key"])[1]
+            item2 = {}
+
+            for k, v in item.items():
+                if (k.startswith("_")):
+                    continue
+
+                item2[k] = v
+
+            if (responsePublicKey is None):
+                encrItem = json.dumps(item2)
+            else:
+                encrItem = encryption.Encrypt(
+                    responseHashParsed,
+                    responsePublicKey,
+                    json.dumps(item2)
+                )
+            
+            resItem = {
+                "data": encrItem,
+                "hash": responseHash
+            }
+            resItem = json.dumps(resItem)
+
+            await Client.Send(resItem)
             await asyncio.sleep(0)
 
     logs.WriteLog(logs.INFO, f"[server] Connected client from {Client.GetEndPoint()}.")
@@ -94,12 +132,14 @@ async def __on_client_connected__(Client: server_utils.Client) -> None:
         return
 
     loop = asyncio.get_event_loop()
+    tasks = []
     message = None
 
     try:
-        while (True):
+        while (ServerStarted):
             message = await Client.Receive()
 
+            # Process basic server commands
             if (message == "ping"):
                 await Client.Send("pong")
             elif (message == "get_transfer_rate"):
@@ -113,10 +153,11 @@ async def __on_client_connected__(Client: server_utils.Client) -> None:
             elif (message == "close"):
                 break
             else:
+                # Process other commands
                 with ThreadPoolExecutor() as executor:
                     generator = await loop.run_in_executor(executor, __process_client__, message)
 
-                loop.create_task(send_items(generator))
+                tasks.append(loop.create_task(send_items(generator)))
     except Exception as ex:
         logs.WriteLog(logs.ERROR, f"[server] Error while receiving from client ({ex}). The connection will be closed.")
     finally:
@@ -124,39 +165,84 @@ async def __on_client_connected__(Client: server_utils.Client) -> None:
             await Client.Close()
         except Exception as ex:
             logs.WriteLog(logs.WARNING, f"[server] Could not close connection from client ({ex}). Ignoring.")
+        
+        for task in tasks:
+            task.cancel()
+        
+        if (tasks):
+            await asyncio.gather(*tasks, return_exceptions = True)
 
-def __process_client__(Message: str) -> Generator[str]:
+def __process_client__(Message: str) -> Generator[dict[str, Any]]:
+    global ServerVersion
+
     try:
         message = json.loads(Message)
-        content = message["content"]
-        clientHash = message["hash"]
+        messageContent = message["content"]
+        messageHash = message["hash"]
+        messagePublicKey = message["public_key"]
+        clientVersion = message["version"] if ("version" in message) else -1
 
-        if (clientHash not in config.Configuration["server_encryption"]["allowed_hashes"]["hashes"]):
+        if (config.Configuration["server_client_version"]["min"] is None):
+            serverMinVersion = ServerVersion
+        else:
+            serverMinVersion = config.Configuration["server_client_version"]["min"]
+        
+        if (config.Configuration["server_client_version"]["max"] is None):
+            serverMaxVersion = ServerVersion
+        else:
+            serverMaxVersion = config.Configuration["server_client_version"]["max"]
+
+        if (
+            (
+                clientVersion != -1 and
+                (
+                    clientVersion < serverMinVersion or
+                    clientVersion > serverMaxVersion
+                )
+            ) or
+            (
+                clientVersion == -1 and
+                not config.Configuration["server_client_version"]["accept_unknown"]
+            )
+        ):
+            raise NotImplementedError("Client version not accepted.")
+
+        if (messageHash not in config.Configuration["server_encryption"]["allowed_hashes"]["hashes"]):
             raise ValueError(f"Invalid hash. Valid hashes are {config.Configuration['server_encryption']['allowed_hashes']['hashes']}")
         
-        if (clientHash in config.Configuration["server_encryption"]["allowed_hashes"]["warnings"]):
-            yield json.dumps({
-                "warnings": config.Configuration["server_encryption"]["allowed_hashes"]["warnings"][clientHash],
-                "hash": "none"
-            })
+        if (messageHash in config.Configuration["server_encryption"]["allowed_hashes"]["warnings"]):
+            yield {
+                "warnings": config.Configuration["server_encryption"]["allowed_hashes"]["warnings"][messageHash],
+                "_hash": messageHash,
+                "_public_key": messagePublicKey
+            }
 
-        clientHash = encryption.ParseHash(clientHash)
-        content = encryption.Decrypt(
-            clientHash,
+        messageHashParsed = encryption.ParseHash(messageHash)
+        messageContent = encryption.Decrypt(
+            messageHashParsed,
             PrivateKey,
-            content,
+            messageContent,
             config.Configuration["server_encryption"]["decryption_threads"]
         )
 
-        # TODO
+        try:
+            content = json.loads(messageContent)
+            service = content["service"]
+            key = content["key"] if ("key" in content) else ""
+
+            # TODO
+        except Exception as ex:
+            yield {
+                "errors": [f"Error processing message ({ex})."],
+                "_hash": messageHash,
+                "_public_key": messagePublicKey
+            }
     except Exception as ex:
-        yield json.dumps({
+        yield {
             "errors": [f"Error decrypting message ({ex})."],
-            "hash": "none"
-        })
-        return
-    
-    # TODO
+            "_hash": "none",
+            "_public_key": None
+        }
 
 def StartServer() -> None:
     global PrivateKey, PublicKey, ServerStarted
@@ -181,7 +267,7 @@ def StartServer() -> None:
                 config.Configuration["server_encryption"]["public_key_file"]
             )
     else:
-        PrivateKey, PublicKey = encryption.LoadKeys(
+        PrivateKey, PublicKey = encryption.LoadKeysFromFile(
             config.Configuration["server_encryption"]["private_key_file"],
             config.Configuration["server_encryption"]["private_key_password"],
             config.Configuration["server_encryption"]["public_key_file"]
@@ -211,7 +297,7 @@ def CloseServer() -> None:
     ServerStarted = False
 
     services_manager.OffloadModels(list(config.Configuration["services"].keys()))
-    exit(0)
+    #exit(0)
 
 if (not os.path.exists(config.Configuration["server_tos_file"])):
     with open(config.Configuration["server_tos_file"], "x") as f:
@@ -227,6 +313,7 @@ PrivateKey: Any | None = None
 PublicKey: Any | None = None
 CloseServerReason: str | None = None
 ServerStarted: bool = False
+ServerVersion: int = 170000
 
 if (__name__ == "__main__"):
     if (os.path.exists("./latest.txt")):
@@ -379,7 +466,6 @@ if (__name__ == "__main__"):
 
                 infKey = services_manager.keys_manager.APIKey(9999, False, None, ["127.0.0.1"], [], [])
                 
-                # TODO: Do inference
                 infGenFiles = []
                 infGenWarnings = []
                 infGenErrors = []
@@ -435,7 +521,7 @@ if (__name__ == "__main__"):
 
                 if (ec != 0):
                     logs.PrintLog(logs.ERROR, f"[server] (interactive mode) Could not clear terminal. Exit code {ec}.")
-            else:
+            elif (len(prompt.strip()) > 0):
                 print("[server] (interactive mode) Command not found.", flush = True)
         except KeyboardInterrupt:
             if (CloseServerReason is None):
