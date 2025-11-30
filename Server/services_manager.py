@@ -381,7 +381,7 @@ def InferenceModel(
     text = Prompt["text"] if ("text" in Prompt) else ""
     files = Prompt["files"] if ("files" in Prompt) else []
     userConfig = Prompt["parameters"] if ("parameters" in Prompt) else {}
-    
+
     if (not moduleHandlesConversation):
         conversation = conv.Conversation.CreateConversationFromDB(f"{UserParameters['key_info']['Key']}_{UserParameters['conversation_name']}", True)
 

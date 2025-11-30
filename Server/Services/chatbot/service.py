@@ -273,7 +273,7 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
     ):
         extraParameters |= __models__[Name]["reasoning"]["_private_parameters"][reasoningLevel]
     
-    return InferenceModel(
+    generator = InferenceModel(
         Name,
         conversation,
         {
@@ -296,6 +296,9 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
             "reasoning": reasoningLevel
         }
     )
+
+    for token in generator:
+        yield token
 
 def InferenceModel(Name: str, Conversation: conv.Conversation, Configuration: dict[str, Any]) -> Generator[dict[str, Any]]:
     """
@@ -596,7 +599,7 @@ def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
     __models__[Name] = Configuration | model
 
     # Test the inference
-    if ("test_inference" in Configuration and Configuration["test_inference"]):
+    if ("_private_test_inference" in Configuration and Configuration["_private_test_inference"]):
         logs.WriteLog(logs.INFO, "[service_chatbot] Testing inference of the model.")
         files = []
 

@@ -6,6 +6,7 @@ try:
     import sys
     import json
     import time
+    import random
     import threading
     import asyncio
     import websockets
@@ -88,7 +89,7 @@ async def __on_client_connected__(Client: server_utils.Client) -> None:
                 responseHash = config.Configuration["server_encryption"]["force_response_hash"]
             
             responseHashParsed = encryption.ParseHash(responseHash)
-            responsePublicKey = None if (item["_public_key"] is None) else encryption.LoadKeysFromContent(None, "", item["_public_key"])[1]
+            responsePublicKey = None if ("_public_key" not in item or item["_public_key"] is None) else encryption.LoadKeysFromContent(None, "", item["_public_key"])[1]
             item2 = {}
 
             for k, v in item.items():
@@ -96,6 +97,13 @@ async def __on_client_connected__(Client: server_utils.Client) -> None:
                     continue
 
                 item2[k] = v
+            
+            if (
+                config.Configuration["server_encryption"]["obfuscate"] and
+                responseHashParsed is not None and
+                responsePublicKey is not None
+            ):
+                item2["obfuscate"] = "a" * random.randint(5, 25)
 
             if (responsePublicKey is None):
                 encrItem = json.dumps(item2)
@@ -341,17 +349,13 @@ if (__name__ == "__main__"):
                 infMsgs = []
 
                 while (True):
-                    msgRole = input(f"MESSAGE {len(infMsgs) + 1} ROLE (user, assistant, tool, system, custom, [EMPTY]) >$ ").strip().lower()
+                    msgRole = input(f"MESSAGE {len(infMsgs) + 1} ROLE (user, assistant, custom, [EMPTY]) >$ ").strip().lower()
                     msgCRole = None
 
                     if (msgRole == "user"):
                         msgRole = services_manager.conv.ROLE_USER
                     elif (msgRole == "assistant"):
                         msgRole = services_manager.conv.ROLE_ASSISTANT
-                    elif (msgRole == "tool"):
-                        msgRole = services_manager.conv.ROLE_TOOL
-                    elif (msgRole == "system"):
-                        msgRole = services_manager.conv.ROLE_SYSTEM
                     elif (msgRole == "custom"):
                         msgRole = services_manager.conv.ROLE_CUSTOM
                         msgCRole = input(">> CUSTOM ROLE NAME >$ ")

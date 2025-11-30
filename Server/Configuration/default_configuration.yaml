@@ -86,6 +86,7 @@ server_encryption:
   public_key_file: "server_public.pem"
   private_key_file: "server_private.pem"
   private_key_password: "changeme"
+  obfuscate: true  # Adds a random length string to the encryption to patch https://arxiv.org/pdf/2511.03675
 server_client_version:
   min: 170000  # Minimum client version to accept, null = server version
   max: null  # Maximum client version to accept, null = server version
