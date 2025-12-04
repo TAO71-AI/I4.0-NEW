@@ -5,11 +5,34 @@ import os
 import shutil
 import Utilities.logs as logs
 
-DEFAULT_CONFIGURATION_FILE: str = "./Configuration/default_configuration.yaml"
-CONFIGURATION_FILE: str = "./config.yaml"
+DEFAULT_SERVER_CONFIGURATION_FILE: str = "./Configuration/default_configuration_server.yaml"
+DEFAULT_DATABASE_CONFIGURATION_FILE: str = "./Configuration/default_configuration_database.yaml"
+SERVER_CONFIGURATION_FILE: str = "./config_server.yaml"
+DATABASE_CONFIGURATION_FILE: str = "./config_db.yaml"
+ConfigType: str = ""
 Configuration: dict[str, Any] | None = None
 
-def ReadConfiguration(ConfigurationFile: str = CONFIGURATION_FILE, Create: bool = True) -> dict[str, Any]:
+def GetDefaultConfigurationFile() -> str:
+    global ConfigType
+
+    if (ConfigType == "server"):
+        return DEFAULT_SERVER_CONFIGURATION_FILE
+    elif (ConfigType == "database"):
+        return DEFAULT_DATABASE_CONFIGURATION_FILE
+    
+    raise ValueError("Invalid configuration type.")
+
+def GetConfigurationFile() -> str:
+    global ConfigType
+
+    if (ConfigType == "server"):
+        return SERVER_CONFIGURATION_FILE
+    elif (ConfigType == "database"):
+        return DATABASE_CONFIGURATION_FILE
+    
+    raise ValueError("Invalid configuration type.")
+
+def ReadConfiguration(ConfigurationFile: str | None = None, Create: bool = True, SetDefault: bool = False) -> dict[str, Any]:
     """
     Read the configuration file.
 
@@ -20,24 +43,32 @@ def ReadConfiguration(ConfigurationFile: str = CONFIGURATION_FILE, Create: bool 
     Returns:
         dict[str, Any]
     """
+    global Configuration
+
+    if (ConfigurationFile is None):
+        ConfigurationFile = GetConfigurationFile()
+
     # Read default configuration
-    if (ConfigurationFile != DEFAULT_CONFIGURATION_FILE):
-        logs.WriteLog(logs.INFO, "[config] Reading default configuration file.")
-        defaultConf = ReadConfiguration(DEFAULT_CONFIGURATION_FILE, False)
+    if (ConfigurationFile != DEFAULT_SERVER_CONFIGURATION_FILE and ConfigurationFile != DEFAULT_DATABASE_CONFIGURATION_FILE):
+        logs.WriteLog(logs.INFO, f"[config] Reading default configuration file `{ConfigurationFile}`.")
+        defaultConf = ReadConfiguration(GetDefaultConfigurationFile(), False)
     else:
         defaultConf = None
 
     # Make sure the configuration file exists
     if (not os.path.exists(ConfigurationFile)):
         if (Create):
-            logs.PrintLog(logs.INFO, "[config] Writting configuration file.")
-            shutil.copy(DEFAULT_CONFIGURATION_FILE, ConfigurationFile)
+            defaultConfigFile = GetDefaultConfigurationFile()
+
+            logs.PrintLog(logs.INFO, f"[config] Writting configuration file `{defaultConfigFile}` => `{ConfigurationFile}`.")
+            shutil.copy(defaultConfigFile, ConfigurationFile)
 
             return ReadConfiguration(ConfigurationFile, False)
         else:
             raise FileNotFoundError(f"`{ConfigurationFile}` doesn't exists!")
     
     # Read the file
+    logs.WriteLog(logs.INFO, f"[config] Reading configuration file `{ConfigurationFile}`.")
     conf = {}
 
     with open(ConfigurationFile, "r", encoding = "utf-8") as configFile:
@@ -49,8 +80,7 @@ def ReadConfiguration(ConfigurationFile: str = CONFIGURATION_FILE, Create: bool 
             if (paramKey not in conf):
                 conf[paramKey] = paramValue
     
+    if (SetDefault):
+        Configuration = conf
+    
     return conf
-
-# Read the configuration
-logs.WriteLog(logs.INFO, "[config] Reading configuration file.")
-Configuration = ReadConfiguration(CONFIGURATION_FILE, True)

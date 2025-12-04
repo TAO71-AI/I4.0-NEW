@@ -261,6 +261,13 @@ def GetServices() -> list[Service]:
     
     return services
 
+def IsServiceInstalled(Name: str) -> bool:
+    for service in GetServices():
+        if (service.Name == Name):
+            return True
+        
+    return False
+
 def InstallAllRequirements(Services: list[Service] | None = None) -> None:
     if (Services is None):
         Services = GetServices()

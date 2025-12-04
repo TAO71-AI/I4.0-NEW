@@ -1,13 +1,20 @@
 from typing import Any
+import os
+import copy
 import Utilities.install_requirements as req
 import Utilities.gpu_utils as gpu
 import Utilities.logs as logs
-import os
-import copy
+import services_manager
 
 def Install(Env: dict[str, Any] | None = None) -> None:
     if (Env is None):
         Env = copy.deepcopy(os.environ)
+    
+    logs.PrintLog(logs.INFO, (
+        "Optional dependencies (services):\n"
+        "- text_classification - For automatic reasoning support. STATUS: "
+        "INSTALLED" if (services_manager.IsServiceInstalled("text_classification")) else "NOT INSTALLED"
+    ))
 
     if ("CHATBOT_NO_GPU" in Env and bool(Env["CHATBOT_NO_GPU"])):
         gpuType = gpu.GPUType.NO_GPU

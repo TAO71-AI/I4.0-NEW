@@ -4,7 +4,7 @@ I4.0-NEW is a new rewritten version of [I4.0](https://github.com/TAO71-AI/I4.0).
 
 ## Key features
 
-TODO
+- Fully modular: By just adding or removing a directory you can activate or deactivate modules
 
 ## Requirements
 

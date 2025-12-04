@@ -10,6 +10,7 @@ import Services.chatbot.system_prompt as system_prompt
 import Utilities.logs as logs
 import Utilities.internet as internet
 import messages as conv
+import services_manager as servmgr
 
 MODULE_HANDLES_CONVERSATION = False
 MODULE_HANDLES_PRICING = False
@@ -261,9 +262,16 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
     elif (reasoningLevel == "nonreasoning"):
         reasoningLevel = __models__[Name]["reasoning"]["non_reasoning_level"]
     elif (reasoningLevel == "auto"):
-        pass  # TODO: Get auto level
+        if (servmgr.IsServiceInstalled("text_classification")):
+            pass  # TODO: Get auto level
+        else:
+            logs.WriteLog(
+                logs.WARNING,
+                "[service_chatbot] Optinal `text_classification` service not installed, but trying to use automatic reasoning level. Changing to `reasoning`."
+            )
+            reasoningLevel = __models__[Name]["reasoning"]["default_reasoning_level"]
     elif (reasoningLevel in __models__[Name]["reasoning"]["levels"]):
-        pass
+        pass  # TODO
     else:
         raise ValueError("Invalid reasoning mode or level.")
     

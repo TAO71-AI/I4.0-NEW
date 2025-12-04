@@ -851,6 +851,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
                 "levels": {}
             }
         }
+        logs.WriteLog(logs.INFO, f"[llama_utils] `reasoning` not defined. Set to default mode; {reasoning}.")
     
     # Set multimodal type
     if ("multimodal" in Configuration):

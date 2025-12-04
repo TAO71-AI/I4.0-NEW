@@ -7,9 +7,7 @@ try:
     import json
     import time
     import random
-    import threading
     import asyncio
-    import websockets
 
     import encryption
     import services_manager
@@ -41,48 +39,25 @@ def LoadModels() -> None:
         logs.PrintLog(logs.CRITICAL, f"[server] Could not load models. Error: {ex}")
         raise RuntimeError(f"Could not load models: {ex}")
 
-def __start_websockets_server__() -> None:
-    async def __start__() -> None:
-        global ServerStarted
-
-        server = await websockets.serve(
-            handler = __on_ws_client_connected__,
-            host = config.Configuration["server_listen"]["ws_ip"],
-            port = config.Configuration["server_listen"]["ws_port"],
-            max_size = config.Configuration["server_transfer_rate"]
+async def __unhandled_connection__(Client: server_utils.Client) -> None:
+    if (
+        (
+            config.Configuration["server_whitelist"]["enabled"] and
+            Client.GetEndPoint()[0] not in config.Configuration["server_whitelist"]["ip_whitelist"]
+        ) or
+        (
+            config.Configuration["server_blacklist"]["enabled"] and
+            Client.GetEndPoint()[0] in config.Configuration["server_blacklist"]["ip_blacklist"]
         )
-        logs.PrintLog(
-            logs.INFO,
-            f"[server] WebSockets server listening at `{config.Configuration['server_listen']['ws_ip']}:{config.Configuration['server_listen']['ws_port']}`."
-        )
-        
-        try:
-            while (ServerStarted):
-                await asyncio.sleep(0.1)
-        finally:
-            server.close(True)
-            await server.wait_closed()
-    
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    ):
+        await Client.Send("Access denied.")
+        await Client.Close()
 
-    try:
-        loop.run_until_complete(__start__())
-    finally:
-        loop.close()
-
-async def __on_ws_client_connected__(ClientWS: Any) -> None:
-    client = server_utils.Client(ClientWS, ClientWS.remote_address)
-    await __on_client_connected__(client)
-
-async def __on_client_connected__(Client: server_utils.Client) -> None:
-    global TOSContent, ServerStarted
+async def __unhandled_received_message__(Client: server_utils.Client, Message: str) -> None:
+    global TOSContent
 
     async def send_items(Gen: Generator[dict[str, Any]]) -> None:
         for item in Gen:
-            if (not ServerStarted):
-                return
-
             if (config.Configuration["server_encryption"]["force_response_hash"] is None):
                 responseHash = item["_hash"]
             else:
@@ -98,12 +73,22 @@ async def __on_client_connected__(Client: server_utils.Client) -> None:
 
                 item2[k] = v
             
+            item.clear()
+            
             if (
                 config.Configuration["server_encryption"]["obfuscate"] and
                 responseHashParsed is not None and
                 responsePublicKey is not None
             ):
-                item2["obfuscate"] = "a" * random.randint(5, 25)
+                chars = "abcdefghijplnmopqrstuvwxyz"
+                chars += chars.upper()
+                chars += "0123456789!@#$%&/()=[]?-_.:,;<>*+"
+
+                chars = list(chars)
+                random.shuffle(chars)
+                chars = "".join(chars)
+
+                item2["obfuscate"] = "".join([chars[random.randint(0, len(chars) - 1)] for _ in range(random.randint(5, 25))])
 
             if (responsePublicKey is None):
                 encrItem = json.dumps(item2)
@@ -123,57 +108,26 @@ async def __on_client_connected__(Client: server_utils.Client) -> None:
             await Client.Send(resItem)
             await asyncio.sleep(0)
 
-    logs.WriteLog(logs.INFO, f"[server] Connected client from {Client.GetEndPoint()}.")
-    Client.TransferRate = config.Configuration["server_transfer_rate"] * 1024
-
-    if (
-        (
-            config.Configuration["server_whitelist"]["enabled"] and
-            Client.GetEndPoint()[0] not in config.Configuration["server_whitelist"]["ip_whitelist"]
-        ) or
-        (
-            config.Configuration["server_blacklist"]["enabled"] and
-            Client.GetEndPoint()[0] in config.Configuration["server_blacklist"]["ip_blacklist"]
-        )
-    ):
-        await Client.Send("Access denied.")
-        return
-
     loop = asyncio.get_event_loop()
     tasks = []
-    message = None
-
+    
     try:
-        while (ServerStarted):
-            message = await Client.Receive()
+        # Process basic server commands
+        if (Message == "get_public_key"):
+            _, publicBytes = encryption.SaveKeys(None, None, "", PublicKey, None)
+            await Client.Send(publicBytes.decode("utf-8"))
+        elif (Message == "get_tos"):
+            await Client.Send(TOSContent)
+        else:
+            # Process other commands
+            with ThreadPoolExecutor() as executor:
+                generator = await loop.run_in_executor(executor, __process_client__, Message)
 
-            # Process basic server commands
-            if (message == "ping"):
-                await Client.Send("pong")
-            elif (message == "get_transfer_rate"):
-                transferRate = config.Configuration["server_transfer_rate"]
-                await Client.Send(str(transferRate))
-            elif (message == "get_public_key"):
-                _, publicBytes = encryption.SaveKeys(None, None, "", PublicKey, None)
-                await Client.Send(publicBytes.decode("utf-8"))
-            elif (message == "get_tos"):
-                await Client.Send(TOSContent)
-            elif (message == "close"):
-                break
-            else:
-                # Process other commands
-                with ThreadPoolExecutor() as executor:
-                    generator = await loop.run_in_executor(executor, __process_client__, message)
-
-                tasks.append(loop.create_task(send_items(generator)))
+            tasks.append(loop.create_task(send_items(generator)))
     except Exception as ex:
         logs.WriteLog(logs.ERROR, f"[server] Error while receiving from client ({ex}). The connection will be closed.")
-    finally:
-        try:
-            await Client.Close()
-        except Exception as ex:
-            logs.WriteLog(logs.WARNING, f"[server] Could not close connection from client ({ex}). Ignoring.")
-        
+        await Client.Close()
+
         for task in tasks:
             task.cancel()
         
@@ -181,7 +135,7 @@ async def __on_client_connected__(Client: server_utils.Client) -> None:
             await asyncio.gather(*tasks, return_exceptions = True)
 
 def __process_client__(Message: str) -> Generator[dict[str, Any]]:
-    global ServerVersion
+    global SERVER_VERSION
 
     try:
         message = json.loads(Message)
@@ -191,12 +145,12 @@ def __process_client__(Message: str) -> Generator[dict[str, Any]]:
         clientVersion = message["version"] if ("version" in message) else -1
 
         if (config.Configuration["server_client_version"]["min"] is None):
-            serverMinVersion = ServerVersion
+            serverMinVersion = SERVER_VERSION
         else:
             serverMinVersion = config.Configuration["server_client_version"]["min"]
         
         if (config.Configuration["server_client_version"]["max"] is None):
-            serverMaxVersion = ServerVersion
+            serverMaxVersion = SERVER_VERSION
         else:
             serverMaxVersion = config.Configuration["server_client_version"]["max"]
 
@@ -253,7 +207,7 @@ def __process_client__(Message: str) -> Generator[dict[str, Any]]:
         }
 
 def StartServer() -> None:
-    global PrivateKey, PublicKey, ServerStarted
+    global PrivateKey, PublicKey, Servers
 
     if (
         len(config.Configuration["server_encryption"]["public_key_file"].strip()) == 0 or
@@ -286,26 +240,55 @@ def StartServer() -> None:
 
         logs.PrintLog(logs.WARNING, f"[server] Server transfer rate is too low or too high. Adjusting to {newServerTransferRate}.")
         config.Configuration["server_transfer_rate"] = newServerTransferRate
+    
+    for server in config.Configuration["server_listen"]:
+        try:
+            if (
+                "type" not in server or
+                "host" not in server or
+                "port" not in server
+            ):
+                raise KeyError("Required parameters for server not found.")
+            
+            if (server["type"] == "websockets"):
+                server = server_utils.WebSocketsServer(
+                    ListenIP = server["host"],
+                    ListenPort = server["port"],
+                    TransferRate = config.Configuration["server_transfer_rate"],
+                    ConnectedCallback = __unhandled_connection__,
+                    DisconenctedCallback = None,
+                    ReceiveCallback = __unhandled_received_message__,
+                    NewThread = True,
+                    IgnoreBasicCommands = False
+                )
+                asyncio.get_event_loop().run_until_complete(server.Start())
 
-    ServerStarted = True
-
-    if (config.Configuration["server_listen"]["ws_enabled"]):
-        wsServerThread = threading.Thread(target = __start_websockets_server__)
-        wsServerThread.start()
+                Servers.append(server)
+            else:
+                # TODO: More servers in the future!
+                raise TypeError("Invalid server type.")
+        except Exception as ex:
+            logs.PrintLog(logs.CRITICAL, f"[server] Could not start server {len(Servers)}; ignoring this server. Error: {ex}")
+            continue
+    
+    logs.PrintLog(logs.INFO, "[server] All servers started!")
 
 def CloseServer() -> None:
-    global CloseServerReason, ServerStarted
+    global CloseServerReason, Servers
 
     if (CloseServerReason is None):
         CloseServerReason = "Unknown"
+    
+    for server in Servers:
+        asyncio.get_event_loop().run_until_complete(server.Stop())
 
     print("Closing server.", flush = True)
     logs.WriteLog(logs.INFO, f"[server] Closing server with reason '{CloseServerReason}'.")
 
-    ServerStarted = False
-
     services_manager.OffloadModels(list(config.Configuration["services"].keys()))
-    #exit(0)
+
+config.ConfigType = "server"
+config.ReadConfiguration(None, True, True)
 
 if (not os.path.exists(config.Configuration["server_tos_file"])):
     with open(config.Configuration["server_tos_file"], "x") as f:
@@ -317,11 +300,11 @@ with open(config.Configuration["server_tos_file"], "r") as f:
 if (not os.path.exists(config.Configuration["server_temp_dir"])):
     os.mkdir(config.Configuration["server_temp_dir"])
 
+SERVER_VERSION: int = 170000
+Servers: list[Any] = []
 PrivateKey: Any | None = None
 PublicKey: Any | None = None
 CloseServerReason: str | None = None
-ServerStarted: bool = False
-ServerVersion: int = 170000
 
 if (__name__ == "__main__"):
     if (os.path.exists("./latest.txt")):
@@ -332,7 +315,9 @@ if (__name__ == "__main__"):
 
     # TODO: Thread for model offloading
     
+    asyncio.set_event_loop(asyncio.new_event_loop())
     StartServer()
+
     interactiveMode = sys.argv.count("--interactive") > 0 or sys.argv.count("-it") > 0
 
     while (True):
