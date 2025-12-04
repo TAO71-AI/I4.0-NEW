@@ -142,7 +142,7 @@ class WebSocketsServer():
     async def __start_server__(self) -> None:
         if (self.IsStarted()):
             logs.WriteLog(logs.INFO, "[server_utils] Server already started! Restarting.")
-            self.Stop()
+            self.__stop__()
 
         try:
             self.__socket__ = await websockets.serve(
@@ -177,7 +177,7 @@ class WebSocketsServer():
         else:
             await self.__start_server__()
 
-    async def Stop(self) -> None:
+    async def __stop__(self) -> None:
         if (not self.IsStarted()):
             return
         
@@ -186,6 +186,12 @@ class WebSocketsServer():
                 self.__socket__.close(True)
                 await self.__socket__.wait_closed()
         except Exception as ex:
-            logs.WriteLog(logs.ERROR, f"[server_utils] Could not fully close WebSockets server: {ex}")
+            logs.PrintLog(logs.ERROR, f"[server_utils] Could not fully close WebSockets server: {ex}")
         
+        self.__started__ = False
+    
+    async def Stop(self) -> None:
+        if (not self.IsStarted()):
+            return
+
         self.__started__ = False
