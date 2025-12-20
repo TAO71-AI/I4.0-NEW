@@ -1,7 +1,13 @@
+from datetime import datetime
+import os
+
 INFO: int = 0
 WARNING: int = 1
 ERROR: int = 2
 CRITICAL: int = 3
+
+LOG_DIRECTORY: str = "./Logs"
+LOG_FILE_NAME: str = f"{datetime.now().day}-{datetime.now().month}-{datetime.now().year}_{datetime.now().hour}:{datetime.now().minute}:{datetime.now().second}.log.txt"
 
 def StringToLogLevel(Level: str) -> int | None:
     """
@@ -49,6 +55,20 @@ def LogLevelToString(Level: int) -> str | None:
     
     return None
 
+def GetLogMessage(Level: int, Message: str) -> str:
+    """
+    Get the message for a log.
+
+    Args:
+        Level (int): Log level.
+        Message (str): Message of the log.
+    
+    Returns:
+        str
+    """
+    now = datetime.now()
+    return f"[{now.day}/{now.month}/{now.year} {now.hour}:{now.minute}:{now.second}] [{LogLevelToString(Level)}] {Message}"
+
 def WriteLog(Level: int, Message: str) -> None:
     """
     Write a log into the logs file.
@@ -60,8 +80,14 @@ def WriteLog(Level: int, Message: str) -> None:
     Returns:
         None
     """
-    with open("latest.txt", "a") as f:
-        f.write(f"[{LogLevelToString(Level)}] {Message}\n")
+    if (not os.path.exists(LOG_DIRECTORY)):
+        os.mkdir(LOG_DIRECTORY)
+
+    if ("I4_LOG_LEVEL" in os.environ and Level < int(os.environ["I4_LOG_LEVEL"])):
+        return
+
+    with open(f"{LOG_DIRECTORY}/{LOG_FILE_NAME}", "a") as f:
+        f.write(f"{GetLogMessage(Level, Message)}\n")
 
 def PrintLog(Level: int, Message: str, Flush = True) -> None:
     """
@@ -75,5 +101,8 @@ def PrintLog(Level: int, Message: str, Flush = True) -> None:
     Returns:
         None
     """
-    print(f"[{LogLevelToString(Level)}] {Message}", flush = Flush)
+    if ("I4_LOG_LEVEL_PRINT" in os.environ and Level < int(os.environ["I4_LOG_LEVEL_PRINT"])):
+        return
+
+    print(f"{GetLogMessage(Level, Message)}", flush = Flush)
     WriteLog(Level, Message)

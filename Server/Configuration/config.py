@@ -6,31 +6,8 @@ import shutil
 import Utilities.logs as logs
 
 DEFAULT_SERVER_CONFIGURATION_FILE: str = "./Configuration/default_configuration_server.yaml"
-DEFAULT_DATABASE_CONFIGURATION_FILE: str = "./Configuration/default_configuration_database.yaml"
 SERVER_CONFIGURATION_FILE: str = "./config_server.yaml"
-DATABASE_CONFIGURATION_FILE: str = "./config_db.yaml"
-ConfigType: str = ""
 Configuration: dict[str, Any] | None = None
-
-def GetDefaultConfigurationFile() -> str:
-    global ConfigType
-
-    if (ConfigType == "server"):
-        return DEFAULT_SERVER_CONFIGURATION_FILE
-    elif (ConfigType == "database"):
-        return DEFAULT_DATABASE_CONFIGURATION_FILE
-    
-    raise ValueError("Invalid configuration type.")
-
-def GetConfigurationFile() -> str:
-    global ConfigType
-
-    if (ConfigType == "server"):
-        return SERVER_CONFIGURATION_FILE
-    elif (ConfigType == "database"):
-        return DATABASE_CONFIGURATION_FILE
-    
-    raise ValueError("Invalid configuration type.")
 
 def ReadConfiguration(ConfigurationFile: str | None = None, Create: bool = True, SetDefault: bool = False) -> dict[str, Any]:
     """
@@ -46,19 +23,19 @@ def ReadConfiguration(ConfigurationFile: str | None = None, Create: bool = True,
     global Configuration
 
     if (ConfigurationFile is None):
-        ConfigurationFile = GetConfigurationFile()
+        ConfigurationFile = SERVER_CONFIGURATION_FILE
 
     # Read default configuration
-    if (ConfigurationFile != DEFAULT_SERVER_CONFIGURATION_FILE and ConfigurationFile != DEFAULT_DATABASE_CONFIGURATION_FILE):
+    if (ConfigurationFile != DEFAULT_SERVER_CONFIGURATION_FILE):
         logs.WriteLog(logs.INFO, f"[config] Reading default configuration file `{ConfigurationFile}`.")
-        defaultConf = ReadConfiguration(GetDefaultConfigurationFile(), False)
+        defaultConf = ReadConfiguration(DEFAULT_SERVER_CONFIGURATION_FILE, False)
     else:
         defaultConf = None
 
     # Make sure the configuration file exists
     if (not os.path.exists(ConfigurationFile)):
         if (Create):
-            defaultConfigFile = GetDefaultConfigurationFile()
+            defaultConfigFile = DEFAULT_SERVER_CONFIGURATION_FILE
 
             logs.PrintLog(logs.INFO, f"[config] Writting configuration file `{defaultConfigFile}` => `{ConfigurationFile}`.")
             shutil.copy(defaultConfigFile, ConfigurationFile)

@@ -4,16 +4,11 @@ from collections.abc import Generator
 import base64
 import json
 import copy
-import datetime
 import Services.chatbot.llama_utils as utils_llama
-import Services.chatbot.system_prompt as system_prompt
+import Services.chatbot.tools as cb_tools
 import Utilities.logs as logs
 import Utilities.internet as internet
-import messages as conv
 import services_manager as servmgr
-
-MODULE_HANDLES_CONVERSATION = False
-MODULE_HANDLES_PRICING = False
 
 __models__: dict[str, dict[str, Any]] = {}
 ServiceConfiguration: dict[str, Any] | None = None
@@ -25,6 +20,8 @@ def __check_service_configuration__() -> None:
     
     if (ServiceConfiguration is None):
         raise ValueError("Server configuration is not defined.")
+    
+    internet.Configuration = ServerConfiguration
 
 def SERVICE_LOAD_MODELS(Models: dict[str, dict[str, Any]]) -> None:
     """
@@ -70,13 +67,13 @@ def SERVICE_OFFLOAD_MODELS(Names: list[str]) -> None:
         
         __models__[name]["_private_model"] = None
 
-def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dict[str, Any]) -> Generator[dict[str, Any]]:
+def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dict[str, Any]) -> Generator[dict[str, Any]]:
     """
     Inference the chatbot model.
 
     Args:
         Name (str): Name of the model.
-        UserPrompt (dict[str, Any]): Prompt of the user ("text", "files", "parameters").
+        UserConfig (dict[str, Any]): Configuration of the user.
         UserParameters (dict[str, Any]): Parameters of the user ("key_info", "conversation_name", "conversation").
     """
     __check_service_configuration__()
@@ -84,74 +81,73 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
     conversation = UserParameters["conversation"]
     tools = []
     extraTools = []
-    extraSystemPrompt = {"user": None, "model": None, "service": None}
-    predefinedSystemPrompts = copy.deepcopy(ServiceConfiguration["predefined_system_prompts"]["default"])
+    extraSystemPrompt = {"model": None, "service": None}
 
-    if ("temperature" in UserPrompt["parameters"] and ServiceConfiguration["temperature"]["modified_by_user"]):
-        temperature = UserPrompt["parameters"]["temperature"]
+    if ("temperature" in UserConfig and ServiceConfiguration["temperature"]["modified_by_user"]):
+        temperature = UserConfig["temperature"]
     elif ("temperature" in __models__[Name]):
         temperature = __models__[Name]["temperature"]
     else:
         temperature = ServiceConfiguration["temperature"]["default"]
     
-    if ("top_p" in UserPrompt["parameters"] and ServiceConfiguration["top_p"]["modified_by_user"]):
-        topP = UserPrompt["parameters"]["top_p"]
+    if ("top_p" in UserConfig and ServiceConfiguration["top_p"]["modified_by_user"]):
+        topP = UserConfig["top_p"]
     elif ("top_p" in __models__[Name]):
         topP = __models__[Name]["top_p"]
     else:
         topP = ServiceConfiguration["top_p"]["default"]
     
-    if ("top_k" in UserPrompt["parameters"] and ServiceConfiguration["top_k"]["modified_by_user"]):
-        topK = UserPrompt["parameters"]["top_k"]
+    if ("top_k" in UserConfig and ServiceConfiguration["top_k"]["modified_by_user"]):
+        topK = UserConfig["top_k"]
     elif ("top_k" in __models__[Name]):
         topK = __models__[Name]["top_k"]
     else:
         topK = ServiceConfiguration["top_k"]["default"]
     
-    if ("min_p" in UserPrompt["parameters"] and ServiceConfiguration["min_p"]["modified_by_user"]):
-        minP = UserPrompt["parameters"]["min_p"]
+    if ("min_p" in UserConfig and ServiceConfiguration["min_p"]["modified_by_user"]):
+        minP = UserConfig["min_p"]
     elif ("min_p" in __models__[Name]):
         minP = __models__[Name]["min_p"]
     else:
         minP = ServiceConfiguration["min_p"]["default"]
     
-    if ("typical_p" in UserPrompt["parameters"] and ServiceConfiguration["typical_p"]["modified_by_user"]):
-        typicalP = UserPrompt["parameters"]["typical_p"]
+    if ("typical_p" in UserConfig and ServiceConfiguration["typical_p"]["modified_by_user"]):
+        typicalP = UserConfig["typical_p"]
     elif ("typical_p" in __models__[Name]):
         typicalP = __models__[Name]["typical_p"]
     else:
         typicalP = ServiceConfiguration["typical_p"]["default"]
     
-    if ("seed" in UserPrompt["parameters"] and ServiceConfiguration["seed"]["modified_by_user"]):
-        seed = UserPrompt["parameters"]["seed"]
+    if ("seed" in UserConfig and ServiceConfiguration["seed"]["modified_by_user"]):
+        seed = UserConfig["seed"]
     elif ("seed" in __models__[Name]):
         seed = __models__[Name]["seed"]
     else:
         seed = ServiceConfiguration["seed"]["default"]
     
-    if ("presence_penalty" in UserPrompt["parameters"] and ServiceConfiguration["presence_penalty"]["modified_by_user"]):
-        presencePenalty = UserPrompt["parameters"]["presence_penalty"]
+    if ("presence_penalty" in UserConfig and ServiceConfiguration["presence_penalty"]["modified_by_user"]):
+        presencePenalty = UserConfig["presence_penalty"]
     elif ("presence_penalty" in __models__[Name]):
         presencePenalty = __models__[Name]["presence_penalty"]
     else:
         presencePenalty = ServiceConfiguration["presence_penalty"]["default"]
     
-    if ("frequency_penalty" in UserPrompt["parameters"] and ServiceConfiguration["frequency_penalty"]["modified_by_user"]):
-        frequencyPenalty = UserPrompt["parameters"]["frequency_penalty"]
+    if ("frequency_penalty" in UserConfig and ServiceConfiguration["frequency_penalty"]["modified_by_user"]):
+        frequencyPenalty = UserConfig["frequency_penalty"]
     elif ("frequency_penalty" in __models__[Name]):
         frequencyPenalty = __models__[Name]["frequency_penalty"]
     else:
         frequencyPenalty = ServiceConfiguration["frequency_penalty"]["default"]
     
-    if ("repeat_penalty" in UserPrompt["parameters"] and ServiceConfiguration["repeat_penalty"]["modified_by_user"]):
-        repeatPenalty = UserPrompt["parameters"]["repeat_penalty"]
+    if ("repeat_penalty" in UserConfig and ServiceConfiguration["repeat_penalty"]["modified_by_user"]):
+        repeatPenalty = UserConfig["repeat_penalty"]
     elif ("repeat_penalty" in __models__[Name]):
         repeatPenalty = __models__[Name]["repeat_penalty"]
     else:
         repeatPenalty = ServiceConfiguration["repeat_penalty"]["default"]
     
-    if ("tools" in UserPrompt["parameters"] and ServiceConfiguration["tools"]["modified_by_user"]):
-        userTools = UserPrompt["parameters"]["tools"]
+    if ("tools" in UserConfig and ServiceConfiguration["tools"]["modified_by_user"]):
+        userTools = UserConfig["tools"]
     elif ("tools" in __models__[Name]):
         userTools = __models__[Name]["tools"]
     else:
@@ -160,47 +156,29 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
     if (isinstance(userTools, str)):
         userTools = userTools.split(" ")
 
-    for tool in system_prompt.GetDefaultTools():
-        if (tool.Name in userTools or userTools == "{all}"):
-            tools.append(tool.ToDictionary())
+    for tool in cb_tools.GetDefaultTools():
+        if (tool["function"]["name"] in userTools or "{all}" in userTools):
+            tools.append(tool)
 
-    if ("extra_tools" in UserPrompt["parameters"] and ServiceConfiguration["extra_tools"]["modified_by_user"]):
-        eTools = UserPrompt["parameters"]["extra_tools"]
+    if ("extra_tools" in UserConfig and ServiceConfiguration["extra_tools"]["modified_by_user"]):
+        eTools = UserConfig["extra_tools"]
     elif ("extra_tools" in __models__[Name]):
         eTools = __models__[Name]["extra_tools"]
     else:
         eTools = ServiceConfiguration["extra_tools"]["default"]
     
     for tool in eTools:
-        if (
-            "name" not in tool or
-            "description" not in tool or
-            "parameters" not in tool or
-            "required" not in tool
-        ):
-            raise ValueError("Extra tools required argument not provided.")
-            
-        toolName = tool["name"]
-        toolDescription = tool["description"]
-        toolParameters = tool["parameters"]
-        toolRequired = tool["required"]
-
-        extraTools.append(system_prompt.ChatbotTool(
-            Name = toolName,
-            Description = toolDescription,
-            Parameters = toolParameters,
-            RequiredParameters = toolRequired
-        ).ToDictionary())
+        extraTools.append(tool)
     
-    if ("tool_choice" in UserPrompt["parameters"] and ServiceConfiguration["tool_choice"]["modified_by_user"]):
-        toolChoice = UserPrompt["parameters"]["tool_choice"]
+    if ("tool_choice" in UserConfig and ServiceConfiguration["tool_choice"]["modified_by_user"]):
+        toolChoice = UserConfig["tool_choice"]
     elif ("tool_choice" in __models__[Name]):
         toolChoice = __models__[Name]["tool_choice"]
     else:
         toolChoice = ServiceConfiguration["tool_choice"]["default"]
     
-    if ("max_length" in UserPrompt["parameters"] and ServiceConfiguration["max_length"]["modified_by_user"]):
-        maxLength = UserPrompt["parameters"]["max_length"]
+    if ("max_length" in UserConfig and ServiceConfiguration["max_length"]["modified_by_user"]):
+        maxLength = UserConfig["max_length"]
     elif ("max_length" in __models__[Name]):
         maxLength = __models__[Name]["max_length"]
     else:
@@ -209,51 +187,22 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
     if (maxLength > ServiceConfiguration["max_length"]["default"] and not ServiceConfiguration["max_length"]["allow_greater_than_default"]):
         maxLength = ServiceConfiguration["max_length"]["default"]
     
-    if ("extra_system_prompt" in UserPrompt["parameters"] and ServiceConfiguration["extra_system_prompt"]["modified_by_user"]):
-        esp = UserPrompt["parameters"]["extra_system_prompt"]
-        esp = "" if (esp is None) else str(esp)
-        extraSystemPrompt["user"] = None if (len(esp.strip()) == 0) else esp
-    
     if ("extra_system_prompt" in __models__[Name]):
-        esp = __models__[Name]["extra_system_prompt"]
-        esp = "" if (esp is None) else str(esp)
-        extraSystemPrompt["model"] = None if (len(esp.strip()) == 0) else esp
+        extraSystemPrompt["model"] = __models__[Name]["extra_system_prompt"]
     
     if (
         ServiceConfiguration["extra_system_prompt"]["default"] is not None and
         len(ServiceConfiguration["extra_system_prompt"]["default"].strip()) != 0
     ):
         extraSystemPrompt["service"] = ServiceConfiguration["extra_system_prompt"]["default"]
-
-    if ("predefined_system_prompts" in UserPrompt["parameters"] and ServiceConfiguration["predefined_system_prompts"]["modified_by_user"]):
-        psp = UserPrompt["parameters"]["predefined_system_prompts"]
-    elif ("predefined_system_prompts" in __models__[Name]):
-        psp = __models__[Name]["predefined_system_prompts"]
-    else:
-        psp = {}
-    
-    for pspName, pspValue in psp.items():
-        if (pspName not in predefinedSystemPrompts):
-            yield {"warnings": [f"Model predefined system prompt `{pspName}` not found. Ignoring."]}
-            continue
-
-        if (isinstance(pspValue, int) or isinstance(pspValue, float)):
-            predefinedSystemPrompts[pspName] = pspValue >= 1
-        elif (isinstance(pspValue, str)):
-            predefinedSystemPrompts[pspName] = pspValue.lower().strip() == "true"
-        elif (isinstance(pspValue, bool)):
-            predefinedSystemPrompts[pspName] = pspValue
-        else:
-            yield {"warnings": [f"Invalid model predefined system prompt `{pspName}` type. Ignoring."]}
-            continue
     
     if ("_private_extra_parameters" in __models__[Name]):
         extraParameters = __models__[Name]["_private_extra_parameters"]
     else:
         extraParameters = {}
     
-    if ("reasoning" in UserPrompt["parameters"]):
-        reasoningLevel = UserPrompt["parameters"]["reasoning"]
+    if ("reasoning" in UserConfig):
+        reasoningLevel = UserConfig["reasoning"]
     else:
         reasoningLevel = __models__[Name]["reasoning"]["default_mode"]
 
@@ -267,7 +216,7 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
         else:
             logs.WriteLog(
                 logs.WARNING,
-                "[service_chatbot] Optinal `text_classification` service not installed, but trying to use automatic reasoning level. Changing to `reasoning`."
+                "[service_chatbot] Optional `text_classification` service not installed, but trying to use automatic reasoning level. Changing to `reasoning`."
             )
             reasoningLevel = __models__[Name]["reasoning"]["default_reasoning_level"]
     elif (reasoningLevel in __models__[Name]["reasoning"]["levels"]):
@@ -276,10 +225,10 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
         raise ValueError("Invalid reasoning mode or level.")
     
     if (
-        "_private_parameters" in __models__[Name]["reasoning"] and
-        reasoningLevel in __models__[Name]["reasoning"]["_private_parameters"]
+        "parameters" in __models__[Name]["reasoning"] and
+        reasoningLevel in __models__[Name]["reasoning"]["parameters"]
     ):
-        extraParameters |= __models__[Name]["reasoning"]["_private_parameters"][reasoningLevel]
+        extraParameters |= __models__[Name]["reasoning"]["parameters"][reasoningLevel]
     
     generator = InferenceModel(
         Name,
@@ -299,7 +248,6 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
             "tool_choice": toolChoice,
             "max_length": maxLength,
             "extra_system_prompt": extraSystemPrompt,
-            "predefined_system_prompts": predefinedSystemPrompts,
             "extra_parameters": extraParameters,
             "reasoning": reasoningLevel
         }
@@ -308,97 +256,78 @@ def SERVICE_INFERENCE(Name: str, UserPrompt: dict[str, Any], UserParameters: dic
     for token in generator:
         yield token
 
-def InferenceModel(Name: str, Conversation: conv.Conversation, Configuration: dict[str, Any]) -> Generator[dict[str, Any]]:
+def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, str]]]], Configuration: dict[str, Any]) -> Generator[dict[str, Any]]:
     """
     Inference the model.
 
     Args:
         Name (str): Name of the model.
-        Conversation (Conversation): Conversation of the model.
+        Conversation (list[dict[str, str | list[dict[str, str]]]]): Conversation of the model.
         Configuration (dict[str, Any]): Configuration of the model.
     """
     __check_service_configuration__()
     LoadModel(Name, __models__[Name])
 
-    conversation: list[conv.Message] = Conversation.GetConversation(True)
-    systemPrompt = ""
+    conversation = copy.deepcopy(Conversation)
     modelConversation = []
-
-    if (Configuration["predefined_system_prompt"]["personality"]):
-        systemPrompt += f"{system_prompt.GetDefaultSystemPrompt()}\n"
-    
-    if (Configuration["predefined_system_prompt"]["birthday"]):
-        systemPrompt += "I4.0's birthday is 16th September.\n"
-    
-    if (Configuration["predefined_system_prompt"]["current_time"]):
-        currentTime = datetime.datetime.now()
-        currentTime = f"{currentTime.hour}:{currentTime.minute}:{currentTime.second}"
-        systemPrompt += f"The current time is `{currentTime}` (HOUR:MINUTE:SECOND).\n"
-    
-    if (Configuration["predefined_system_prompt"]["current_date"]):
-        currentDate = datetime.datetime.now()
-        currentDate = f"{currentDate.day}/{currentDate.month}/{currentDate.year}"
-        systemPrompt += f"The current date is `{currentDate}` (DAY/MONTH/YEAR).\n"
-    
-    if (Configuration["predefined_system_prompt"]["service_extra_system_prompt"]):
-        sp = Configuration["extra_system_prompt"]["service"]
-        systemPrompt += "" if (sp is None) else f"{sp}\n"
-    
-    if (Configuration["predefined_system_prompt"]["model_extra_system_prompt"]):
-        sp = Configuration["extra_system_prompt"]["model"]
-        systemPrompt += "" if (sp is None) else f"{sp}\n"
-    
-    if (Configuration["predefined_system_prompt"]["user_extra_system_prompt"]):
-        sp = Configuration["extra_system_prompt"]["user"]
-        systemPrompt += "" if (sp is None) else f"{sp}\n"
-    
-    systemPrompt = systemPrompt.strip()
-
-    if ("reasoning" in Configuration and Configuration["reasoning"] in __models__[Name]["reasoning"]["_private_system_prompt"]["levels"]):
-        if (__models__[Name]["reasoning"]["_private_system_prompt"]["position"] == "start"):
-            systemPrompt = __models__[Name]["reasoning"]["_private_system_prompt"]["levels"][Configuration["reasoning"]] + __models__[Name]["reasoning"]["_private_system_prompt"]["separator"] + systemPrompt
-        else:
-            systemPrompt += __models__[Name]["reasoning"]["_private_system_prompt"]["separator"] + __models__[Name]["reasoning"]["_private_system_prompt"]["levels"][Configuration["reasoning"]]
-
-    modelConversation.append(conv.Message(conv.ROLE_CUSTOM, systemPrompt, CustomRole = "system").GetMessageContent())
     
     for message in conversation:
-        content = message.GetMessageContent()
+        if (message["role"] == "system"):
+            content = ""
 
-        if (message.GetRole() == conv.ROLE_USER and conversation.index(message) == len(conversation) - 1):
-            if ("reasoning" in Configuration and Configuration["reasoning"] in __models__[Name]["reasoning"]["_private_user_prompt"]["levels"]):
-                contentText = (-1, None)
+            for cont in message["content"]:
+                if (cont["type"] != "text"):
+                    raise TypeError("Invalid content type for system prompt. Only text allowed.")
+                    
+                content += cont["text"]
 
-                for cont in content["content"]:
-                    if (cont["type"] == "text"):
-                        contentText = (content["content"].index(cont), cont["text"])
+            if (Configuration["extra_system_prompt"]["service"] is not None):
+                content = Configuration["extra_system_prompt"]["service"] + "\n" + content
+            
+            if (Configuration["extra_system_prompt"]["model"] is not None):
+                content = Configuration["extra_system_prompt"]["model"] + "\n" + content
 
-                        if (__models__[Name]["reasoning"]["_private_user_prompt"]["position"] == "start"):
+            if ("reasoning" in Configuration and Configuration["reasoning"] in __models__[Name]["reasoning"]["system_prompt"]["levels"]):
+                if (__models__[Name]["reasoning"]["system_prompt"]["position"] == "start"):
+                    content = __models__[Name]["reasoning"]["system_prompt"]["levels"][Configuration["reasoning"]] + __models__[Name]["reasoning"]["system_prompt"]["separator"] + content
+                else:
+                    content += __models__[Name]["reasoning"]["system_prompt"]["separator"] + __models__[Name]["reasoning"]["system_prompt"]["levels"][Configuration["reasoning"]]
+
+            message["content"] = content
+        elif (message["role"] == "user" and conversation.index(message) == len(conversation) - 1):
+            if ("reasoning" in Configuration and Configuration["reasoning"] in __models__[Name]["reasoning"]["user_prompt"]["levels"]):
+                contentTextIdx = None
+
+                for content in message["content"]:
+                    if (content["type"] == "text"):
+                        contentTextIdx = content["content"].index(content)
+
+                        if (__models__[Name]["reasoning"]["user_prompt"]["position"] == "start"):
                             break
                 
-                if (contentText[0] == -1 or contentText[1] is None):
-                    contentText = (len(content["content"]), {"type": "text", "text": ""})
-                    content["content"].append(contentText[1])
+                if (contentTextIdx is None):
+                    contentTextIdx = len(message["content"])
+                    message["content"].append({"type": "text", "text": ""})
 
-                if (__models__[Name]["reasoning"]["_private_user_prompt"]["position"] == "start"):
-                    content["content"][contentText[0]]["text"] = __models__[Name]["reasoning"]["_private_user_prompt"]["levels"][Configuration["reasoning"]] + __models__[Name]["reasoning"]["_private_user_prompt"]["separator"] + content["content"][contentText[0]]["text"]
+                if (__models__[Name]["reasoning"]["user_prompt"]["position"] == "start"):
+                    message["content"][contentTextIdx]["text"] = __models__[Name]["reasoning"]["user_prompt"]["levels"][Configuration["reasoning"]] + __models__[Name]["reasoning"]["user_prompt"]["separator"] + message["content"][contentTextIdx]["text"]
                 else:
-                    content["content"][contentText[0]]["text"] += __models__[Name]["reasoning"]["_private_user_prompt"]["separator"] + __models__[Name]["reasoning"]["_private_user_prompt"]["levels"][Configuration["reasoning"]]
+                    message["content"][contentTextIdx]["text"] += __models__[Name]["reasoning"]["user_prompt"]["separator"] + __models__[Name]["reasoning"]["user_prompt"]["levels"][Configuration["reasoning"]]
 
-        for contentData in content["content"]:
-            if (contentData["type"] not in __models__[Name]["multimodal"]):
-                content["content"].remove(contentData)
-                continue
+        if (isinstance(message["content"], list)):
+            for content in message["content"]:
+                if (content["type"] not in __models__[Name]["multimodal"]):
+                    continue
 
-            if (__models__[Name]["_private_type"] == "lcpp"):
-                if (contentData["type"] == "image"):
-                    contentData["image_url"] = {"url": f"data:image;base64,{contentData['image']}"}
+                if (__models__[Name]["_private_type"] == "lcpp"):
+                    if (content["type"] == "image"):
+                        content["image_url"] = {"url": f"data:image;base64,{content['image']}"}
 
-                    contentData["type"] = "image_url"
-                    contentData.pop("image")
-                # TODO: Add video and audio when supported
+                        content["type"] = "image_url"
+                        content.pop("image")
+                    # TODO: Add video and audio when supported
 
-        modelConversation.append(content)
+        modelConversation.append(message)
 
     if (__models__[Name]["_private_type"] == "lcpp"):
         model: utils_llama.Llama = __models__[Name]["_private_model"]
@@ -416,7 +345,8 @@ def InferenceModel(Name: str, Conversation: conv.Conversation, Configuration: di
             max_tokens = Configuration["max_length"],
             presence_penalty = Configuration["presence_penalty"],
             frequency_penalty = Configuration["frequency_penalty"],
-            repeat_penalty = Configuration["repeat_penalty"]
+            repeat_penalty = Configuration["repeat_penalty"],
+            **Configuration["extra_parameters"]
         )
         tools = []
         currentToolIdx = None
@@ -463,13 +393,7 @@ def InferenceModel(Name: str, Conversation: conv.Conversation, Configuration: di
             yield {"text": tokenText}
         
         logs.WriteLog(logs.INFO, "[service_chatbot] Finished inference. Saving conversation and checking tools.")
-
-        Conversation.AppendMessage(conv.Message(
-            conv.ROLE_ASSISTANT,
-            fullAssistantText,
-            {},
-            None
-        ))
+        conversation.append({"role": "assistant", "content": [{"type": "text", "text": fullAssistantText}]})
         
         for tool in tools:
             tool = tool.strip()
@@ -485,6 +409,8 @@ def InferenceModel(Name: str, Conversation: conv.Conversation, Configuration: di
                     toolExists = True
 
                     if (tool["name"] == "scrape_website"):
+                        yield {"text": "\n"}
+
                         urls = tool["arguments"]["urls"]
                         prompt = tool["arguments"]["prompt"]
                         inputText = "# Internet results\n\n"
@@ -530,31 +456,20 @@ def InferenceModel(Name: str, Conversation: conv.Conversation, Configuration: di
 
                         inputText = inputText.strip()
                         inputText = inputText[:trimResponseLength]
-                        inputText = f"<tool_response>\n{inputText}\n</tool_response>"
 
-                        Conversation.AppendMessage(conv.Message(
-                            conv.ROLE_CUSTOM,
-                            inputText,
-                            {},
-                            "tool"
-                        ))
-                        Conversation.AppendMessage(conv.Message(
-                            conv.ROLE_USER,
-                            prompt,
-                            {},
-                            None
-                        ))
-                        inf = InferenceModel(Name, Conversation, Configuration)
+                        conversation.append({"role": "tool", "content": [{"type": "text", "text": inputText}]})
+                        conversation.append({"role": "user", "content": [{"type": "text", "text": prompt}]})
+
+                        inf = InferenceModel(Name, conversation, Configuration | {
+                            "tools": [],
+                            "extra_tools": []
+                        })
+                        responseText = ""
 
                         for token in inf:
+                            responseText += token["text"]
                             yield token
                     elif (tool["name"] == "search_text"):
-                        pass  # TODO
-                    elif (tool["name"] == "create_memory"):
-                        pass  # TODO
-                    elif (tool["name"] == "edit_memory"):
-                        pass  # TODO
-                    elif (tool["name"] == "delete_memory"):
                         pass  # TODO
                 
                 if (not toolExists):
@@ -618,22 +533,13 @@ def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
                     continue
 
                 with open(file["data"], "rb") as f:
-                    files.append({"type": file["type"], "data": base64.b64encode(f.read()).decode("utf-8")})
+                    files.append({"type": file["type"], file["type"]: base64.b64encode(f.read()).decode("utf-8")})
         else:
             logs.WriteLog(logs.INFO, "[service_chatbot] Inference test files not specified.")
 
         response = InferenceModel(
             Name,
-            conv.Conversation(
-                "INFERENCE TEST CONVERSATION",
-                [
-                    conv.Message(
-                        conv.ROLE_USER,
-                        ServiceConfiguration["test_inference_prompt"],
-                        files
-                    )
-                ]
-            ),
+            [{"role": "user", "content": files + [{"type": "text", "text": ServiceConfiguration["test_inference_prompt"]}]}],
             {
                 "temperature": 0,
                 "top_p": 0.95,

@@ -25,8 +25,8 @@ server_internet:
   reddit_subreddit_max_posts: 25
   reddit_post_max_comments: 5  # Set to 0 to disable comments
 server_api:
-  min_length: 512  # Min key length: 16
-  max_length: 1024  # Replace with `null` to make this the same as min_length
+  min_length: 64  # Min key length: 16
+  max_length: 128  # Replace with `null` to make this the same as min_length
   default_groups: []
   admin_groups: []
 server_whitelist:
@@ -83,22 +83,16 @@ server_encryption:
         - "You are using a weak hash. The message is encrypted; but it can be decrypted by anyone."
   force_response_hash: null  # "none", "sha224", "sha256", "sha384", "sha512"
   decryption_threads: 2  # -1 for all threads
-  public_key_file: "./server_public.pem"
-  private_key_file: "./server_private.pem"
-  private_key_password: "changeme"
   obfuscate: true  # Adds a random length string to the encryption to patch https://arxiv.org/pdf/2511.03675
 server_client_version:
   min: 170000  # Minimum client version to accept, null = server version
   max: null  # Maximum client version to accept, null = server version
   accept_unknown: false  # Whether to accept clients with an unknown version or not
 server_transfer_rate: 8192  # in KB. Min 1, max 8192 (~8 MB)
-server_tos_file: "./TOS.md"
-server_temp_dir: "./Temp"
-server_database_connection:
-  public_key_file: "./database_server_public.pem"
-  private_key_file: "./database_server_private.pem"
-  private_key_password: "changeme"
-  servers: []
+server_data:
+  tos_file: "./TOS.md"
+  temp_dir: "./Temp"
+  keys_dir: "./API_Keys"
 server_listen:
   - type: "websockets"
     host: "0.0.0.0"

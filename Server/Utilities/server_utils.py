@@ -23,16 +23,26 @@ class Client():
         logs.WriteLog(logs.INFO, "[server_utils] Connection created.")
     
     def __validate_connection_type__(self) -> None:
+        if (not self.IsConnected()):
+            raise exceptions.ConnectionClosedError()
+
         if (
             not isinstance(self.__socket__, WS_ServerConnection)
         ):
             raise exceptions.ConnectionTypeInvalid()
     
     async def __send__(self, Message: str) -> None:
+        if (not self.IsConnected()):
+            await self.Close()
+            raise exceptions.ConnectionClosedError()
+
         if (isinstance(self.__socket__, WS_ServerConnection)):
             await self.__socket__.send(Message)
     
     async def __receive__(self) -> str:
+        if (not self.IsConnected()):
+            raise exceptions.ConnectionClosedError()
+        
         if (isinstance(self.__socket__, WS_ServerConnection)):
             received = await self.__socket__.recv(True)
         
@@ -64,19 +74,25 @@ class Client():
         await self.__send__("--END--")
 
     async def Close(self) -> None:
-        if (isinstance(self.__socket__, WS_ServerConnection)):
-            await self.__socket__.close()
-        
-        self.__socket__ = None
-        self.__endpoint__ = None
+        try:
+            if (isinstance(self.__socket__, WS_ServerConnection)):
+                await self.__socket__.close()
+        finally:
+            self.__socket__ = None
+            self.__endpoint__ = None
 
-        logs.WriteLog(logs.INFO, "[server_utils] Connection closed.")
+            logs.WriteLog(logs.INFO, "[server_utils] Connection closed.")
     
     def GetEndPoint(self) -> tuple[str, int]:
         return self.__endpoint__
     
     def IsConnected(self) -> None:
-        return self.__socket__ is not None and self.__socket__.state == WS_State.OPEN
+        isConnected = self.__socket__ is not None
+
+        if (isinstance(self.__socket__, WS_ServerConnection)):
+            isConnected = isConnected and self.__socket__.state == WS_State.OPEN
+
+        return isConnected
 
 class WebSocketsServer():
     def __init__(

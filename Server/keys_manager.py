@@ -1,17 +1,18 @@
 from typing import Any, Self
+import os
 import random
-import copy
 import datetime
-import database_client as db
+import json
 import Utilities.logs as logs
 
 Configuration: dict[str, Any] = {}
+__busy__: list[str] = []
 
 class APIKey():
     VERSION = 0
 
     def __init__(
-        self: Self,
+        self,
         Tokens: int,
         ResetDaily: bool = False,
         ExpireDate: dict[str, int] | datetime.datetime | None = None,
@@ -27,8 +28,20 @@ class APIKey():
         minLength = Configuration["server_api"]["min_length"]
         maxLength = Configuration["server_api"]["max_length"]
 
+        if (minLength < 16):
+            logs.WriteLog(logs.WARNING, "[keys_manager] Min length < 16. Setting to 16.")
+            minLength = 16
+
         if (maxLength is None):
             maxLength = minLength
+
+        if (maxLength > 128):
+            logs.WriteLog(logs.WARNING, "[keys_manager] Max length > 128. This could cause troubles. Setting to 128.")
+            maxLength = 128
+        
+        if (minLength > maxLength):
+            logs.WriteLog(logs.WARNING, f"[keys_manager] Min length ({minLength}) > max length ({maxLength}). Setting to {maxLength}.")
+            minLength = maxLength
         
         if (minLength == maxLength):
             length = minLength
@@ -38,7 +51,7 @@ class APIKey():
         date = datetime.datetime.now()
         chars = "abcdefghijplnmopqrstuvwxyz"
         chars += chars.upper()
-        chars += "0123456789!@#$%&/()=[]?-_.:,;<>*+"
+        chars += "0123456789!@#$%&()=[]?-_.:,;<>*+"
 
         chars = list(chars)
         random.shuffle(chars)
@@ -75,35 +88,65 @@ class APIKey():
         self.PrioritizeModels = PrioritizeModels
         self.Groups = Configuration["server_api"]["default_groups"] if (Groups is None) else Groups
     
-    def IsAdmin(self: Self) -> None:
+    def IsAdmin(self) -> None:
         for group in self.Groups:
             if (group in Configuration["server_api"]["admin_groups"]):
                 return True
         
         return False
     
-    def UploadToDatabase(self: Self) -> None:
-        pass  # TODO
+    def SaveToFile(self) -> None:
+        self.__wait__(self.Key)
+        __busy__.append(self.Key)
+
+        try:
+            if (not os.path.exists(f"{Configuration['server_data']['keys_dir']}/")):
+                os.mkdir(f"{Configuration['server_data']['keys_dir']}/")
+            
+            fileName = self.Key
+
+            with open(f"{Configuration['server_data']['keys_dir']}/{fileName}.json", "w" if (self.KeyFileExists(self.Key)) else "x") as f:
+                f.write(json.dumps(self.__dict__))
+        finally:
+            __busy__.remove(self.Key)
+    
+    def RemoveFile(self) -> None:
+        self.__wait__(self.Key)
+        __busy__.append(self.Key)
+
+        try:
+            if (self.KeyFileExists(self.Key)):
+                os.remove(f"{Configuration['server_data']['keys_dir']}/{self.Key}.json")
+        finally:
+            __busy__.remove(self.Key)
 
     @staticmethod
-    def CreateFromDatabase(Key: str) -> Self:
-        pass  # TODO
-
-    def DeleteFromDB(self) -> None:
-        if (not self.ExistsInDB()):
-            return
-        
-        pass  # TODO
-
-    def ExistsInDB(self) -> bool:
-        return False  # TODO
-
+    def __wait__(Key: str) -> None:
+        while (Key in __busy__):
+            raise Exception("ª")
+    
     @staticmethod
-    def GetAllFromDatabase() -> list[Self]:
-        pass  # TODO
+    def KeyFileExists(Key: str) -> bool:
+        return os.path.exists(f"{Configuration['server_data']['keys_dir']}/{Key}.json")
     
     @classmethod
-    def FromDict(cls: Self, Dictionary: dict[str, Any]) -> Self:
+    def LoadFromFile(cls, Key: str) -> Self | None:
+        cls.__wait__(Key)
+        __busy__.append(Key)
+        
+        try:
+            if (os.path.exists(f"{Configuration['server_data']['keys_dir']}/{Key}.json")):
+                with open(f"{Configuration['server_data']['keys_dir']}/{Key}.json", "r") as f:
+                    instance = cls.__from_dict__(json.loads(f.read()))
+            else:
+                instance = None
+        finally:
+            __busy__.remove(Key)
+        
+        return instance
+
+    @classmethod
+    def __from_dict__(cls, Dictionary: dict[str, Any]) -> Self:
         instance = cls.__new__(cls)
 
         for k, v in Dictionary.items():
@@ -113,6 +156,3 @@ class APIKey():
             logs.PrintLog(logs.WARNING, "[keys_manager] API key version is older or newer than the server version. This might cause errors.")
         
         return instance
-    
-    def ToDict(self: Self) -> dict[str, Any]:
-        return copy.deepcopy(self.__dict__)

@@ -5,6 +5,7 @@ from cryptography.hazmat.backends import default_backend
 from concurrent.futures import ThreadPoolExecutor
 import base64
 import os
+import hashlib
 import Utilities.logs as logs
 
 def ParseHash(HashName: str) -> hashes.HashAlgorithm | None:
@@ -206,3 +207,24 @@ def Decrypt(Hash: hashes.HashAlgorithm | None, PrivateKey: rsa.RSAPrivateKey, Da
         return b"".join(results)
     
     return "".join([p.decode("utf-8") for p in results])
+
+def HashContent(Content: str | bytes, Hash: hashes.HashAlgorithm) -> str:
+    if (Hash is None):
+        raise TypeError("Hash is None. None type is not valid for hashing content.")
+    
+    content = Content.encode("utf-8") if (isinstance(Content, str)) else Content
+    
+    if (isinstance(Hash, hashes.SHA224)):
+        hashObj = hashlib.sha224(content)
+    elif (isinstance(Hash, hashes.SHA256)):
+        hashObj = hashlib.sha256(content)
+    elif (isinstance(Hash, hashes.SHA384)):
+        hashObj = hashlib.sha384(content)
+    elif (isinstance(Hash, hashes.SHA512)):
+        hashObj = hashlib.sha512(content)
+    elif (isinstance(Hash, hashes.SHA1)):
+        hashObj = hashlib.sha1(content)
+    
+    hashHex = hashObj.hexdigest()
+    
+    return hashHex

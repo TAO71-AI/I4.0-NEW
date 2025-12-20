@@ -20,3 +20,7 @@ class ScrapeGuidelinesError(BaseException):
 class ConnectionTypeInvalid(BaseException):
     def __init__(self) -> None:
         super().__init__("The connection type is invalid.")
+
+class ConnectionClosedError(BaseException):
+    def __init__(self) -> None:
+        super().__init__("The connection was closed.")

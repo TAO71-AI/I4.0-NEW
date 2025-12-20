@@ -2,6 +2,7 @@ from typing import Any
 from collections.abc import Generator
 from io import BytesIO
 from pydub import AudioSegment
+from PIL import Image as PILImage
 import os
 import copy
 import shutil
@@ -16,7 +17,6 @@ import av
 import math
 import exceptions
 import keys_manager
-import messages as conv
 import services_queue as queue
 import Utilities.install_requirements as requirements
 import Utilities.logs as logs
@@ -37,6 +37,7 @@ SERVICES_CONFIG_FILES = [
     #"default_config.json"
 ]
 Configuration: dict[str, Any] = {}
+TextEncoder = tiktoken.get_encoding("o200k_base")
 
 class Service():
     def __init__(
@@ -353,11 +354,10 @@ def InferenceModel(
     Prompt: dict[str, str | list[dict[str, str]] | dict[str, Any]],
     UserParameters: dict[str, Any]
 ) -> Generator[dict[str, Any]]:
-    global ServicesModules, ServicesModels
+    global ServicesModules, ServicesModels, TextEncoder
 
     if (
-        "key_info" not in UserParameters or
-        "conversation_name" not in UserParameters
+        "key_info" not in UserParameters
     ):
         raise ValueError("Required user parameters not defined.")
     
@@ -377,103 +377,109 @@ def InferenceModel(
 
     queueData = queue.GetQueueFor(ModelName)
 
-    if (queueData["users_waiting"] >= maxSimulUsers):
+    while (queueData["users_waiting"] >= maxSimulUsers):
         time.sleep(0.1)
+
+    queue.SetUsersWaiting(ModelName, "increment", 1)
 
     # TODO: Automatic blacklist
 
-    moduleHandlesConversation = Service.GetModuleVariable(serviceModule.ServiceModule, "MODULE_HANDLES_CONVERSATION")
-    moduleHandlesPricing = Service.GetModuleVariable(serviceModule.ServiceModule, "MODULE_HANDLES_PRICING")
-
-    text = Prompt["text"] if ("text" in Prompt) else ""
-    files = Prompt["files"] if ("files" in Prompt) else []
+    conversation = Prompt["conversation"] if ("conversation" in Prompt) else []
     userConfig = Prompt["parameters"] if ("parameters" in Prompt) else {}
 
-    if (not moduleHandlesConversation):
-        conversation = conv.Conversation.CreateConversationFromDB(f"{UserParameters['key_info']['Key']}_{UserParameters['conversation_name']}", True)
+    if ("pricing" in modelConfiguration):
+        modelPricing = modelConfiguration["pricing"]
+    else:
+        logs.WriteLog(logs.WARNING, "[services_manager] Pricing not set. Everything will default to 0 (free of charge).")
+        modelPricing = {}
 
-    if (not moduleHandlesPricing):
-        if ("pricing" in modelConfiguration):
-            modelPricing = modelConfiguration["pricing"]
+    textInputPrice = modelPricing["text_input"] if ("text_input" in modelPricing) else 0
+    textOutputPrice = modelPricing["text_output"] if ("text_output" in modelPricing) else 0  # TODO: Output price
+    imageInputPrice = modelPricing["image_input"] if ("image_input" in modelPricing) else 0
+    imageOutputPrice = modelPricing["image_output"] if ("image_output" in modelPricing) else 0
+    audioInputPrice = modelPricing["audio_input"] if ("audio_input" in modelPricing) else 0
+    audioOutputPrice = modelPricing["audio_output"] if ("audio_output" in modelPricing) else 0
+    videoInputPriceS = modelPricing["video_input_s"] if ("video_input_s" in modelPricing) else 0
+    videoOutputPriceS = modelPricing["video_output_s"] if ("video_output_s" in modelPricing) else 0
+    videoInputPriceR = modelPricing["video_input_r"] if ("video_input_r" in modelPricing) else 0
+    videoOutputPriceR = modelPricing["video_output_r"] if ("video_output_r" in modelPricing) else 0
+    otherInputPrice = modelPricing["other_input"] if ("other_input" in modelPricing) else 0
+    otherOutputPrice = modelPricing["other_output"] if ("other_output" in modelPricing) else 0
 
-            inferencePrice = modelPricing["inference"] if ("inference" in modelPricing) else 0
-            processingTime1secPrice = modelPricing["processing_time"] if ("processing_time" in modelPricing) else 0
-            text1mInputPrice = modelPricing["text_input_1m"] if ("text_input_1m" in modelPricing) else 0
-            text1mOutputPrice = modelPricing["text_output_1m"] if ("text_output_1m" in modelPricing) else 0
-            imagePrice = modelPricing["image"] if ("image" in modelPricing) else 0
-            audioPrice = modelPricing["audio"] if ("audio" in modelPricing) else 0
-            audio1secPrice = modelPricing["audio_1sec"] if ("audio_1sec" in modelPricing) else 0
-            videoPrice = modelPricing["video"] if ("video" in modelPricing) else 0
-            video1secPrice = modelPricing["video_1sec"] if ("video_1sec" in modelPricing) else 0
-            otherFilesPrice = modelPricing["other_files"] if ("other_files" in modelPricing) else 0
+    price = 0
 
-            if (len(text) > 0):
-                enc = tiktoken.get_encoding("o200k_base")
-                encodedText = enc.encode(text)
-            else:
-                encodedText = []
+    for msg in conversation:
+        if (isinstance(msg["content"], str)):
+            msg["content"] = [{"type": "text", "text": msg["content"]}]
 
-            price = inferencePrice
-            price += len(encodedText) * text1mInputPrice / 1000000.0
+        for content in msg["content"]:
+            if (content["type"] == "text"):
+                price += len(TextEncoder.encode(content["text"])) * textInputPrice / 1000000.0
+            elif (content["type"] == "image"):
+                imgBuffer = BytesIO(base64.b64decode(content["image"]))
+                img = PILImage.open(imgBuffer)
+                price += (img.size[0] / 1024) * (img.size[1] / 1024) * imageInputPrice
 
-            for file in files:
-                if ("type" not in file):
-                    continue
+                img.close()
+                imgBuffer.close()
+            elif (content["type"] == "audio"):
+                audioBuffer = BytesIO(base64.b64decode(content["audio"]))
 
-                if (file["type"] == "image"):
-                    price += imagePrice
-                elif (file["type"] == "audio"):
-                    price += audioPrice
-                    audioBuffer = BytesIO(base64.b64decode(file["data"]))
+                audio = AudioSegment.from_file(audioBuffer)
+                durationInSeconds = len(audio) / 1000
 
-                    audio = AudioSegment.from_file(audioBuffer)
-                    durationInSeconds = len(audio) / 1000
+                price += durationInSeconds * audioInputPrice
+                audioBuffer.close()
+            elif (content["type"] == "video"):
+                videoBuffer = BytesIO(base64.b64decode(content["video"]))
 
-                    price += durationInSeconds * audio1secPrice
-                    audioBuffer.close()
-                elif (file["type"] == "video"):
-                    price += videoPrice
-                    videoBuffer = BytesIO(base64.b64decode(file["data"]))
+                try:
+                    reader = av.open(videoBuffer)
+                    stream = next(s for s in reader.streams if (s.type == "video"))
 
-                    try:
-                        reader = av.open(videoBuffer)
-                        stream = next(s for s in reader.streams if (s.type == "video"))
+                    fps = float(stream.average_rate) if (stream.average_rate) else 0
+                    numberOfFrames = stream.frames
+                    duration = float(reader.duration / av.time_base) if (reader.duration) else (numberOfFrames / fps if (fps) else 0)
+                    durationInSeconds = math.floor(duration)
 
-                        fps = float(stream.average_rate) if (stream.average_rate) else 0
-                        numberOfFrames = stream.frames
-                        duration = float(reader.duration / av.time_base) if (reader.duration) else (numberOfFrames / fps if (fps) else 0)
-                        durationInSeconds = math.floor(duration)
+                    width = stream.width
+                    height = stream.height
 
-                        price += durationInSeconds * video1secPrice
-                        videoBuffer.close()
-                    except Exception as ex:
-                        videoBuffer.close()
-                        raise RuntimeError(f"Could not calculate pricing for video. Reason: {ex}")
+                    price += (durationInSeconds * videoInputPriceS) + ((width / 1024) * (height / 1024) * videoInputPriceR)
+
+                    reader.close()
+                    videoBuffer.close()
+                except Exception as ex:
+                    videoBuffer.close()
+                    raise RuntimeError(f"Could not calculate pricing for video. Reason: {ex}")
+            elif (isinstance(otherInputPrice, float) or isinstance(otherInputPrice, int)):
+                price += len(content[content["type"]]) / 1048576 * otherInputPrice
+            elif (isinstance(otherInputPrice, dict)):
+                if (content["type"] in otherInputPrice):
+                    price += len(content[content["type"]]) / 1048576 * otherInputPrice[content["type"]]
                 else:
-                    price += otherFilesPrice
-            
-            if (UserParameters["key_info"]["Tokens"] < price):
-                raise exceptions.NotEnoughTokensException(price, UserParameters["key_info"]["Tokens"])
-            
-            UserParameters["key_info"]["Tokens"] -= price
-        else:
-            logs.PrintLog(logs.WARNING, "[services_manager] Pricing not in model configuration. WILL BE PROVIDED FREE OF CHARGE.")
+                    price += len(content[content["type"]]) / 1048576 * otherInputPrice["global"]
+            else:
+                raise ValueError("Invalid content type or pricing.")
+        
+        price = round(price, 5)
 
-    processingTime = time.time()
-    lastTokenTime = None
+        if (UserParameters["key_info"]["Tokens"] < price):
+            raise exceptions.NotEnoughTokensException(price, UserParameters["key_info"]["Tokens"])
+        
+        UserParameters["key_info"]["Tokens"] -= price
+
+    firstToken = True
+    lastTokenTime = time.time()
     exc = None
-    tokensProcessingTime = 0
+    tokensProcessingTime = None
 
     try:
         for token in Service.RunModuleFunction(serviceModule.ServiceModule, "SERVICE_INFERENCE", [
             ModelName,
-            {
-                "text": text,
-                "files": files,
-                "parameters": userConfig
-            },
+            userConfig,
             UserParameters | {
-                "conversation": conversation if (moduleHandlesConversation) else None
+                "conversation": conversation
             }
         ]):
             outputToken = {
@@ -484,25 +490,74 @@ def InferenceModel(
                 "warnings": token["warnings"] if ("warnings" in token) else [],
                 "errors": token["errors"] if ("errors" in token) else []
             }
+            tokenPrice = 0
 
-            if (not moduleHandlesPricing):
-                tokenPrice = (time.time() - processingTime) * processingTime1secPrice
-                processingTime = time.time()
-
-                if (len(outputToken["response"]["text"]) > 0):
-                    tokenPrice += text1mOutputPrice / 1000000.0
-
-                if (UserParameters["key_info"]["Tokens"] < tokenPrice):
-                    raise exceptions.NotEnoughTokensException(tokenPrice, UserParameters["key_info"]["Tokens"])
-                
-                UserParameters["key_info"]["Tokens"] -= tokenPrice
+            if (len(outputToken["response"]["text"]) > 0):
+                tokenPrice += textOutputPrice / 1000000.0
             
-            if (lastTokenTime is None):
-                queue.SetFTS(ModelName, (
-                    queueData["fts"] if (queueData["fts"] is not None) else 0 +
-                    (time.time() - processingTime)
-                ) / 2)
+            for file in outputToken["response"]["files"]:
+                if (file["type"] == "image"):
+                    img = PILImage.open(base64.b64decode(file["image"]))
+                    tokenPrice += (img.size[0] / 1024) * (img.size[1] / 1024) * imageOutputPrice
+
+                    img.close()
+                elif (file["type"] == "audio"):
+                    audioBuffer = BytesIO(base64.b64decode(file["audio"]))
+
+                    audio = AudioSegment.from_file(audioBuffer)
+                    durationInSeconds = len(audio) / 1000
+
+                    tokenPrice += durationInSeconds * audioOutputPrice
+                    audioBuffer.close()
+                elif (file["type"] == "video"):
+                    videoBuffer = BytesIO(base64.b64decode(file["video"]))
+
+                    try:
+                        reader = av.open(videoBuffer)
+                        stream = next(s for s in reader.streams if (s.type == "video"))
+
+                        fps = float(stream.average_rate) if (stream.average_rate) else 0
+                        numberOfFrames = stream.frames
+                        duration = float(reader.duration / av.time_base) if (reader.duration) else (numberOfFrames / fps if (fps) else 0)
+                        durationInSeconds = math.floor(duration)
+
+                        width = stream.width
+                        height = stream.height
+
+                        tokenPrice += (durationInSeconds * videoOutputPriceS) + ((width / 1024) * (height / 1024) * videoOutputPriceR)
+                        videoBuffer.close()
+                    except Exception as ex:
+                        videoBuffer.close()
+                        raise RuntimeError(f"Could not calculate pricing for video. Reason: {ex}")
+                elif (isinstance(otherOutputPrice, float) or isinstance(otherOutputPrice, int)):
+                    tokenPrice += len(file[file["type"]]) / 1048576 * otherOutputPrice
+                elif (isinstance(otherOutputPrice, dict)):
+                    if (file["type"] in otherOutputPrice):
+                        tokenPrice += len(file[file["type"]]) / 1048576 * otherOutputPrice[file["type"]]
+                    else:
+                        tokenPrice += len(file[file["type"]]) / 1048576 * otherOutputPrice["global"]
+                else:
+                    raise ValueError("Invalid content type or pricing.")
+
+            tokenPrice = round(tokenPrice, 5)
+
+            if (UserParameters["key_info"]["Tokens"] < tokenPrice):
+                raise exceptions.NotEnoughTokensException(tokenPrice, UserParameters["key_info"]["Tokens"])
+                
+            UserParameters["key_info"]["Tokens"] -= tokenPrice
+            
+            if (firstToken):
+                firstTokenSeconds = time.time() - lastTokenTime
+
+                if (queueData["fts"] is not None):
+                    firstTokenSeconds = (queueData["fts"] + firstTokenSeconds) / 2
+
+                queue.SetFTS(ModelName, round(firstTokenSeconds, 3))
+                firstToken = False
             else:
+                if (tokensProcessingTime is None):
+                    tokensProcessingTime = time.time() - lastTokenTime
+                
                 tokensProcessingTime = (tokensProcessingTime + (time.time() - lastTokenTime)) / 2
             
             lastTokenTime = time.time()
@@ -510,16 +565,16 @@ def InferenceModel(
     except Exception as ex:
         exc = ex
     
-    queue.SetTPS(ModelName, (
-        queueData["tps"] if (queueData["tps"] is not None) else 0 +
-        tokensProcessingTime
-    ) / 2)
+    if (tokensProcessingTime is not None):
+        if (queueData["tps"] is not None):
+            tokensProcessingTime = (1 / queueData["tps"] + tokensProcessingTime) / 2
+        
+        queue.SetTPS(ModelName, round(1 / tokensProcessingTime, 3))
+    
+    queue.SetUsersWaiting(ModelName, "decrement", 1)
 
-    apiKey = keys_manager.APIKey.FromDict(UserParameters["key_info"])
-    apiKey.UploadToDatabase()
-
-    if (not moduleHandlesConversation):
-        conversation.UploadToDB()
+    apiKey = keys_manager.APIKey.__from_dict__(UserParameters["key_info"])
+    apiKey.SaveToFile()
 
     if (exc is not None):
         raise exc

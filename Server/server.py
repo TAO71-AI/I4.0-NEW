@@ -22,15 +22,6 @@ except Exception as ex:
 
     exit(1)
 
-try:
-    logs.WriteLog(logs.INFO, "[server] Loading configuration...")
-
-    services_manager.Configuration = config.Configuration
-    services_manager.keys_manager.Configuration = config.Configuration
-except Exception as ex:
-    logs.PrintLog(logs.CRITICAL, f"[server] Could not copy configuration in all modules! Error: {ex}")
-    exit(1)
-
 def LoadModels() -> None:
     try:
         logs.PrintLog(logs.INFO, "[server] Loading all modules...")
@@ -105,8 +96,13 @@ async def __unhandled_received_message__(Client: server_utils.Client, Message: s
             }
             resItem = json.dumps(resItem)
 
-            await Client.Send(resItem)
-            await asyncio.sleep(0)
+            try:
+                await Client.Send(resItem)
+                await asyncio.sleep(0)
+            except services_manager.exceptions.ConnectionClosedError:
+                break
+            except Exception as ex:
+                logs.WriteLog(logs.ERROR, f"[server] Error sending to client: {ex}")
 
     loop = asyncio.get_event_loop()
     tasks = []
@@ -189,10 +185,47 @@ def __process_client__(Message: str) -> Generator[dict[str, Any]]:
 
         try:
             content = json.loads(messageContent)
-            service = content["service"]
-            key = content["key"] if ("key" in content) else ""
+            modelName = content["model_name"]
+            service = content["service"] if ("service" in content) else "inference"
+            key = content["key"] if ("key" in content) else "nokey"
+            prompt = content["prompt"] if ("prompt" in content) else {}
+            userParams = content["user_parameters"] if ("user_parameters" in content) else {}
 
-            # TODO
+            time.sleep(0.1)  # Wait 100ms to avoid brute force attacks for the API keys
+            keyInstance = services_manager.keys_manager.APIKey.LoadFromFile(key)
+
+            if (keyInstance is None):
+                keyInstance = services_manager.keys_manager.APIKey(
+                    Tokens = 0,
+                    ResetDaily = False,
+                    ExpireDate = None,
+                    AllowedIPs = None,
+                    PrioritizeModels = [],
+                    Groups = []
+                )
+                keyInstance.Key = "nokey"
+            
+            if (service == "inference"):
+                for token in services_manager.InferenceModel(
+                    ModelName = modelName,
+                    Prompt = prompt,
+                    UserParameters = userParams | {
+                        "key_info": keyInstance.__dict__
+                    }
+                ):
+                    yield token | {
+                        "_hash": messageHash,
+                        "_public_key": messagePublicKey
+                    }
+            elif (service == "get_queue_data"):
+                queueData = services_manager.queue.GetQueueFor(modelName)
+
+                yield queueData | {
+                    "_hash": messageHash,
+                    "_public_key": messagePublicKey
+                }
+            else:
+                raise ValueError("Invalid service.")
         except Exception as ex:
             yield {
                 "errors": [f"Error processing message ({ex})."],
@@ -208,32 +241,9 @@ def __process_client__(Message: str) -> Generator[dict[str, Any]]:
 
 def StartServer() -> None:
     global PrivateKey, PublicKey, Servers
-
-    if (
-        len(config.Configuration["server_encryption"]["public_key_file"].strip()) == 0 or
-        len(config.Configuration["server_encryption"]["private_key_file"].strip()) == 0 or
-        not os.path.exists(config.Configuration["server_encryption"]["public_key_file"]) or
-        not os.path.exists(config.Configuration["server_encryption"]["private_key_file"])
-    ):
+    
+    if (PrivateKey is None or PublicKey is None):
         PrivateKey, PublicKey = encryption.GenerateRSAKeys()
-
-        if (
-            not os.path.exists(config.Configuration["server_encryption"]["public_key_file"]) or
-            not os.path.exists(config.Configuration["server_encryption"]["private_key_file"])
-        ):
-            encryption.SaveKeys(
-                PrivateKey,
-                config.Configuration["server_encryption"]["private_key_file"],
-                config.Configuration["server_encryption"]["private_key_password"],
-                PublicKey,
-                config.Configuration["server_encryption"]["public_key_file"]
-            )
-    else:
-        PrivateKey, PublicKey = encryption.LoadKeysFromFile(
-            config.Configuration["server_encryption"]["private_key_file"],
-            config.Configuration["server_encryption"]["private_key_password"],
-            config.Configuration["server_encryption"]["public_key_file"]
-        )
     
     if (config.Configuration["server_transfer_rate"] < 1 or config.Configuration["server_transfer_rate"] > 8192):
         newServerTransferRate = max(1, min(config.Configuration["server_transfer_rate"], 8192))
@@ -287,18 +297,26 @@ def CloseServer() -> None:
 
     services_manager.OffloadModels(list(config.Configuration["services"].keys()))
 
-config.ConfigType = "server"
 config.ReadConfiguration(None, True, True)
 
-if (not os.path.exists(config.Configuration["server_tos_file"])):
-    with open(config.Configuration["server_tos_file"], "x") as f:
+try:
+    logs.WriteLog(logs.INFO, "[server] Loading configuration...")
+
+    services_manager.Configuration = config.Configuration
+    services_manager.keys_manager.Configuration = config.Configuration
+except Exception as ex:
+    logs.PrintLog(logs.CRITICAL, f"[server] Could not copy configuration in all modules! Error: {ex}")
+    exit(1)
+
+if (not os.path.exists(config.Configuration["server_data"]["tos_file"])):
+    with open(config.Configuration["server_data"]["tos_file"], "x") as f:
         f.write("# TOS\n\nNo TOS for now.\n")
 
-with open(config.Configuration["server_tos_file"], "r") as f:
+with open(config.Configuration["server_data"]["tos_file"], "r") as f:
     TOSContent = f.read()
 
-if (not os.path.exists(config.Configuration["server_temp_dir"])):
-    os.mkdir(config.Configuration["server_temp_dir"])
+if (not os.path.exists(config.Configuration["server_data"]["temp_dir"])):
+    os.mkdir(config.Configuration["server_data"]["temp_dir"])
 
 SERVER_VERSION: int = 170000
 Servers: list[Any] = []
@@ -307,10 +325,6 @@ PublicKey: Any | None = None
 CloseServerReason: str | None = None
 
 if (__name__ == "__main__"):
-    if (os.path.exists("./latest.txt")):
-        with open("./latest.txt", "w") as f:
-            f.write("")
-
     LoadModels()
 
     # TODO: Thread for model offloading
@@ -331,66 +345,46 @@ if (__name__ == "__main__"):
 
             if (prompt == "inference"):
                 infModelName = input("MODEL NAME >$ ")
-                infMsgs = []
+                msgSystem = input(f"MESSAGE SYSTEM CONTENT (string) >$ ")
+                msgText = input(f"MESSAGE TEXT CONTENT (string) >$ ")
+                msgFiles = []
 
                 while (True):
-                    msgRole = input(f"MESSAGE {len(infMsgs) + 1} ROLE (user, assistant, custom, [EMPTY]) >$ ").strip().lower()
-                    msgCRole = None
+                    msgFilePath = input(f"MESSAGE FILE {len(msgFiles) + 1} PATH (string, [EMPTY]) >$ ").strip()
 
-                    if (msgRole == "user"):
-                        msgRole = services_manager.conv.ROLE_USER
-                    elif (msgRole == "assistant"):
-                        msgRole = services_manager.conv.ROLE_ASSISTANT
-                    elif (msgRole == "custom"):
-                        msgRole = services_manager.conv.ROLE_CUSTOM
-                        msgCRole = input(">> CUSTOM ROLE NAME >$ ")
-                    elif (len(msgRole) == 0):
+                    if (len(msgFilePath) == 0):
                         break
-                    else:
-                        print(">> Invalid message role. Ignoring.", flush = True)
+
+                    if (not os.path.exists(msgFilePath)):
+                        print(">> File doesn't exists. Ignoring.", flush = True)
                         continue
 
-                    msgText = input(f"MESSAGE {len(infMsgs) + 1} TEXT CONTENT (string) >$ ")
-                    msgFiles = []
-
-                    while (True):
-                        msgFilePath = input(f"MESSAGE {len(infMsgs) + 1} FILE {len(msgFiles) + 1} PATH (string, [EMPTY]) >$ ").strip()
-
-                        if (len(msgFilePath) == 0):
-                            break
-
-                        if (not os.path.exists(msgFilePath)):
-                            print(">> File doesn't exists. Ignoring.", flush = True)
-                            continue
-
-                        if (
-                            msgFilePath.lower().endswith(".png") or
-                            msgFilePath.lower().endswith(".jpg") or
-                            msgFilePath.lower().endswith(".jpeg") or
-                            msgFilePath.lower().endswith(".webp") or
-                            msgFilePath.lower().endswith(".gif")
-                        ):
-                            msgFileType = "image"
-                        elif (
-                            msgFilePath.lower().endswith(".mp3") or
-                            msgFilePath.lower().endswith(".flac") or
-                            msgFilePath.lower().endswith(".wav")
-                        ):
-                            msgFileType = "audio"
-                        elif (
-                            msgFilePath.lower().endswith(".mp4") or
-                            msgFilePath.lower().endswith(".avi") or
-                            msgFilePath.lower().endswith(".mkv") or
-                            msgFilePath.lower().endswith(".webm")
-                        ):
-                            msgFileType = "video"
-                        else:
-                            msgFileType = input(">> Unable to get file type. Please specify file type (string) >$ ")
+                    if (
+                        msgFilePath.lower().endswith(".png") or
+                        msgFilePath.lower().endswith(".jpg") or
+                        msgFilePath.lower().endswith(".jpeg") or
+                        msgFilePath.lower().endswith(".webp") or
+                        msgFilePath.lower().endswith(".gif")
+                    ):
+                        msgFileType = "image"
+                    elif (
+                        msgFilePath.lower().endswith(".mp3") or
+                        msgFilePath.lower().endswith(".flac") or
+                        msgFilePath.lower().endswith(".wav")
+                    ):
+                        msgFileType = "audio"
+                    elif (
+                        msgFilePath.lower().endswith(".mp4") or
+                        msgFilePath.lower().endswith(".avi") or
+                        msgFilePath.lower().endswith(".mkv") or
+                        msgFilePath.lower().endswith(".webm")
+                    ):
+                        msgFileType = "video"
+                    else:
+                        msgFileType = input(">> Unable to get file type. Please specify file type (string) >$ ")
                         
-                        with open(msgFilePath, "rb") as f:
-                            msgFiles.append({"type": msgFileType, "data": services_manager.base64.b64encode(f.read()).decode("utf-8")})
-
-                    infMsgs.append(services_manager.conv.Message(msgRole, msgText, msgFiles, msgCRole))
+                    with open(msgFilePath, "rb") as f:
+                        msgFiles.append({"type": msgFileType, msgFileType: services_manager.base64.b64encode(f.read()).decode("utf-8")})
                 
                 infPromptParams = {}
 
@@ -450,9 +444,6 @@ if (__name__ == "__main__"):
 
                     infUserParams[paramName] = paramValue
 
-                infConv = services_manager.conv.Conversation("SERVER_inf", infMsgs)
-                infConv.DeleteFromDB()
-
                 infKey = services_manager.keys_manager.APIKey(9999, False, None, ["127.0.0.1"], [], [])
                 
                 infGenFiles = []
@@ -464,41 +455,44 @@ if (__name__ == "__main__"):
                 try:
                     infGen = services_manager.InferenceModel(
                         infModelName,
-                        {} | infPromptParams,
-                        {
-                            "conversation_name": "SERVER_inf",
-                            "key_info": infKey.ToDict()
-                        } | infUserParams
+                        {"parameters": infPromptParams, "conversation": [
+                            {"role": "system", "content": [{"type": "text", "text": msgSystem}]},
+                            {"role": "user", "content": msgFiles + [{"type": "text", "text": msgText}]}
+                        ]},
+                        infUserParams | {
+                            "key_info": infKey.__dict__
+                        }
                     )
 
                     for infToken in infGen:
-                        print(infToken["text"] if ("text" in infToken) else "", end = "", flush = True)
+                        print(infToken["response"]["text"], end = "", flush = True)
                         
-                        infGenFiles += infToken["files"] if ("files" in infToken) else []
-                        infGenWarnings += infToken["warnings"] if ("warnings" in infToken) else []
-                        infGenErrors += infToken["errors"] if ("errors" in infToken) else []
+                        infGenFiles += infToken["response"]["files"]
+                        infGenWarnings += infToken["warnings"]
+                        infGenErrors += infToken["errors"]
                     
                     for file in infGenFiles:
                         fileID = 1
-                        filePath = f"{config.Configuration['server_temp_dir']}/it_inference_file_{file['type']}-{fileID}"
+                        filePath = f"{config.Configuration['server_data']['temp_dir']}/it_inference_file_{file['type']}-{fileID}"
 
                         while (os.path.exists(filePath)):
                             fileID += 1
-                            filePath = f"{config.Configuration['server_temp_dir']}/it_inference_file_{file['type']}-{fileID}"
+                            filePath = f"{config.Configuration['server_data']['temp_dir']}/it_inference_file_{file['type']}-{fileID}"
                         
-                        fileData = file["data"]
-                        file["data"] = "UNABLE TO CREATE FILE"
+                        fileData = file[file["type"]]
+                        file[file["type"]] = "UNABLE TO CREATE FILE"
                         
                         with open(filePath, "wb") as f:
                             f.write(services_manager.base64.b64decode(fileData))
                         
-                        file["data"] = filePath
+                        file[file["type"]] = filePath
                 except Exception as ex:
                     infGenErrors.append(f"[INFERENCE ERROR] {ex}")
 
                     import traceback
                     traceback.print_exception(ex)
                 
+                infKey.RemoveFile()
                 print(f"\n\n---\n\nFiles: {infGenFiles}\nWarnings: {infGenWarnings}\nErrors: {infGenErrors}", flush = True)
             elif (prompt == "exit" or prompt == "close"):
                 raise KeyboardInterrupt()

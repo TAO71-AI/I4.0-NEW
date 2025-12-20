@@ -2,6 +2,41 @@
 
 Using DD-MM-YYYY format.
 
+Keep in mind that these are only the more relevant changes.
+
+## 20-12-2025 (commit `v17.0.0-a3`)
+
+### Server changes
+
+- Removed database server.
+- Changed the max allowed API key length from **1024** to **128**.
+- Removed all the stored encryption keys, they will only generate during runtime.
+- Removed predefined system prompts, since they will be managed by the user for each inference.
+- Changed the default max length in the chatbot default service configuration from **99999** to **999999**.
+- Removed conversation system. Conversations will be given by the client for each inference.
+- Removed some chatbot tools that were for memory management. That would be processed by the client.
+- Changed log system. Now it saves the time, multiple files, and has environment variables.
+- Fixed some bugs in the server utilities.
+- Added a function to the encryption script that gets the hash of a content, probably for future updates.
+- Added a new exception type; `ConnectionClosedError`.
+- The API keys manager script now handles the file saving/loading for API keys.
+- Added and changed some parameters for the clients.
+- The server now waits 100ms before processing every inference or service that uses or requires an API key. This is done to avoid brute-force attacks.
+- Changed pricing:
+  - Text inputs/outputs are charged for every 1000000 tokens.
+  - Image inputs/outputs are charged for every 1024 pixels. For example, if the price per image is 1 token, an image with the resolution 1024x1024 will take 1 token. Another image with the resolution 2048x2048 will take 4 tokens. Another image with the resolution 1024x2048 will take 2 tokens.
+  - Audio inputs/outputs are charged for each second.
+  - Video inputs/outputs are charged the same as images; every 1024 pixels, but also are charged for each second, like audios.
+  - Other inputs/outputs are charged for each megabyte, and prices for different data types can be configured.
+  - Prices are rounded to 5 decimal digits.
+- Fixed some issues related to the queue.
+
+## 4-12-2025 (commit `v17.0.0-a2`)
+
+### Server changes
+
+- Fixed a small bug that closed the server with a warning.
+
 ## 4-12-2025 (commit `v17.0.0-a1`)
 
 ### Server changes
@@ -12,9 +47,3 @@ Using DD-MM-YYYY format.
 - Moved the server code to the **server_utils** file.
 - Created `IsServiceInstalled` function in the services manager.
 - (chatbot module) Started the creation of the **auto** reasoning mode.
-
-## 4-12-2025 (commit `v17.0.0-a2`)
-
-### Server changes
-
-- Fixed a small bug that closed the server with a warning.

@@ -37,20 +37,10 @@ tool_choice:
 extra_system_prompt:
   default: ""
   modified_by_user: true
-predefined_system_prompts:
-  default:
-    personality: true
-    birthday: true
-    current_time: true
-    current_date: true
-    service_extra_system_prompt: true
-    model_extra_system_prompt: true
-    user_extra_system_prompt: true
-  modified_by_user: true
 tool_start_token: "<tool_call>"
 tool_end_token: "</tool_call>"
 max_length:
-  default: 99999
+  default: 999999
   modified_by_user: true
   allow_greater_than_default: false
 test_inference_files:
