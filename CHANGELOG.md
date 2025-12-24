@@ -4,6 +4,26 @@ Using DD-MM-YYYY format.
 
 Keep in mind that these are only the more relevant changes.
 
+## 24-12-2025 (commit `v17.0.0-a4`)
+
+### Server changes
+
+- (`chatbot` module) Yield a warning when the content type is not supported by the model.
+- Fixed a huge bug that froze the server when trying to process more than one client at the same time.
+- Fixed a small bug that searched for all the services in the disk for each inference.
+- Rewritten queue script.
+
+### Client changes
+
+- Started creating the client scripts.
+
+### Other changes
+
+- Updated `README.md`:
+  - Added more key features.
+  - Created requirements for the client API.
+  - Removed the database server from the requirements.
+
 ## 20-12-2025 (commit `v17.0.0-a3`)
 
 ### Server changes

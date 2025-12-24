@@ -1,13 +1,13 @@
 try:
     from typing import Any
     from collections.abc import Generator
-    from concurrent.futures import ThreadPoolExecutor
     import os
     import sys
     import json
     import time
     import random
     import asyncio
+    import threading
 
     import encryption
     import services_manager
@@ -47,65 +47,8 @@ async def __unhandled_connection__(Client: server_utils.Client) -> None:
 async def __unhandled_received_message__(Client: server_utils.Client, Message: str) -> None:
     global TOSContent
 
-    async def send_items(Gen: Generator[dict[str, Any]]) -> None:
-        for item in Gen:
-            if (config.Configuration["server_encryption"]["force_response_hash"] is None):
-                responseHash = item["_hash"]
-            else:
-                responseHash = config.Configuration["server_encryption"]["force_response_hash"]
-            
-            responseHashParsed = encryption.ParseHash(responseHash)
-            responsePublicKey = None if ("_public_key" not in item or item["_public_key"] is None) else encryption.LoadKeysFromContent(None, "", item["_public_key"])[1]
-            item2 = {}
-
-            for k, v in item.items():
-                if (k.startswith("_")):
-                    continue
-
-                item2[k] = v
-            
-            item.clear()
-            
-            if (
-                config.Configuration["server_encryption"]["obfuscate"] and
-                responseHashParsed is not None and
-                responsePublicKey is not None
-            ):
-                chars = "abcdefghijplnmopqrstuvwxyz"
-                chars += chars.upper()
-                chars += "0123456789!@#$%&/()=[]?-_.:,;<>*+"
-
-                chars = list(chars)
-                random.shuffle(chars)
-                chars = "".join(chars)
-
-                item2["obfuscate"] = "".join([chars[random.randint(0, len(chars) - 1)] for _ in range(random.randint(5, 25))])
-
-            if (responsePublicKey is None):
-                encrItem = json.dumps(item2)
-            else:
-                encrItem = encryption.Encrypt(
-                    responseHashParsed,
-                    responsePublicKey,
-                    json.dumps(item2)
-                )
-            
-            resItem = {
-                "data": encrItem,
-                "hash": responseHash
-            }
-            resItem = json.dumps(resItem)
-
-            try:
-                await Client.Send(resItem)
-                await asyncio.sleep(0)
-            except services_manager.exceptions.ConnectionClosedError:
-                break
-            except Exception as ex:
-                logs.WriteLog(logs.ERROR, f"[server] Error sending to client: {ex}")
-
-    loop = asyncio.get_event_loop()
-    tasks = []
+    clientPublicKey = None
+    clientPublicKeyStr = None
     
     try:
         # Process basic server commands
@@ -116,19 +59,92 @@ async def __unhandled_received_message__(Client: server_utils.Client, Message: s
             await Client.Send(TOSContent)
         else:
             # Process other commands
-            with ThreadPoolExecutor() as executor:
-                generator = await loop.run_in_executor(executor, __process_client__, Message)
+            async def __send_to_client__(Token: dict[str, Any]) -> None:
+                nonlocal clientPublicKey, clientPublicKeyStr, modelName, queueUID
 
-            tasks.append(loop.create_task(send_items(generator)))
+                tokenPublicParams = {k: v for k, v in Token.items() if (not k.startswith("_"))}
+                tokenPrivateParams = {k: v for k, v in Token.items() if (k.startswith("_"))}
+
+                if ("_model" in tokenPrivateParams):
+                    modelName = tokenPrivateParams["_model"]
+                
+                if (queueUID is None and "_queue_uid" in tokenPrivateParams):
+                    queueUID = tokenPrivateParams["_queue_uid"]
+                
+                if (config.Configuration["server_encryption"]["force_response_hash"] is None):
+                    responseHash = tokenPrivateParams["_hash"]
+                else:
+                    responseHash = config.Configuration["server_encryption"]["force_response_hash"]
+                
+                if (tokenPrivateParams["_public_key"] != clientPublicKeyStr):
+                    clientPublicKeyStr = tokenPrivateParams["_public_key"]
+                    clientPublicKey = encryption.LoadKeysFromContent(None, "", services_manager.base64.b64decode(clientPublicKeyStr))[1]
+                
+                responseHashParsed = encryption.ParseHash(responseHash)
+
+                if (
+                    config.Configuration["server_encryption"]["obfuscate"] and
+                    responseHashParsed is not None and
+                    clientPublicKey is not None
+                ):
+                    chars = "abcdefghijplnmopqrstuvwxyz"
+                    chars += chars.upper()
+                    chars += "0123456789!@#$%&/()=[]?-_.:,;<>*+"
+
+                    chars = list(chars)
+                    random.shuffle(chars)
+                    chars = "".join(chars)
+
+                    tokenPublicParams["obfuscate"] = "".join([chars[random.randint(0, len(chars) - 1)] for _ in range(random.randint(5, 25))])
+                
+                if (clientPublicKey is None):
+                    encrItem = json.dumps(tokenPublicParams)
+                else:
+                    encrItem = encryption.Encrypt(
+                        responseHashParsed,
+                        clientPublicKey,
+                        json.dumps(tokenPublicParams)
+                    )
+                
+                resItem = {
+                    "data": encrItem,
+                    "hash": responseHash
+                }
+                resItem = json.dumps(resItem)
+
+                try:
+                    await Client.Send(resItem)
+                except services_manager.exceptions.ConnectionClosedError as ex:
+                    if (modelName is not None):
+                        modelQueue = services_manager.queue.GetQueueForModel(modelName)
+
+                        if (modelQueue is not None and queueUID is not None):
+                            modelQueue.DeleteUID(queueUID)
+                    
+                    raise ex
+                except Exception as ex:
+                    logs.WriteLog(logs.ERROR, f"[server] Error sending to client: {ex}")
+
+            def __run_in_thread__() -> None:
+                gen = __process_client__(Message)
+                loop = asyncio.new_event_loop()
+
+                for token in gen:
+                    try:
+                        loop.run_until_complete(__send_to_client__(token))
+                    except services_manager.exceptions.ConnectionClosedError:
+                        break
+                
+                loop.close()
+            
+            modelName = None
+            queueUID = None
+
+            th = threading.Thread(target = __run_in_thread__)
+            th.start()
     except Exception as ex:
         logs.WriteLog(logs.ERROR, f"[server] Error while receiving from client ({ex}). The connection will be closed.")
         await Client.Close()
-
-        for task in tasks:
-            task.cancel()
-        
-        if (tasks):
-            await asyncio.gather(*tasks, return_exceptions = True)
 
 def __process_client__(Message: str) -> Generator[dict[str, Any]]:
     global SERVER_VERSION
@@ -206,26 +222,69 @@ def __process_client__(Message: str) -> Generator[dict[str, Any]]:
                 keyInstance.Key = "nokey"
             
             if (service == "inference"):
-                for token in services_manager.InferenceModel(
+                gen = services_manager.InferenceModel(
                     ModelName = modelName,
                     Prompt = prompt,
                     UserParameters = userParams | {
                         "key_info": keyInstance.__dict__
                     }
-                ):
+                )
+                
+                for token in gen:
                     yield token | {
+                        "_model": modelName,
                         "_hash": messageHash,
                         "_public_key": messagePublicKey
                     }
             elif (service == "get_queue_data"):
-                queueData = services_manager.queue.GetQueueFor(modelName)
+                queueData = services_manager.queue.GetQueueForModel(modelName)
+                queueData.__waiting_uids__
+
+                if (queueData is None):
+                    queueData = {
+                        "waiting_users": 0,
+                        "processing_users": 0,
+                        "tps": None,
+                        "fts": None
+                    }
+                else:
+                    queueData = {
+                        "waiting_users": len(queueData.__waiting_uids__),
+                        "processing_users": len(queueData.__processing_uids__),
+                        "tps": queueData.TokensPerSecond,
+                        "fts": queueData.FirstTokenSeconds
+                    }
 
                 yield queueData | {
                     "_hash": messageHash,
                     "_public_key": messagePublicKey
                 }
+            elif (service == "get_model_info"):
+                conf = services_manager.GetModelConfiguration(modelName)
+
+                yield conf | {
+                    "_hash": messageHash,
+                    "_public_key": messagePublicKey
+                }
+            elif (service == "get_available_models"):
+                names = []
+
+                for _, modelInfo in services_manager.ServicesModels.items():
+                    names += list(modelInfo.keys())
+                
+                yield {
+                    "models": names,
+                    "_hash": messageHash,
+                    "_public_key": messagePublicKey
+                }
             else:
                 raise ValueError("Invalid service.")
+            
+            yield {
+                "ended": True,
+                "_hash": messageHash,
+                "_public_key": messagePublicKey
+            }
         except Exception as ex:
             yield {
                 "errors": [f"Error processing message ({ex})."],
@@ -444,7 +503,14 @@ if (__name__ == "__main__"):
 
                     infUserParams[paramName] = paramValue
 
-                infKey = services_manager.keys_manager.APIKey(9999, False, None, ["127.0.0.1"], [], [])
+                infKey = services_manager.keys_manager.APIKey(
+                    Tokens = 99999,
+                    ResetDaily = False,
+                    ExpireDate = None,
+                    AllowedIPs = ["127.0.0.1"],
+                    PrioritizeModels = [infModelName],
+                    Groups = None
+                )
                 
                 infGenFiles = []
                 infGenWarnings = []

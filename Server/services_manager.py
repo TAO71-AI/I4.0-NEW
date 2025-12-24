@@ -203,6 +203,11 @@ def __load_modules_and_info__(Models: dict[str, dict[str, Any]]) -> None:
         ServicesModels[modelConfig["service"]][modelName] = modelConfig
 
 def GetServices() -> list[Service]:
+    global ServicesModules
+
+    if (len(ServicesModules) > 0):
+        return list(ServicesModules.values())
+
     services = []
     inputServDir = os.listdir(SERVICES_DIR)
 
@@ -375,12 +380,14 @@ def InferenceModel(
         logs.WriteLog(logs.INFO, "[services_manager] Max simultaneously users not set in model configuration. Setting to 1.")
         maxSimulUsers = 1
 
-    queueData = queue.GetQueueFor(ModelName)
+    modelQueue = queue.GetQueueForModel(ModelName)
 
-    while (queueData["users_waiting"] >= maxSimulUsers):
-        time.sleep(0.1)
+    if (modelQueue is None):
+        modelQueue = queue.Queue(ModelName = ModelName, MaxSimultaneousUsers = maxSimulUsers)
+        queue.Queues.append(modelQueue)
 
-    queue.SetUsersWaiting(ModelName, "increment", 1)
+    queueUID = modelQueue.CreateNewWaitingID(Prioritize = ModelName in UserParameters["key_info"]["PrioritizeModels"])
+    modelQueue.WaitForProcessing(queueUID)
 
     # TODO: Automatic blacklist
 
@@ -488,7 +495,8 @@ def InferenceModel(
                     "files": token["files"] if ("files" in token) else []
                 },
                 "warnings": token["warnings"] if ("warnings" in token) else [],
-                "errors": token["errors"] if ("errors" in token) else []
+                "errors": token["errors"] if ("errors" in token) else [],
+                "_queue_uid": queueUID
             }
             tokenPrice = 0
 
@@ -549,10 +557,10 @@ def InferenceModel(
             if (firstToken):
                 firstTokenSeconds = time.time() - lastTokenTime
 
-                if (queueData["fts"] is not None):
-                    firstTokenSeconds = (queueData["fts"] + firstTokenSeconds) / 2
+                if (modelQueue.FirstTokenSeconds is not None):
+                    firstTokenSeconds = (modelQueue.FirstTokenSeconds + firstTokenSeconds) / 2
 
-                queue.SetFTS(ModelName, round(firstTokenSeconds, 3))
+                modelQueue.FirstTokenSeconds = round(firstTokenSeconds, 3)
                 firstToken = False
             else:
                 if (tokensProcessingTime is None):
@@ -564,17 +572,17 @@ def InferenceModel(
             yield outputToken
     except Exception as ex:
         exc = ex
-    
-    if (tokensProcessingTime is not None):
-        if (queueData["tps"] is not None):
-            tokensProcessingTime = (1 / queueData["tps"] + tokensProcessingTime) / 2
+    finally:
+        if (tokensProcessingTime is not None):
+            if (modelQueue.TokensPerSecond is not None):
+                tokensProcessingTime = (1 / modelQueue.TokensPerSecond + tokensProcessingTime) / 2
+            
+            modelQueue.TokensPerSecond = round(1 / tokensProcessingTime, 3)
         
-        queue.SetTPS(ModelName, round(1 / tokensProcessingTime, 3))
-    
-    queue.SetUsersWaiting(ModelName, "decrement", 1)
+        modelQueue.DeleteUID(queueUID)
 
-    apiKey = keys_manager.APIKey.__from_dict__(UserParameters["key_info"])
-    apiKey.SaveToFile()
+        apiKey = keys_manager.APIKey.__from_dict__(UserParameters["key_info"])
+        apiKey.SaveToFile()
 
-    if (exc is not None):
-        raise exc
+        if (exc is not None):
+            raise exc

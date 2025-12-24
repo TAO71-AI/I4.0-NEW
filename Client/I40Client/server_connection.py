@@ -1,0 +1,164 @@
+from typing import Any, Literal
+from collections.abc import AsyncGenerator
+from websockets import connect as WS_Connect
+from websockets.protocol import State as WS_State
+from . import configuration
+from . import encryption
+import json
+import base64
+import asyncio
+
+VERSION: int = 170000
+
+class ClientSocket():
+    def __init__(
+        self,
+        Type: Literal["websocket"],
+        Configuration: configuration.ClientConfiguration
+    ) -> None:
+        self.__socket__ = None
+        self.__socket_type__ = Type  # TODO: More socket types in the future!
+        self.__transfer_rate__ = None
+        self.__configuration__ = Configuration
+        self.__server_public_key_str__ = None
+        self.__server_public_key__ = None
+
+        if (Configuration.Encryption_PublicKey is None or Configuration.Encryption_PrivateKey is None):
+            self.__private_key__, self.__public_key__ = encryption.GenerateRSAKeys(Size = Configuration.Encryption_RSASize)
+        
+        _, self.__public_key_str__ = encryption.SaveKeys(None, None, "", self.__public_key__, None)
+        self.__public_key_str__ = self.__public_key_str__.decode("utf-8")
+    
+    def IsConnected(self) -> bool:
+        if (self.__socket__ is None):
+            return False
+        
+        if (self.__socket_type__ == "websocket"):
+            return self.__socket__.state == WS_State.OPEN
+        
+        return False
+
+    async def Connect(self, Host: str, Port: int, Secure: bool = False) -> None:
+        if (self.__socket_type__ == "websocket"):
+            uri = ("wss" if (Secure) else "ws") + f"://{Host}:{Port}"
+            self.__socket__ = await WS_Connect(
+                uri = uri
+            )
+        
+            while (self.__socket__.state == WS_State.CONNECTING):
+                await asyncio.sleep(0.1)
+        
+        self.__transfer_rate__ = int(await self.SendAndReceive("get_transfer_rate"))
+        await self.__set_server_public_key__()
+
+    async def Close(self) -> None:
+        if (self.__socket__ is None):
+            return
+        
+        if (self.__socket_type__ == "websocket"):
+            try:
+                await self.Send("close")
+                await self.__socket__.close()
+            except:
+                pass
+        
+        self.__socket__ = None
+        self.__transfer_rate__ = None
+    
+    async def __set_server_public_key__(self) -> None:
+        self.__server_public_key_str__ = await self.SendAndReceive("get_public_key")
+        _, self.__server_public_key__ = encryption.LoadKeysFromContent(None, "", base64.b64decode(self.__server_public_key_str__))
+
+    async def __send__(self, Data: str) -> None:
+        if (not self.IsConnected()):
+            raise ConnectionError("Socket not connected.")
+
+        if (self.__socket_type__ == "websocket"):
+            await self.__socket__.send(Data)
+    
+    async def __recv__(self) -> str:
+        if (not self.IsConnected()):
+            raise ConnectionError("Socket not connected.")
+        
+        if (self.__socket_type__ == "websocket"):
+            recv = await self.__socket__.recv(decode = True)
+        
+        return recv
+    
+    async def Send(self, Data: str) -> None:
+        if (self.__transfer_rate__ is None):
+            chunks = [Data]
+        else:
+            chunks = [Data[i:i + self.__transfer_rate__] for i in range(0, len(Data), self.__transfer_rate__)]
+
+        for chunk in chunks:
+            await self.__send__(chunk)
+        
+        await self.__send__("--END--")
+    
+    async def Receive(self) -> str:
+        data = ""
+
+        while (True):
+            chunk = await self.__recv__()
+
+            if (chunk == "--END--"):
+                break
+            
+            if (self.__transfer_rate__ is not None):
+                chunk = chunk[:self.__transfer_rate__]
+            
+            data += chunk
+        
+        return data
+
+    async def SendAndReceive(self, Data: str) -> str:
+        await self.Send(Data)
+        return await self.Receive()
+
+    async def AdvancedSendAndReceive(
+        self,
+        ModelName: str,
+        Key: str | None = None,
+        PromptConversation: list[dict[str, str | dict[str, str | bytes]]] = [],
+        PromptParameters: dict[str, Any] = {},
+        UserParameters: dict[str, Any] = {},
+        Service: str = "inference"
+    ) -> AsyncGenerator[dict[str, Any]]:
+        if (self.__server_public_key__ is None):
+            await self.__set_server_public_key__()
+
+        h = encryption.ParseHash(self.__configuration__.Encryption_Hash)
+        data = {
+            "hash": self.__configuration__.Encryption_Hash,
+            "public_key": self.__public_key_str__,
+            "version": VERSION,
+            "content": {
+                "model_name": ModelName,
+                "service": Service,
+                "key": self.__configuration__.Service_DefaultAPIKey if (Key is None) else Key,
+                "prompt": {
+                    "conversation": PromptConversation,
+                    "parameters": PromptParameters
+                },
+                "user_parameters": UserParameters
+            }
+        }
+        data["content"] = encryption.Encrypt(h, self.__server_public_key__, json.dumps(data["content"]))
+        await self.Send(json.dumps(data))
+
+        while (True):
+            recvData = await self.Receive()
+            recvData = json.loads(recvData)
+            recvData = encryption.Decrypt(
+                encryption.ParseHash(recvData["hash"]),
+                self.__private_key__,
+                recvData["data"],
+                self.__configuration__.Encryption_Threads
+            )
+            token = json.loads(recvData)
+
+            yield token
+
+            if ("ended" in token and token["ended"]):
+                break

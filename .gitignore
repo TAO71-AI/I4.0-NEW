@@ -8,5 +8,7 @@ Server/TOS.md
 Server/Temp/
 Server/API_Keys/
 Server/Logs/
+Client/build/
+Client/I4_0_Client_PY.egg-info/
 *.pem
 update.sh

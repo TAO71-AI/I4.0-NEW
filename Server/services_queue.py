@@ -1,33 +1,61 @@
-from typing import Literal
+import time
 
-__queue__: dict[str, dict[str, float | int | None]] = {}
-
-def GetQueueFor(Name: str) -> dict[str, float | int | None]:
-    if (Name not in __queue__):
-        __queue__[Name] = {}
+class Queue():
+    def __init__(self, ModelName: str, MaxSimultaneousUsers: int) -> None:
+        self.MODEL_NAME = ModelName
+        self.MAX_SIMULTANEOUS_USERS = MaxSimultaneousUsers
+        self.__waiting_uids__ = []
+        self.__processing_uids__ = []
+        self.TokensPerSecond = None
+        self.FirstTokenSeconds = None
     
-    if ("users_waiting" not in __queue__[Name]):
-        __queue__[Name]["users_waiting"] = 0
+    def CreateNewWaitingID(self, Prioritize: bool = False) -> int:
+        if (Prioritize):
+            negativeUIDs = [uid for uid in self.__waiting_uids__ + self.__processing_uids__ if (uid <= 0)]
+            newUID = -len(negativeUIDs)
+        else:
+            positiveUIDs = [uid for uid in self.__waiting_uids__ + self.__processing_uids__ if (uid > 0)]
+            newUID = len(positiveUIDs) + 1
+        
+        self.__waiting_uids__.append(newUID)
+        return newUID
     
-    if ("tps" not in __queue__[Name]):
-        __queue__[Name]["tps"] = None
+    def DeleteUID(self, UID: int) -> None:
+        if (UID in self.__waiting_uids__):
+            self.__waiting_uids__.remove(UID)
+        
+        if (UID in self.__processing_uids__):
+            self.__processing_uids__.remove(UID)
+
+    def ProcessNextUser(self) -> None:
+        priorityUsers = [uid for uid in self.__waiting_uids__ if (uid <= 0)]
+        nonPriorityUsers = [uid for uid in self.__waiting_uids__ if (uid > 0)]
+
+        if (len(priorityUsers) > 0):
+            selectedUID = max(priorityUsers)
+        elif (len(nonPriorityUsers) > 0):
+            selectedUID = min(nonPriorityUsers)
+        else:
+            selectedUID = None
+        
+        if (selectedUID is None):
+            return
+        
+        self.__waiting_uids__.remove(selectedUID)
+        self.__processing_uids__.append(selectedUID)
     
-    if ("fts" not in __queue__[Name]):
-        __queue__[Name]["fts"] = None
+    def WaitForProcessing(self, UID: int) -> None:
+        while (UID in self.__waiting_uids__ and UID not in self.__processing_uids__):
+            if (len(self.__processing_uids__) < self.MAX_SIMULTANEOUS_USERS):
+                self.ProcessNextUser()
+
+            time.sleep(0.1)
+
+Queues: list[Queue] = []
+
+def GetQueueForModel(ModelName: str) -> Queue | None:
+    for queue in Queues:
+        if (queue.MODEL_NAME == ModelName):
+            return queue
     
-    return __queue__[Name]
-
-def SetTPS(Name: str, TPS: float | None) -> None:
-    GetQueueFor(Name)
-    __queue__[Name]["tps"] = TPS
-
-def SetFTS(Name: str, FTS: float | None) -> None:
-    GetQueueFor(Name)
-    __queue__[Name]["fts"] = FTS
-
-def SetUsersWaiting(Name: str, Option: Literal["increment", "decrement"] = "increment", Value: int = 1) -> None:
-    if (Value <= 0):
-        return
-
-    GetQueueFor(Name)
-    __queue__[Name]["users_waiting"] += Value if (Option == "increment") else -Value
+    return None

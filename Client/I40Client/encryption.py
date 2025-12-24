@@ -1,0 +1,217 @@
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.backends import default_backend
+from concurrent.futures import ThreadPoolExecutor
+import base64
+import os
+import hashlib
+
+def ParseHash(HashName: str) -> hashes.HashAlgorithm | None:
+    if (HashName == "sha224"):
+        return hashes.SHA224()
+    elif (HashName == "sha256"):
+        return hashes.SHA256()
+    elif (HashName == "sha384"):
+        return hashes.SHA384()
+    elif (HashName == "sha512"):
+        return hashes.SHA512()
+    elif (HashName == "sha1"):
+        return hashes.SHA1()
+    elif (HashName == "none"):
+        return None
+    
+    raise ValueError("Invalid hash name.")
+
+def GenerateRSAKeys(Size: int = 8192) -> tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey]:
+    privateKey = rsa.generate_private_key(65537, Size)
+    publicKey = privateKey.public_key()
+
+    return privateKey, publicKey
+
+def SaveKeys(
+    PrivateKey: rsa.RSAPrivateKey | None,
+    PrivateFile: str | None,
+    PrivatePassword: str,
+    PublicKey: rsa.RSAPublicKey | None,
+    PublicFile: str | None
+) -> tuple[bytes | None, bytes | None]:
+    privatePem = PrivateKey.private_bytes(
+        encoding = serialization.Encoding.PEM,
+        format = serialization.PrivateFormat.PKCS8,
+        encryption_algorithm = serialization.BestAvailableEncryption(PrivatePassword.encode("utf-8"))
+    ) if (PrivateKey is not None) else None
+    publicPem = PublicKey.public_bytes(
+        encoding = serialization.Encoding.PEM,
+        format = serialization.PublicFormat.SubjectPublicKeyInfo
+    ) if (PublicKey is not None) else None
+
+    if (PrivateKey is not None and PrivateFile is not None):
+        with open(PrivateFile, "wb") as f:
+            f.write(privatePem)
+    
+    if (PublicKey is not None and PublicFile is not None):
+        with open(PublicFile, "wb") as f:
+            f.write(publicPem)
+    
+    return (
+        base64.b64encode(privatePem) if (privatePem is not None) else None,
+        base64.b64encode(publicPem) if (publicPem is not None) else None
+    )
+
+def LoadKeysFromFile(
+    PrivateFile: str,
+    PrivatePassword: str,
+    PublicFile: str
+) -> tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey]:
+    with open(PrivateFile, "rb") as f:
+        privatePem = f.read()
+    
+    with open(PublicFile, "rb") as f:
+        publicPem = f.read()
+    
+    return LoadKeysFromContent(privatePem, PrivatePassword, publicPem)
+
+def LoadKeysFromContent(
+    PrivateContent: str | bytes | None,
+    PrivatePassword: str,
+    PublicContent: str | bytes | None
+) -> tuple[rsa.RSAPrivateKey | None, rsa.RSAPublicKey | None]:
+    if (PrivateContent is None):
+        privateKey = None
+    else:
+        privateKey = serialization.load_pem_private_key(
+            data = PrivateContent.encode("utf-8") if (isinstance(PrivateContent, str)) else PrivateContent,
+            password = PrivatePassword.encode("utf-8"),
+            backend = default_backend()
+        )
+    
+    if (PublicContent is None):
+        publicKey = None
+    else:
+        publicKey = serialization.load_pem_public_key(
+            data = PublicContent.encode("utf-8") if (isinstance(PublicContent, str)) else PublicContent,
+            backend = default_backend()
+        )
+
+    return (privateKey, publicKey)
+
+def Encrypt(Hash: hashes.HashAlgorithm | None, PublicKey: rsa.RSAPublicKey, Data: str | bytes) -> str | bytes:
+    if (Hash is None):
+        return Data
+    
+    if (isinstance(Data, bytes)):
+        returnAsBytes = True
+        data = Data
+    else:
+        returnAsBytes = False
+        data = Data.encode("utf-8")
+    
+    key = os.urandom(32)
+    encriptedKey = PublicKey.encrypt(
+        key,
+        padding.OAEP(
+            mgf = padding.MGF1(Hash),
+            algorithm = Hash,
+            label = None
+        )
+    )
+
+    nonce = os.urandom(16)
+    cipher = Cipher(algorithms.AES(key), modes.CTR(nonce), backend = default_backend())
+    encryptor = cipher.encryptor()
+    ciphertext = encryptor.update(data) + encryptor.finalize()
+
+    result = (
+        len(encriptedKey).to_bytes(4, "big") +
+        encriptedKey +
+        nonce +
+        ciphertext
+    )
+    result = base64.b64encode(result)
+
+    if (returnAsBytes):
+        return result
+    
+    return result.decode("utf-8")
+
+def Decrypt(Hash: hashes.HashAlgorithm | None, PrivateKey: rsa.RSAPrivateKey, Data: str | bytes, MaxThreads: int) -> str | bytes:
+    def _decrypt(Key: bytes, Nonce: bytes, Idx: int, Chunk: bytes, ChunkSize: int) -> tuple[int, bytes]:
+        nonceInt = int.from_bytes(Nonce, "big")
+        blocksPerChunks = ChunkSize // 16
+        offset = Idx * blocksPerChunks
+
+        newNonce = (nonceInt + offset).to_bytes(16, "big")
+        cipher = Cipher(algorithms.AES(Key), modes.CTR(newNonce), backend = default_backend())
+        decryptor = cipher.decryptor()
+
+        return (Idx, decryptor.update(Chunk) + decryptor.finalize())
+    
+    if (Hash is None):
+        return Data
+
+    if (isinstance(Data, bytes)):
+        returnAsBytes = True
+        data = Data
+    else:
+        returnAsBytes = False
+        data = Data.encode("utf-8")
+    
+    data = base64.b64decode(data)
+    
+    lenKey = int.from_bytes(data[:4], "big")
+    encryptedKey = data[4:4 + lenKey]
+    nonce = data[4 + lenKey:4 + lenKey + 16]
+    ciphertext = data[4 + lenKey + 16:]
+
+    key = PrivateKey.decrypt(
+        encryptedKey,
+        padding.OAEP(
+            mgf = padding.MGF1(Hash),
+            algorithm = Hash,
+            label = None
+        )
+    )
+    chunkSize = 1024 * 1024
+    chunks = [
+        ciphertext[i:i + chunkSize]
+        for i in range(0, len(ciphertext), chunkSize)
+    ]
+
+    results = [None] * len(chunks)
+
+    with ThreadPoolExecutor(max_workers = MaxThreads) as executor:
+        futures = [
+            executor.submit(_decrypt, key, nonce, idx, chunk, chunkSize)
+            for idx, chunk in enumerate(chunks)
+        ]
+
+        for future in futures:
+            idx, plaintext = future.result()
+            results[idx] = plaintext
+
+    if (returnAsBytes):
+        return b"".join(results)
+    
+    return "".join([p.decode("utf-8") for p in results])
+
+def HashContent(Content: str | bytes, Hash: hashes.HashAlgorithm) -> str:
+    if (Hash is None):
+        raise TypeError("Hash is None. None type is not valid for hashing content.")
+    
+    content = Content.encode("utf-8") if (isinstance(Content, str)) else Content
+    
+    if (isinstance(Hash, hashes.SHA224)):
+        hashObj = hashlib.sha224(content)
+    elif (isinstance(Hash, hashes.SHA256)):
+        hashObj = hashlib.sha256(content)
+    elif (isinstance(Hash, hashes.SHA384)):
+        hashObj = hashlib.sha384(content)
+    elif (isinstance(Hash, hashes.SHA512)):
+        hashObj = hashlib.sha512(content)
+    elif (isinstance(Hash, hashes.SHA1)):
+        hashObj = hashlib.sha1(content)
+    
+    hashHex = hashObj.hexdigest()
+    
+    return hashHex

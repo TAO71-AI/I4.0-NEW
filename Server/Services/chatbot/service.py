@@ -317,6 +317,7 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
         if (isinstance(message["content"], list)):
             for content in message["content"]:
                 if (content["type"] not in __models__[Name]["multimodal"]):
+                    yield {"warnings": [f"Content type '{content['type']}' not supported by this model."]}
                     continue
 
                 if (__models__[Name]["_private_type"] == "lcpp"):
