@@ -255,14 +255,16 @@ def __process_client__(Message: str) -> Generator[dict[str, Any]]:
                         "fts": queueData.FirstTokenSeconds
                     }
 
-                yield queueData | {
+                yield {
+                    "queue": queueData,
                     "_hash": messageHash,
                     "_public_key": messagePublicKey
                 }
             elif (service == "get_model_info"):
-                conf = services_manager.GetModelConfiguration(modelName)
+                modelInfo = services_manager.GetModelConfiguration(modelName)
 
-                yield conf | {
+                yield {
+                    "config": modelInfo,
                     "_hash": messageHash,
                     "_public_key": messagePublicKey
                 }
@@ -287,12 +289,14 @@ def __process_client__(Message: str) -> Generator[dict[str, Any]]:
             }
         except Exception as ex:
             yield {
+                "ended": True,
                 "errors": [f"Error processing message ({ex})."],
                 "_hash": messageHash,
                 "_public_key": messagePublicKey
             }
     except Exception as ex:
         yield {
+            "ended": True,
             "errors": [f"Error decrypting message ({ex})."],
             "_hash": "none",
             "_public_key": None
@@ -554,9 +558,6 @@ if (__name__ == "__main__"):
                         file[file["type"]] = filePath
                 except Exception as ex:
                     infGenErrors.append(f"[INFERENCE ERROR] {ex}")
-
-                    import traceback
-                    traceback.print_exception(ex)
                 
                 infKey.RemoveFile()
                 print(f"\n\n---\n\nFiles: {infGenFiles}\nWarnings: {infGenWarnings}\nErrors: {infGenErrors}", flush = True)
@@ -570,6 +571,19 @@ if (__name__ == "__main__"):
 
                 if (ec != 0):
                     logs.PrintLog(logs.ERROR, f"[server] (interactive mode) Could not clear terminal. Exit code {ec}.")
+            elif (prompt == "help"):
+                helpMsg = (
+                    f"\033[34mI4.0\033[0m Server (version \033[35m{SERVER_VERSION}\033[0m)\n"
+                    "\033[32mCommands:\033[0m\n"
+                    "- \033[31minference\033[0m: Tests the inference.\n"
+                    "- \033[31mexit\033[0m (alias: \033[31mclose\033[0m): Closes the server.\n"
+                    "- \033[31mnoninteractire\033[0m (alias: \033[31mnit\033[0m): Changes from interactive terminal to regular terminal.\n"
+                    "- \033[31mclear\033[0m: Clears the screen.\n"
+                    "- \033[31mhelp\033[0m: Prints this help message.\n\n"
+                    "\033[32mSignals:\033[0m\n"
+                    "- \033[31mSIGINT\033[0m (alias: \033[31mCtrl+C\033[0m): Closes the server. Works in regular terminal."
+                )
+                print(helpMsg, flush = True)
             elif (len(prompt.strip()) > 0):
                 print("[server] (interactive mode) Command not found.", flush = True)
         except KeyboardInterrupt:

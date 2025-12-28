@@ -16,14 +16,6 @@ services: {}
 services_get_automatically: "cheapest"  # "fastest", "min_queue", "cheapest"
 
 # Server configuration
-server_internet:
-  search_max_results: 5
-  search_region: "us-en"
-  search_backend: "auto"
-  search_safesearch: true
-  follow_scrape_guidelines: true
-  reddit_subreddit_max_posts: 25
-  reddit_post_max_comments: 5  # Set to 0 to disable comments
 server_api:
   min_length: 64  # Min key length: 16
   max_length: 128  # Replace with `null` to make this the same as min_length

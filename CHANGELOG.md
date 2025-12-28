@@ -4,6 +4,25 @@ Using DD-MM-YYYY format.
 
 Keep in mind that these are only the more relevant changes.
 
+## 28-12-2025 (commit `v17.0.0-a5`)
+
+### Server changes
+
+- (`chatbot` module) Removed `extra_tools`, tools will be processed at the client side.
+- (`chatbot` module) Removed **tools.py** script.
+
+### Client changes
+
+- Created a test client CLI script.
+- Fixed a small bug that made the client not receive the full server response due to an incorrect transfer rate.
+- Added more services to the client API.
+
+### Other changes
+
+- Added titles to the HTML to Markdown parser.
+- Added scrapping for [wikidot.com wikis](https://www.wikidot.com/) and [fandom.com wikis](https://www.fandom.com/).
+- Moved the **format_conversion.py**, **internet.py**, and **tools.py** scripts to the client's utilities.
+
 ## 24-12-2025 (commit `v17.0.0-a4`)
 
 ### Server changes

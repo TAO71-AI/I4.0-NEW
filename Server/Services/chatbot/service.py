@@ -5,9 +5,7 @@ import base64
 import json
 import copy
 import Services.chatbot.llama_utils as utils_llama
-import Services.chatbot.tools as cb_tools
 import Utilities.logs as logs
-import Utilities.internet as internet
 import services_manager as servmgr
 
 __models__: dict[str, dict[str, Any]] = {}
@@ -20,8 +18,6 @@ def __check_service_configuration__() -> None:
     
     if (ServiceConfiguration is None):
         raise ValueError("Server configuration is not defined.")
-    
-    internet.Configuration = ServerConfiguration
 
 def SERVICE_LOAD_MODELS(Models: dict[str, dict[str, Any]]) -> None:
     """
@@ -80,7 +76,6 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
 
     conversation = UserParameters["conversation"]
     tools = []
-    extraTools = []
     extraSystemPrompt = {"model": None, "service": None}
 
     if ("temperature" in UserConfig and ServiceConfiguration["temperature"]["modified_by_user"]):
@@ -156,19 +151,12 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
     if (isinstance(userTools, str)):
         userTools = userTools.split(" ")
 
-    for tool in cb_tools.GetDefaultTools():
-        if (tool["function"]["name"] in userTools or "{all}" in userTools):
-            tools.append(tool)
-
-    if ("extra_tools" in UserConfig and ServiceConfiguration["extra_tools"]["modified_by_user"]):
-        eTools = UserConfig["extra_tools"]
-    elif ("extra_tools" in __models__[Name]):
-        eTools = __models__[Name]["extra_tools"]
+    if ("tools" in UserConfig and ServiceConfiguration["tools"]["modified_by_user"]):
+        tools = UserConfig["tools"]
+    elif ("tools" in __models__[Name]):
+        tools = __models__[Name]["tools"]
     else:
-        eTools = ServiceConfiguration["extra_tools"]["default"]
-    
-    for tool in eTools:
-        extraTools.append(tool)
+        tools = ServiceConfiguration["tools"]["default"]
     
     if ("tool_choice" in UserConfig and ServiceConfiguration["tool_choice"]["modified_by_user"]):
         toolChoice = UserConfig["tool_choice"]
@@ -244,7 +232,6 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
             "frequency_penalty": frequencyPenalty,
             "repeat_penalty": repeatPenalty,
             "tools": tools,
-            "extra_tools": extraTools,
             "tool_choice": toolChoice,
             "max_length": maxLength,
             "extra_system_prompt": extraSystemPrompt,
@@ -334,7 +321,7 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
         model: utils_llama.Llama = __models__[Name]["_private_model"]
         response = model.create_chat_completion(
             messages = modelConversation,
-            tools = Configuration["tools"] + Configuration["extra_tools"],
+            tools = Configuration["tools"],
             tool_choice = Configuration["tool_choice"],
             temperature = Configuration["temperature"],
             top_p = Configuration["top_p"],
@@ -393,93 +380,11 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
             
             yield {"text": tokenText}
         
-        logs.WriteLog(logs.INFO, "[service_chatbot] Finished inference. Saving conversation and checking tools.")
-        conversation.append({"role": "assistant", "content": [{"type": "text", "text": fullAssistantText}]})
-        
-        for tool in tools:
-            tool = tool.strip()
-            toolExists = False
+        logs.WriteLog(logs.INFO, "[service_chatbot] Finished inference. Saving conversation.")
+        Conversation.append({"role": "assistant", "content": [{"type": "text", "text": fullAssistantText}]})
 
-            try:
-                tool = json.loads(tool)
-
-                for bTool in Configuration["tools"]:
-                    if (tool["name"] != bTool["function"]["name"]):
-                        continue
-
-                    toolExists = True
-
-                    if (tool["name"] == "scrape_website"):
-                        yield {"text": "\n"}
-
-                        urls = tool["arguments"]["urls"]
-                        prompt = tool["arguments"]["prompt"]
-                        inputText = "# Internet results\n\n"
-
-                        logs.WriteLog(logs.INFO, f"[service_chatbot] Scrapping URLs: {urls}")
-
-                        for url in urls:
-                            urlInfo = internet.GetURLInfo(url)
-                            inputText += f"## {url}\n\n"
-
-                            if (urlInfo["website"] == "reddit.com"):
-                                if ("/comments/" in url):
-                                    postData = internet.Scrape_Reddit_Post(url, None)
-
-                                    inputText += f"Type: Reddit (post)\n\n"
-                                    inputText += f"Title: {postData['title']}\n\n"
-                                    inputText += f"Content:\n```markdown\n{postData['content']}\n```"
-                                else:
-                                    subPosts = internet.Scrape_Reddit_Subreddit(url, False, False, None, None)
-
-                                    inputText += f"Type: Reddit (subreddit)\n\n"
-                                    inputText += f"Posts:\n```json\n{json.dumps(subPosts, indent = 2)}\n```"
-                            elif (urlInfo["website"] == "wikipedia.com"):
-                                wikiData = internet.Scrape_Wikipedia(url)
-
-                                inputText += f"Type: Wikipedia\n\n"
-                                inputText += f"Title: {wikiData['title']}\n\n"
-                                inputText += f"Content:\n```markdown\n{wikiData['content']}\n```"
-                            else:
-                                baseURL = internet.GetBaseURL(url)
-                                websiteContent = str(internet.Scrape_Base(url).find_all())
-                                websiteContent = internet.format_conversion.HTML_To_Markdown(websiteContent, baseURL)
-
-                                inputText += f"Type: Not recognized\n\n"
-                                inputText += f"Content:\n```markdown\n{websiteContent}\n```"
-                                    
-                            inputText += "\n\n"
-                            
-                        trimResponseLength = __models__[Name]["ctx"] - len(prompt) - 1
-
-                        if (trimResponseLength <= 0):
-                            raise ValueError("Could not trim response because the max length is less or equals to 0.")
-
-                        inputText = inputText.strip()
-                        inputText = inputText[:trimResponseLength]
-
-                        conversation.append({"role": "tool", "content": [{"type": "text", "text": inputText}]})
-                        conversation.append({"role": "user", "content": [{"type": "text", "text": prompt}]})
-
-                        inf = InferenceModel(Name, conversation, Configuration | {
-                            "tools": [],
-                            "extra_tools": []
-                        })
-                        responseText = ""
-
-                        for token in inf:
-                            responseText += token["text"]
-                            yield token
-                    elif (tool["name"] == "search_text"):
-                        pass  # TODO
-                
-                if (not toolExists):
-                    yield {"text": json.dumps(tool), "warnings": ["Unknown tool"]}
-            except Exception as ex:
-                logs.WriteLog(logs.ERROR, f"[service_chatbot] Error processing tool: {ex}")
-                yield {"errors": [f"Error processing tool: {ex}"]}
-        
-        logs.WriteLog(logs.INFO, "[service_chatbot] Finished inference. All tools processed.")
+        yield {"extra": {"tools": [json.loads(tool) for tool in tools]}}
+        logs.WriteLog(logs.INFO, "[service_chatbot] Finished inference.")
 
 def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
     """
@@ -554,16 +459,7 @@ def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
                 "tools": [],
                 "extra_tools": [],
                 "tool_choice": "none",
-                "max_length": ServiceConfiguration["test_inference_max_length"],
-                "predefined_system_prompt": {
-                    "personality": False,
-                    "birthday": False,
-                    "current_time": False,
-                    "current_date": False,
-                    "service_extra_system_prompt": False,
-                    "model_extra_system_prompt": False,
-                    "user_extra_system_prompt": False
-                }
+                "max_length": ServiceConfiguration["test_inference_max_length"]
             }
         )
         testInferenceResponse = ""

@@ -6,7 +6,7 @@ setup(
     description = "Python bindings for I4.0, Client-side.",
     author = "TAO71-AI",
     url = "https://github.com/TAO71-AI/I4.0-NEW",
-    packages = find_packages(include = ["I4_0_Client", "I4_0_Client.*"]),
+    packages = find_packages(include = ["I40Client", "I40Client.*"]),
     include_package_data = True,
     license = "TAO71 I4.0 License (version 2)",
     install_requires = [
@@ -23,5 +23,10 @@ setup(
     project_urls = {
         "Source": "https://github.com/TAO71-AI/I4.0-NEW/tree/master/Client/",
         "License": "https://github.com/TAO71-AI/I4.0-NEW/blob/master/LICENSE.md"
+    },
+    entry_points = {
+        "console_scripts": [
+            "I40C=I40Client.__main__:__main__"
+        ]
     }
 )

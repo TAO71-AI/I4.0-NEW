@@ -1,10 +1,17 @@
 from bs4 import BeautifulSoup
 import re
-import Utilities.logs as logs
 
 def HTML_To_Markdown(Content: str, URL: str | None = None) -> str:
-    logs.WriteLog(logs.INFO, "[format_conversion] Converting HTML to Markdown.")
     soup = BeautifulSoup(Content, "html.parser")
+
+    for i in range(1, 7):
+        for tag in soup.find_all(f"h{i}"):
+            text = tag.get_text().strip()
+
+            if (text):
+                tag.replace_with(f"{'#' * i} {text}\n")
+            else:
+                tag.decompose()
 
     for tag in soup.find_all("a"):
         text = tag.get_text()

@@ -26,9 +26,6 @@ repeat_penalty:
   default: 1
   modified_by_user: true
 tools:
-  default: "{all}"
-  modified_by_user: true
-extra_tools:
   default: []
   modified_by_user: true
 tool_choice:

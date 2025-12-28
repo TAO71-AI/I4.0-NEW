@@ -480,6 +480,8 @@ def InferenceModel(
     lastTokenTime = time.time()
     exc = None
     tokensProcessingTime = None
+    responseTxt = None
+    responseFiles = []
 
     try:
         for token in Service.RunModuleFunction(serviceModule.ServiceModule, "SERVICE_INFERENCE", [
@@ -493,7 +495,7 @@ def InferenceModel(
                 "response": {
                     "text": token["text"] if ("text" in token) else "",
                     "files": token["files"] if ("files" in token) else []
-                },
+                } | (token["extra"] if ("extra" in token) else {}),
                 "warnings": token["warnings"] if ("warnings" in token) else [],
                 "errors": token["errors"] if ("errors" in token) else [],
                 "_queue_uid": queueUID
@@ -502,8 +504,15 @@ def InferenceModel(
 
             if (len(outputToken["response"]["text"]) > 0):
                 tokenPrice += textOutputPrice / 1000000.0
+
+                if (responseTxt is None):
+                    responseTxt = outputToken["response"]["text"]
+                else:
+                    responseTxt += outputToken["response"]["text"]
             
             for file in outputToken["response"]["files"]:
+                responseFiles.append(file)
+
                 if (file["type"] == "image"):
                     img = PILImage.open(base64.b64decode(file["image"]))
                     tokenPrice += (img.size[0] / 1024) * (img.size[1] / 1024) * imageOutputPrice
@@ -570,6 +579,11 @@ def InferenceModel(
             
             lastTokenTime = time.time()
             yield outputToken
+
+        yield {
+            "conversation_result": conversation,
+            "_queue_uid": queueUID
+        }
     except Exception as ex:
         exc = ex
     finally:

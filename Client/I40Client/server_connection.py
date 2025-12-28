@@ -48,7 +48,7 @@ class ClientSocket():
             while (self.__socket__.state == WS_State.CONNECTING):
                 await asyncio.sleep(0.1)
         
-        self.__transfer_rate__ = int(await self.SendAndReceive("get_transfer_rate"))
+        self.__transfer_rate__ = int(await self.SendAndReceive("get_transfer_rate")) * 1024
         await self.__set_server_public_key__()
 
     async def Close(self) -> None:
@@ -162,3 +162,60 @@ class ClientSocket():
 
             if ("ended" in token and token["ended"]):
                 break
+    
+    async def GetAvailableModels(self) -> list[str]:
+        if (self.__server_public_key__ is None):
+            await self.__set_server_public_key__()
+        
+        models = None
+        gen = self.AdvancedSendAndReceive("", Service = "get_available_models")
+
+        async for token in gen:
+            if ("models" in token):
+                models = token["models"]
+            
+            if ("errors" in token and len(token["errors"]) > 0):
+                break
+        
+        if (models is None):
+            raise RuntimeError("Could not get models.")
+        
+        return models
+    
+    async def GetModelInfo(self, ModelName: str) -> dict[str, Any]:
+        if (self.__server_public_key__ is None):
+            await self.__set_server_public_key__()
+        
+        modelInfo = None
+        gen = self.AdvancedSendAndReceive(ModelName, Service = "get_model_info")
+
+        async for token in gen:
+            if ("config" in token):
+                modelInfo = token["config"]
+            
+            if ("errors" in token and len(token["errors"]) > 0):
+                break
+        
+        if (modelInfo is None):
+            raise RuntimeError("Could not get model information.")
+        
+        return modelInfo
+    
+    async def GetQueueData(self, ModelName: str) -> dict[str, int | float]:
+        if (self.__server_public_key__ is None):
+            await self.__set_server_public_key__()
+        
+        queueData = None
+        gen = self.AdvancedSendAndReceive(ModelName, Service = "get_queue_data")
+
+        async for token in gen:
+            if ("queue" in token):
+                queueData = token["queue"]
+            
+            if ("errors" in token and len(token["errors"]) > 0):
+                break
+        
+        if (queueData is None):
+            raise RuntimeError("Could not get queue data.")
+        
+        return queueData

@@ -13,10 +13,6 @@ class InstallationError(BaseException):
     def __init__(self, Message: str | None = None) -> None:
         super().__init__("Installation error" + (f": {Message}" if (Message is not None) else "."))
 
-class ScrapeGuidelinesError(BaseException):
-    def __init__(self) -> None:
-        super().__init__("Scrapping not allowed here. Please disable `internet > follow_scrape_guidelines` if you see this error often.")
-
 class ConnectionTypeInvalid(BaseException):
     def __init__(self) -> None:
         super().__init__("The connection type is invalid.")
