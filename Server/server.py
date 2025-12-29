@@ -571,6 +571,48 @@ if (__name__ == "__main__"):
 
                 if (ec != 0):
                     logs.PrintLog(logs.ERROR, f"[server] (interactive mode) Could not clear terminal. Exit code {ec}.")
+            elif (prompt.startswith("createkey ") or prompt.startswith("crk ")):
+                args = (prompt[10:] if (prompt.startswith("createkey")) else prompt[4:]).split(";")
+                tokens = 0
+                resetDaily = False
+                expireDate = None
+                allowedIPs = None
+                prioritizeModels = []
+                groups = None
+
+                try:
+                    for arg in args:
+                        arg = arg.strip()
+
+                        if (arg.startswith("tokens=")):
+                            tokens = float(arg[7:])
+                        elif (arg == "resetdaily"):
+                            resetDaily = True
+                        elif (arg.startswith("expiredate=")):
+                            expireDate = json.loads(arg[11:])
+                        elif (arg.startswith("allowedips=")):
+                            allowedIPs = json.loads(arg[11:])
+                        elif (arg.startswith("prioritizemodels=")):
+                            prioritizeModels = json.loads(arg[17:])
+                        elif (arg.startswith("groups=")):
+                            groups = json.loads(arg[7:])
+                        else:
+                            raise AttributeError(f"Invalid argument '{arg}'.")
+                except Exception as ex:
+                    print(f"Could not create key, error: {ex}\nTry again.", flush = True)
+                    continue
+
+                createdKey = services_manager.keys_manager.APIKey(
+                    Tokens = tokens,
+                    ResetDaily = resetDaily,
+                    ExpireDate = expireDate,
+                    AllowedIPs = allowedIPs,
+                    PrioritizeModels = prioritizeModels,
+                    Groups = groups
+                )
+                createdKey.SaveToFile()
+
+                print(f"Key created! Key: {createdKey.Key}", flush = True)
             elif (prompt == "help"):
                 helpMsg = (
                     f"\033[34mI4.0\033[0m Server (version \033[35m{SERVER_VERSION}\033[0m)\n"
@@ -578,6 +620,7 @@ if (__name__ == "__main__"):
                     "- \033[31minference\033[0m: Tests the inference.\n"
                     "- \033[31mexit\033[0m (alias: \033[31mclose\033[0m): Closes the server.\n"
                     "- \033[31mnoninteractire\033[0m (alias: \033[31mnit\033[0m): Changes from interactive terminal to regular terminal.\n"
+                    "- \033[31mcreatekey \033[34m[tokens=FLOAT];[resetdaily];[expiredate=DICT];[allowedips=LIST];[prioritizemodels=LIST];[groups=LIST]\033[0m (alias: \033[31mcrk\033[0m): Creates an API key and prints it.\n"
                     "- \033[31mclear\033[0m: Clears the screen.\n"
                     "- \033[31mhelp\033[0m: Prints this help message.\n\n"
                     "\033[32mSignals:\033[0m\n"
@@ -591,6 +634,8 @@ if (__name__ == "__main__"):
                 CloseServerReason = "Keyboard interrupt"
 
             break
+        except Exception as ex:
+            logs.PrintLog(logs.ERROR, f"[server] Error in the server loop: {ex}")
     
     print("", flush = True)
     CloseServer()

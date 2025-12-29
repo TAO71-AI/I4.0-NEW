@@ -4,6 +4,18 @@ Using DD-MM-YYYY format.
 
 Keep in mind that these are only the more relevant changes.
 
+## 29-12-2025 (commit `v17.0.0-a6`)
+
+### Server changes
+
+- Model pricing is now calculated in another function rather than in the function for inference.
+- Added a `createkey` command to the server terminal (only works in the interactive mode).
+- Fixed a small bug that could cause a crash to the server.
+
+### Client changes
+
+- Removed the API configuration in the client CLI.
+
 ## 28-12-2025 (commit `v17.0.0-a5`)
 
 ### Server changes

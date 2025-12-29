@@ -354,6 +354,91 @@ def OffloadModels(Names: list[str]) -> None:
     for _, service in ServicesModules.items():
         Service.RunModuleFunction(service.ServiceModule, "SERVICE_OFFLOAD_MODELS", [modelsToOffload])
 
+def CalculateTokenPrice(ModelNameOrConfig: str | dict[str, Any], GetOutputPricing: bool, MessageContent: list[dict[str, str]]) -> float:
+    if (isinstance(ModelNameOrConfig, str)):
+        serviceName = FindServiceForModel(ModelNameOrConfig, True)
+        modelConfiguration = ServicesModels[serviceName][ModelNameOrConfig]
+    else:
+        modelConfiguration = ModelNameOrConfig
+    
+    price = 0
+
+    if ("pricing" in modelConfiguration):
+        modelPricing = modelConfiguration["pricing"]
+    else:
+        logs.WriteLog(logs.WARNING, "[services_manager] Pricing not set. Everything will default to 0 (free of charge).")
+        modelPricing = {}
+
+    if (GetOutputPricing):
+        textPrice = modelPricing["text_output"] if ("text_output" in modelPricing) else 0
+        imagePrice = modelPricing["image_output"] if ("image_output" in modelPricing) else 0
+        audioPrice = modelPricing["audio_output"] if ("audio_output" in modelPricing) else 0
+        videoPriceS = modelPricing["video_output_s"] if ("video_output_s" in modelPricing) else 0
+        videoPriceR = modelPricing["video_output_r"] if ("video_output_r" in modelPricing) else 0
+        otherPrice = modelPricing["other_output"] if ("other_output" in modelPricing) else 0
+    else:
+        textPrice = modelPricing["text_input"] if ("text_output" in modelPricing) else 0
+        imagePrice = modelPricing["image_input"] if ("image_output" in modelPricing) else 0
+        audioPrice = modelPricing["audio_input"] if ("audio_output" in modelPricing) else 0
+        videoPriceS = modelPricing["video_input_s"] if ("video_output_s" in modelPricing) else 0
+        videoPriceR = modelPricing["video_input_r"] if ("video_output_r" in modelPricing) else 0
+        otherPrice = modelPricing["other_input"] if ("other_output" in modelPricing) else 0
+    
+    for content in MessageContent:
+        if (len(content[content["type"]]) == 0):
+            continue
+
+        if (content["type"] == "text"):
+            price += len(TextEncoder.encode(content["text"])) * textPrice / 1000000.0
+        elif (content["type"] == "image"):
+            imgBuffer = BytesIO(base64.b64decode(content["image"]))
+            img = PILImage.open(imgBuffer)
+            price += (img.size[0] / 1024) * (img.size[1] / 1024) * imagePrice
+
+            img.close()
+            imgBuffer.close()
+        elif (content["type"] == "audio"):
+            audioBuffer = BytesIO(base64.b64decode(content["audio"]))
+
+            audio = AudioSegment.from_file(audioBuffer)
+            durationInSeconds = len(audio) / 1000
+
+            price += durationInSeconds * audioPrice
+            audioBuffer.close()
+        elif (content["type"] == "video"):
+            videoBuffer = BytesIO(base64.b64decode(content["video"]))
+
+            try:
+                reader = av.open(videoBuffer)
+                stream = next(s for s in reader.streams if (s.type == "video"))
+
+                fps = float(stream.average_rate) if (stream.average_rate) else 0
+                numberOfFrames = stream.frames
+                duration = float(reader.duration / av.time_base) if (reader.duration) else (numberOfFrames / fps if (fps) else 0)
+                durationInSeconds = math.floor(duration)
+
+                width = stream.width
+                height = stream.height
+
+                price += (durationInSeconds * videoPriceS) + ((width / 1024) * (height / 1024) * videoPriceR)
+
+                reader.close()
+                videoBuffer.close()
+            except Exception as ex:
+                videoBuffer.close()
+                raise RuntimeError(f"Could not calculate pricing for video. Reason: {ex}")
+        elif (isinstance(otherPrice, float) or isinstance(otherPrice, int)):
+            price += len(content[content["type"]]) / 1048576 * otherPrice
+        elif (isinstance(otherPrice, dict)):
+            if (content["type"] in otherPrice):
+                price += len(content[content["type"]]) / 1048576 * otherPrice[content["type"]]
+            else:
+                price += len(content[content["type"]]) / 1048576 * otherPrice["global"]
+        else:
+            raise ValueError("Invalid content type or pricing.")
+    
+    return price
+
 def InferenceModel(
     ModelName: str,
     Prompt: dict[str, str | list[dict[str, str]] | dict[str, Any]],
@@ -393,95 +478,23 @@ def InferenceModel(
 
     conversation = Prompt["conversation"] if ("conversation" in Prompt) else []
     userConfig = Prompt["parameters"] if ("parameters" in Prompt) else {}
-
-    if ("pricing" in modelConfiguration):
-        modelPricing = modelConfiguration["pricing"]
-    else:
-        logs.WriteLog(logs.WARNING, "[services_manager] Pricing not set. Everything will default to 0 (free of charge).")
-        modelPricing = {}
-
-    textInputPrice = modelPricing["text_input"] if ("text_input" in modelPricing) else 0
-    textOutputPrice = modelPricing["text_output"] if ("text_output" in modelPricing) else 0  # TODO: Output price
-    imageInputPrice = modelPricing["image_input"] if ("image_input" in modelPricing) else 0
-    imageOutputPrice = modelPricing["image_output"] if ("image_output" in modelPricing) else 0
-    audioInputPrice = modelPricing["audio_input"] if ("audio_input" in modelPricing) else 0
-    audioOutputPrice = modelPricing["audio_output"] if ("audio_output" in modelPricing) else 0
-    videoInputPriceS = modelPricing["video_input_s"] if ("video_input_s" in modelPricing) else 0
-    videoOutputPriceS = modelPricing["video_output_s"] if ("video_output_s" in modelPricing) else 0
-    videoInputPriceR = modelPricing["video_input_r"] if ("video_input_r" in modelPricing) else 0
-    videoOutputPriceR = modelPricing["video_output_r"] if ("video_output_r" in modelPricing) else 0
-    otherInputPrice = modelPricing["other_input"] if ("other_input" in modelPricing) else 0
-    otherOutputPrice = modelPricing["other_output"] if ("other_output" in modelPricing) else 0
-
     price = 0
 
     for msg in conversation:
         if (isinstance(msg["content"], str)):
             msg["content"] = [{"type": "text", "text": msg["content"]}]
-
-        for content in msg["content"]:
-            if (content["type"] == "text"):
-                price += len(TextEncoder.encode(content["text"])) * textInputPrice / 1000000.0
-            elif (content["type"] == "image"):
-                imgBuffer = BytesIO(base64.b64decode(content["image"]))
-                img = PILImage.open(imgBuffer)
-                price += (img.size[0] / 1024) * (img.size[1] / 1024) * imageInputPrice
-
-                img.close()
-                imgBuffer.close()
-            elif (content["type"] == "audio"):
-                audioBuffer = BytesIO(base64.b64decode(content["audio"]))
-
-                audio = AudioSegment.from_file(audioBuffer)
-                durationInSeconds = len(audio) / 1000
-
-                price += durationInSeconds * audioInputPrice
-                audioBuffer.close()
-            elif (content["type"] == "video"):
-                videoBuffer = BytesIO(base64.b64decode(content["video"]))
-
-                try:
-                    reader = av.open(videoBuffer)
-                    stream = next(s for s in reader.streams if (s.type == "video"))
-
-                    fps = float(stream.average_rate) if (stream.average_rate) else 0
-                    numberOfFrames = stream.frames
-                    duration = float(reader.duration / av.time_base) if (reader.duration) else (numberOfFrames / fps if (fps) else 0)
-                    durationInSeconds = math.floor(duration)
-
-                    width = stream.width
-                    height = stream.height
-
-                    price += (durationInSeconds * videoInputPriceS) + ((width / 1024) * (height / 1024) * videoInputPriceR)
-
-                    reader.close()
-                    videoBuffer.close()
-                except Exception as ex:
-                    videoBuffer.close()
-                    raise RuntimeError(f"Could not calculate pricing for video. Reason: {ex}")
-            elif (isinstance(otherInputPrice, float) or isinstance(otherInputPrice, int)):
-                price += len(content[content["type"]]) / 1048576 * otherInputPrice
-            elif (isinstance(otherInputPrice, dict)):
-                if (content["type"] in otherInputPrice):
-                    price += len(content[content["type"]]) / 1048576 * otherInputPrice[content["type"]]
-                else:
-                    price += len(content[content["type"]]) / 1048576 * otherInputPrice["global"]
-            else:
-                raise ValueError("Invalid content type or pricing.")
         
-        price = round(price, 5)
+        price += CalculateTokenPrice(modelConfiguration, False, msg["content"])
 
-        if (UserParameters["key_info"]["Tokens"] < price):
-            raise exceptions.NotEnoughTokensException(price, UserParameters["key_info"]["Tokens"])
+    if (UserParameters["key_info"]["Tokens"] < price):
+        raise exceptions.NotEnoughTokensException(price, UserParameters["key_info"]["Tokens"])
         
-        UserParameters["key_info"]["Tokens"] -= price
+    UserParameters["key_info"]["Tokens"] -= price
 
     firstToken = True
     lastTokenTime = time.time()
     exc = None
     tokensProcessingTime = None
-    responseTxt = None
-    responseFiles = []
 
     try:
         for token in Service.RunModuleFunction(serviceModule.ServiceModule, "SERVICE_INFERENCE", [
@@ -500,67 +513,16 @@ def InferenceModel(
                 "errors": token["errors"] if ("errors" in token) else [],
                 "_queue_uid": queueUID
             }
-            tokenPrice = 0
-
-            if (len(outputToken["response"]["text"]) > 0):
-                tokenPrice += textOutputPrice / 1000000.0
-
-                if (responseTxt is None):
-                    responseTxt = outputToken["response"]["text"]
-                else:
-                    responseTxt += outputToken["response"]["text"]
-            
-            for file in outputToken["response"]["files"]:
-                responseFiles.append(file)
-
-                if (file["type"] == "image"):
-                    img = PILImage.open(base64.b64decode(file["image"]))
-                    tokenPrice += (img.size[0] / 1024) * (img.size[1] / 1024) * imageOutputPrice
-
-                    img.close()
-                elif (file["type"] == "audio"):
-                    audioBuffer = BytesIO(base64.b64decode(file["audio"]))
-
-                    audio = AudioSegment.from_file(audioBuffer)
-                    durationInSeconds = len(audio) / 1000
-
-                    tokenPrice += durationInSeconds * audioOutputPrice
-                    audioBuffer.close()
-                elif (file["type"] == "video"):
-                    videoBuffer = BytesIO(base64.b64decode(file["video"]))
-
-                    try:
-                        reader = av.open(videoBuffer)
-                        stream = next(s for s in reader.streams if (s.type == "video"))
-
-                        fps = float(stream.average_rate) if (stream.average_rate) else 0
-                        numberOfFrames = stream.frames
-                        duration = float(reader.duration / av.time_base) if (reader.duration) else (numberOfFrames / fps if (fps) else 0)
-                        durationInSeconds = math.floor(duration)
-
-                        width = stream.width
-                        height = stream.height
-
-                        tokenPrice += (durationInSeconds * videoOutputPriceS) + ((width / 1024) * (height / 1024) * videoOutputPriceR)
-                        videoBuffer.close()
-                    except Exception as ex:
-                        videoBuffer.close()
-                        raise RuntimeError(f"Could not calculate pricing for video. Reason: {ex}")
-                elif (isinstance(otherOutputPrice, float) or isinstance(otherOutputPrice, int)):
-                    tokenPrice += len(file[file["type"]]) / 1048576 * otherOutputPrice
-                elif (isinstance(otherOutputPrice, dict)):
-                    if (file["type"] in otherOutputPrice):
-                        tokenPrice += len(file[file["type"]]) / 1048576 * otherOutputPrice[file["type"]]
-                    else:
-                        tokenPrice += len(file[file["type"]]) / 1048576 * otherOutputPrice["global"]
-                else:
-                    raise ValueError("Invalid content type or pricing.")
-
-            tokenPrice = round(tokenPrice, 5)
+            tokenPrice = CalculateTokenPrice(modelConfiguration, True, [
+                {
+                    "type": "text",
+                    "text": outputToken["response"]["text"]
+                }
+            ] + outputToken["response"]["files"])
 
             if (UserParameters["key_info"]["Tokens"] < tokenPrice):
                 raise exceptions.NotEnoughTokensException(tokenPrice, UserParameters["key_info"]["Tokens"])
-                
+            
             UserParameters["key_info"]["Tokens"] -= tokenPrice
             
             if (firstToken):

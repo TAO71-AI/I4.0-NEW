@@ -60,7 +60,6 @@ def __main__() -> None:
             setattr(conf, "CLIENT_Port", int(input("Server to connect (Port): ")))
             setattr(conf, "CLIENT_Secure", bool(int(input("Server to connect (Secure) ('0', '1'): "))))
             setattr(conf, "CLIENT_ModelName", input("Model name: "))
-            setattr(conf, "CLIENT_APIKey", input("API Key: "))
             setattr(conf, "CLIENT_Scrape_FollowGuidelines", bool(int(input("Follow websites guidelines when scrapping? ('0', '1'): "))))
 
             with open(configFile, "x") as f:
@@ -93,7 +92,7 @@ def __main__() -> None:
             modelInfo = await socket.GetModelInfo(getattr(conf, "CLIENT_ModelName"))
             gen = socket.AdvancedSendAndReceive(
                 getattr(conf, "CLIENT_ModelName"),
-                getattr(conf, "CLIENT_APIKey"),
+                None,
                 conversation["conv"],
                 conversation["params_prompt"],
                 conversation["params_user"],
