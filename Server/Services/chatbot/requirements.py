@@ -48,20 +48,22 @@ def Install(Env: dict[str, Any] | None = None) -> None:
     
     if (gpuType == gpu.GPUType.NVIDIA):
         lcppCmake = (
-            f"-DGGML_CUDA=1 -DGGML_CUDE_FORCE_CUBLAS={forceCublas} -DGGML_CUDA_FORCE_MMQ={forceMMQ}"
+            f"-DGGML_CUDA=1 -DGGML_CUDE_FORCE_CUBLAS={forceCublas} -DGGML_CUDA_FORCE_MMQ={forceMMQ} "
             f"-DGGML_CUDA_F16={f16} -DGGML_CUDA_ENABLE_UNIFIED_MEMORY={unifiedMemory} -DGGML_CUDA_FA_ALL_QUANTS={faAllQuants}"
         )
     elif (gpuType == gpu.GPUType.AMD):
         lcppCmake = (
-            f"-DGGML_HIPBLAS=1 -DGGML_CUDA_F16={f16} -DGGML_CUDA_ENABLE_UNIFIED_MEMORY={unifiedMemory}"
+            f"-DGGML_HIPBLAS=1 -DGGML_CUDA_F16={f16} -DGGML_CUDA_ENABLE_UNIFIED_MEMORY={unifiedMemory} "
+            f"-DGGML_CUDA_FA_ALL_QUANTS={faAllQuants}"
         )
     elif (gpuType == gpu.GPUType.INTEL):
         lcppCmake = (
-            f"-DGGML_SYCL=1 -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx -DGGML_SYCL_F16={f16}"
+            f"-DGGML_SYCL=1 -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx -DGGML_SYCL_F16={f16} "
+            f"-DGGML_CUDA_FA_ALL_QUANTS={faAllQuants} -DGGML_CUDA_ENABLE_UNIFIED_MEMORY={unifiedMemory}"
         )
     elif (gpuType == gpu.GPUType.NO_GPU):
         if (vulkanAvailable):
-            lcppCmake = "-DGGML_VULKAN=1"
+            lcppCmake = f"-DGGML_VULKAN=1 -DGGML_CUDA_FA_ALL_QUANTS={faAllQuants} -DGGML_CUDA_ENABLE_UNIFIED_MEMORY={unifiedMemory}"
         else:
             lcppCmake = "-DGGML_BLAS=1 -DGGML_BLAS_VENDOR=OpenBLAS"
     

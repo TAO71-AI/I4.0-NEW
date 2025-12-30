@@ -13,7 +13,6 @@
 ##   ...
 
 services: {}
-services_get_automatically: "cheapest"  # "fastest", "min_queue", "cheapest"
 
 # Server configuration
 server_api:
@@ -59,7 +58,6 @@ server_automatic_blacklist:
     threshold: 0
     action: "ban"
     extra_service_params: {}
-    frames_split: 10  # Pick a frame every 10 frames - minimum is 1
 server_encryption:
   allowed_hashes:
     hashes:

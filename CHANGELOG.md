@@ -4,6 +4,22 @@ Using DD-MM-YYYY format.
 
 Keep in mind that these are only the more relevant changes.
 
+## 30-12-2025 (commit `v17.0.0-a7`)
+
+### Server changes
+
+- (chatbot module) Added some experimental parameters to the requirements, for future testing (will be removed if doesn't work).
+- Fixed a small bug that didn't saved the API key when the client disconnects mid-inference.
+- Removed some parameters in the configuration.
+
+### Client changes
+
+- (client CLI) Made the client disconnect for each inference.
+
+### Other changes
+
+- Started creating server documentation.
+
 ## 29-12-2025 (commit `v17.0.0-a6`)
 
 ### Server changes

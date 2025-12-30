@@ -60,7 +60,7 @@ async def __unhandled_received_message__(Client: server_utils.Client, Message: s
         else:
             # Process other commands
             async def __send_to_client__(Token: dict[str, Any]) -> None:
-                nonlocal clientPublicKey, clientPublicKeyStr, modelName, queueUID
+                nonlocal clientPublicKey, clientPublicKeyStr, modelName, queueUID, keyInstance
 
                 tokenPublicParams = {k: v for k, v in Token.items() if (not k.startswith("_"))}
                 tokenPrivateParams = {k: v for k, v in Token.items() if (k.startswith("_"))}
@@ -70,6 +70,9 @@ async def __unhandled_received_message__(Client: server_utils.Client, Message: s
                 
                 if (queueUID is None and "_queue_uid" in tokenPrivateParams):
                     queueUID = tokenPrivateParams["_queue_uid"]
+                
+                if (keyInstance is None and "_key_instance" in tokenPrivateParams):
+                    keyInstance = tokenPrivateParams["_key_instance"]
                 
                 if (config.Configuration["server_encryption"]["force_response_hash"] is None):
                     responseHash = tokenPrivateParams["_hash"]
@@ -126,19 +129,25 @@ async def __unhandled_received_message__(Client: server_utils.Client, Message: s
                     logs.WriteLog(logs.ERROR, f"[server] Error sending to client: {ex}")
 
             def __run_in_thread__() -> None:
+                nonlocal keyInstance
+
                 gen = __process_client__(Message)
                 loop = asyncio.new_event_loop()
 
                 for token in gen:
                     try:
                         loop.run_until_complete(__send_to_client__(token))
-                    except services_manager.exceptions.ConnectionClosedError:
+                    except:
+                        if (keyInstance is not None):
+                            keyInstance.SaveToFile()
+
                         break
                 
                 loop.close()
             
             modelName = None
             queueUID = None
+            keyInstance = None
 
             th = threading.Thread(target = __run_in_thread__)
             th.start()
@@ -234,7 +243,8 @@ def __process_client__(Message: str) -> Generator[dict[str, Any]]:
                     yield token | {
                         "_model": modelName,
                         "_hash": messageHash,
-                        "_public_key": messagePublicKey
+                        "_public_key": messagePublicKey,
+                        "_key_instance": keyInstance
                     }
             elif (service == "get_queue_data"):
                 queueData = services_manager.queue.GetQueueForModel(modelName)

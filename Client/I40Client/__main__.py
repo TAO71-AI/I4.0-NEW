@@ -414,6 +414,8 @@ def __main__() -> None:
                 
                 if (confirm == "n"):
                     break
+            finally:
+                await socket.Close()
         
         await socket.Close()
     
