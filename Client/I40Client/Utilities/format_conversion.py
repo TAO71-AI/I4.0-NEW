@@ -9,13 +9,14 @@ def HTML_To_Markdown(Content: str, URL: str | None = None) -> str:
             text = tag.get_text().strip()
 
             if (text):
-                tag.replace_with(f"{'#' * i} {text}\n")
+                tag.insert_before("\n\n")
+                tag.replace_with(f"{'#' * i} {text}\n\n")
             else:
                 tag.decompose()
 
     for tag in soup.find_all("a"):
-        text = tag.get_text()
-        href = tag.get("href", "")
+        text = tag.get_text().strip()
+        href = tag.get("href", "").strip()
 
         if (URL is not None):
             if (href.startswith("./") or href.startswith("../")):
@@ -27,54 +28,52 @@ def HTML_To_Markdown(Content: str, URL: str | None = None) -> str:
         tag.replace_with(replace)
 
     for tag in soup.find_all(["b", "strong"]):
-        text = tag.get_text()
+        text = tag.get_text().strip()
 
-        if (text.strip()):
-            replace = f"**{tag.get_text()}**"
-            tag.replace_with(replace)
+        if (text):
+            tag.replace_with(f" **{text}** ")
         else:
             tag.decompose()
     
     for tag in soup.find_all(["i", "em"]):
-        text = tag.get_text()
+        text = tag.get_text().strip()
 
-        if (text.strip()):
-            replace = f"*{tag.get_text()}*"
-            tag.replace_with(replace)
+        if (text):
+            tag.replace_with(f" *{text}* ")
         else:
             tag.decompose()
     
     for tag in soup.find_all("code"):
         text = tag.get_text()
 
-        if (text.strip()):
-            replace = f"```\n{text}\n```" if ("\n" in text) else f"`{text}`"
+        if (text):
+            if ("\n" in text):
+                replace = f"```\n{text}\n```" if ("\n" in text) else f"`{text}`"
+            else:
+                replace = f"`{text}`"
+            
             tag.replace_with(replace)
         else:
             tag.decompose()
     
     for tag in soup.find_all("sup"):
-        text = tag.get_text()
+        text = tag.get_text().strip()
 
-        if (text.strip()):
-            replace = f"^{tag.get_text()}^"
-            tag.replace_with(replace)
+        if (text):
+            tag.replace_with(f"~{text}~")
         else:
             tag.decompose()
     
     for tag in soup.find_all("sub"):
-        text = tag.get_text()
+        text = tag.get_text().strip()
 
-        if (text.strip()):
-            replace = f"~{tag.get_text()}~"
-            tag.replace_with(replace)
+        if (text):
+            tag.replace_with(f"~{text}~")
         else:
             tag.decompose()
     
-    text = soup.get_text()
-    lines = [line.strip() for line in text.split("\n") if (line.strip())]
+    text = soup.get_text("\n\n")
+    text = re.sub(r"\n\s*\n", "\n\n", text)
+    text = text.strip()
 
-    cleanText = " ".join(lines)
-    cleanText = re.sub(r"\s+", " ", cleanText).strip()
-
-    return cleanText
+    return text

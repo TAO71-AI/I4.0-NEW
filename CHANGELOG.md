@@ -4,6 +4,18 @@ Using DD-MM-YYYY format.
 
 Keep in mind that these are only the more relevant changes.
 
+## 31-12-2025 (commit `v17.0.0-a8`)
+
+### Server changes
+
+- Fixed a small bug when handling exceptions.
+
+### Client changes
+
+- Better **HTML=>Markdown** parser.
+- Added the hability to also scrape media (images, gif, and videos) from Reddit posts (will be implemented soon for other websites).
+- Fixed some bugs.
+
 ## 30-12-2025 (commit `v17.0.0-a7`)
 
 ### Server changes

@@ -1,4 +1,4 @@
-class NotEnoughTokensException(BaseException):
+class NotEnoughTokensException(Exception):
     def __init__(self, Required: float | None = None, Tokens: float | None = None) -> None:
         message = "Not enough tokens."
 
@@ -9,14 +9,14 @@ class NotEnoughTokensException(BaseException):
 
         super().__init__(message)
 
-class InstallationError(BaseException):
+class InstallationError(Exception):
     def __init__(self, Message: str | None = None) -> None:
         super().__init__("Installation error" + (f": {Message}" if (Message is not None) else "."))
 
-class ConnectionTypeInvalid(BaseException):
+class ConnectionTypeInvalid(Exception):
     def __init__(self) -> None:
         super().__init__("The connection type is invalid.")
 
-class ConnectionClosedError(BaseException):
+class ConnectionClosedError(Exception):
     def __init__(self) -> None:
         super().__init__("The connection was closed.")

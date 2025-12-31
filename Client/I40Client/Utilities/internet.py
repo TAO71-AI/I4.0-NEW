@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 from urllib.robotparser import RobotFileParser
 from ddgs.ddgs import DDGS
 from . import format_conversion
+import base64
 import requests
 import re
 
@@ -23,15 +24,29 @@ def __get_requests_response__(URL: str) -> requests.Response:
 
     return response
 
+def DownloadContent(URL: str, ReturnAsBase64: bool = False, ReturnAsString: bool = False) -> bytes | str:
+    response = requests.get(URL)
+    response.raise_for_status()
+
+    content = response.content
+
+    if (ReturnAsBase64):
+        content = base64.b64encode(content)
+    
+    if (ReturnAsString):
+        content = content.decode("utf-8")
+    
+    return content
+
 def SearchText(
     Keywords: str,
-    Region: str = "us-en",
+    Region: str = "auto",
     UseSafeSearch: bool = True,
     MaxResults: int = 5,
     Backend: Literal[
         "bing", "brave", "duckduckgo", "google", "grokipedia",
         "mojeek", "yandex", "yahoo", "wikipedia", "auto"
-    ] = "duckduckgo"
+    ] = "auto"
 ) -> list[str]:
     results = __DDGS__.text(
         query = Keywords,
@@ -117,12 +132,13 @@ def Scrape_Wikipedia(URL: str) -> dict[str, str]:
         if (p.get_text().strip()):
             content.append(format_conversion.HTML_To_Markdown(str(p), parserURL).strip())
 
-    return {"title": title, "content_text": "\n\n".join(content)}  # TODO: Scrape images too
+    return {"title": title, "content_text": "\n\n".join(content), "content_media": []}  # TODO: Scrape images too
 
-def Scrape_Reddit_Post(URL: str, CommentsLimit: int | None = None) -> dict[str, str | dict[str, str]]:
+def Scrape_Reddit_Post(URL: str) -> dict[str, str | dict[str, str]]:
     soup = Scrape_Base(URL)
     title = soup.find("h1", {"slot": "title"})
     contentTxt = soup.find("div", {"property": "schema:articleBody"})
+    media = []
 
     if (title is None):
         title = "No title"
@@ -134,18 +150,61 @@ def Scrape_Reddit_Post(URL: str, CommentsLimit: int | None = None) -> dict[str, 
     else:
         contentTxt = format_conversion.HTML_To_Markdown(str(contentTxt), URL).strip()
     
-    # TODO: Scrape images too
-    
-    # TODO: Comments
+    gallery = soup.find("gallery-carousel")
 
-    return {"title": title, "content_text": contentTxt}
+    if (gallery is None):
+        mediaData = soup.find("img", {"id": "post-image"})
+        mediaType = "image"
+
+        if (mediaData is None):
+            mediaData = soup.find("shreddit-player")
+            mediaType = None if (mediaData is None) else "video" if (mediaData.get("post-type") == "video") else "gif"
+
+        if (mediaData is not None):
+            if (mediaType == "image"):
+                mediaURL = mediaData.get("src")
+            elif(mediaType == "gif"):
+                mediaURL = mediaData.get("src")
+                mediaType = "video"  # Reddit converts GIF to MP4
+            elif (mediaType == "video"):
+                # When handling with videos, only low-quality previews can be get
+                # It's also buggy sometimes
+                mediaURL = mediaData.get("preview")
+            
+            if (mediaURL is None):
+                mediaURL = mediaData.get("data-lazy-src")
+            
+            if (mediaURL is not None):
+                media.append({
+                    "type": mediaType,
+                    mediaType: DownloadContent(URL = mediaURL, ReturnAsBase64 = True, ReturnAsString = True)
+                })
+    else:
+        gallery = gallery.find_all("li")
+
+        for item in gallery:
+            mediaContainer = item.find("figure", {"class": "items-center"})
+            mediaData = mediaContainer.find("img")  # All gallery items must be items
+            mediaURL = mediaData.get("src")
+
+            if (mediaURL is None):
+                mediaURL = mediaData.get("data-lazy-src")
+
+                if (mediaURL is None):
+                    continue
+            
+            media.append({
+                "type": "image",
+                "image": DownloadContent(URL = mediaURL, ReturnAsBase64 = True, ReturnAsString = True)
+            })
+
+    return {"title": title, "content_text": contentTxt, "content_media": media}
 
 def Scrape_Reddit_Subreddit(
     URL: str,
     IsName: bool = False,
     ScrapePosts: bool = False,
-    PostsLimit: int | None = None,
-    PostsCommentsLimit: int | None = None
+    PostsLimit: int | None = None
 ) -> list[str | dict[str, str | dict[str, str]]]:
     if (IsName):
         url = f"https://reddit.com/r/{URL}/hot.json"
@@ -162,7 +221,7 @@ def Scrape_Reddit_Subreddit(
             break
 
         postUrl = post["data"]["url"]
-        posts.append(Scrape_Reddit_Post(postUrl, PostsCommentsLimit) if (ScrapePosts) else postUrl)
+        posts.append(Scrape_Reddit_Post(postUrl) if (ScrapePosts) else postUrl)
     
     return posts
 
@@ -179,7 +238,7 @@ def Scrape_Wikidot(URL: str) -> dict[str, str]:
         if (p.get_text().strip()):
             content.append(format_conversion.HTML_To_Markdown(str(p), parserURL).strip())
 
-    return {"title": title, "content_text": "\n\n".join(content)}  # TODO: Scrape images too
+    return {"title": title, "content_text": "\n\n".join(content), "content_media": []}  # TODO: Scrape images too
 
 def Scrape_Fandom(URL: str) -> dict[str, str]:
     parserURL = GetURLInfo(GetBaseURL(URL))
@@ -194,21 +253,19 @@ def Scrape_Fandom(URL: str) -> dict[str, str]:
         if (p.get_text().strip()):
             content.append(format_conversion.HTML_To_Markdown(str(p), parserURL).strip())
     
-    return {"title": title, "content_text": "\n\n".join(content)}  # TODO: Scrape images too
+    return {"title": title, "content_text": "\n\n".join(content), "content_media": []}  # TODO: Scrape images too
 
-def Scrape_Auto(URL: str) -> dict[str, Any]:
+def Scrape_Auto(URL: str, RedditSubredditPosts: int | None = None) -> dict[str, Any]:
     urlInfo = GetURLInfo(GetBaseURL(URL))
 
     if (urlInfo["website"] == "reddit.com"):
         if ("/comments/" in URL):
             # Scrape Reddit post
-            return Scrape_Reddit_Post(URL, None) | {"type": "reddit post"}
+            return Scrape_Reddit_Post(URL) | {"type": "reddit post"}
         else:
             # Scrape Reddit subreddit
-            s = Scrape_Reddit_Subreddit(URL, False, True, None, None)
-
-            # TODO
-    elif (urlInfo["website"] == "wikipedia.com"):
+            return {"posts": Scrape_Reddit_Subreddit(URL, False, True, RedditSubredditPosts), "type": "reddit subreddit"}
+    elif (urlInfo["website"] == "wikipedia.org"):
         return Scrape_Wikipedia(URL) | {"type": "wikipedia"}
     elif (urlInfo["website"] == "wikidot.com"):
         return Scrape_Wikidot(URL) | {"type": "wikidot"}
@@ -220,4 +277,4 @@ def Scrape_Auto(URL: str) -> dict[str, Any]:
             websiteContent,
             f"{urlInfo['protocol']}://{urlInfo['subdomain'] + '.' if (urlInfo['subdomain'] is not None) else ''}{urlInfo['website']}"
         )
-        return {"title": "No title detected", "content_text": websiteContent, "type": "unknown"}
+        return {"title": "No title detected", "content_text": websiteContent, "content_media": [], "type": "unknown"}

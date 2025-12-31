@@ -147,17 +147,17 @@ def __main__() -> None:
                     errors += len(token["errors"])
             
             if (len(tools) > 0 and AllowTools and modelInfo["service"] == "chatbot"):
-                toolsResponse = ""
+                toolsResponse = []
 
                 for tool in tools:
                     toolName = tool["name"]
                     toolArgs = tool["arguments"]
 
                     try:
-                        toolR = chatbot_tools.ExecuteTool(toolName, toolArgs, modelInfo["ctx"])
+                        toolR = chatbot_tools.ExecuteTool(toolName, toolArgs, modelInfo["ctx"], "")
 
                         if (toolR is not None):
-                            toolsResponse += f"{toolR}\n"
+                            toolsResponse += toolR
                     except Exception as ex:
                         print(f"\nERROR: Error processing tool ({type(ex)}): {ex}", flush = True)
                         errors += 1
@@ -165,17 +165,10 @@ def __main__() -> None:
                 if (len(toolsResponse) > 0):
                     print("", flush = True)
 
-                    conversation["conv"].append(
-                        {
-                            "role": "tool",
-                            "content": [
-                                {
-                                    "type": "text",
-                                    "text": toolsResponse
-                                }
-                            ]
-                        }
-                    )
+                    conversation["conv"].append({
+                        "role": "tool",
+                        "content": toolsResponse
+                    })
                     await __send__(False)
 
                     return

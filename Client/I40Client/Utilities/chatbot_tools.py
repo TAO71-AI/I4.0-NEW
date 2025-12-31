@@ -54,7 +54,7 @@ def GetDefaultTools() -> list[dict[str, Any]]:
 def ToolExists(ToolName: str) -> bool:
     return ToolName in [t["function"]["name"] for t in GetDefaultTools()]
 
-def ExecuteTool(ToolName: str, ToolArgs: dict[str, Any], MaxLength: int | None = None) -> Any | None:
+def ExecuteTool(ToolName: str, ToolArgs: dict[str, Any], MaxLength: int | None = None, Multimodal: str = "") -> dict[str, list[dict[str, str]]] | None:
     if (not ToolExists(ToolName)):
         raise ValueError("Tool does not exist in the default tool list.")
     
@@ -63,16 +63,36 @@ def ExecuteTool(ToolName: str, ToolArgs: dict[str, Any], MaxLength: int | None =
             raise RuntimeError("Tool parsing error: required parameter does not exist or is an invalid type of data.")
         
         inputText = "# Results from all the websites\n\n"
+        inputMedia = []
         
         for url in ToolArgs["urls"]:
             inputText += f"## {url}\n\n"
 
             try:
                 scrapeData = internet.Scrape_Auto(url)
+
+                if (scrapeData["type"] == "reddit subreddit"):
+                    for post in scrapeData["posts"]:
+                        for mediaElement in post["content_media"]:
+                            if (mediaElement["type"] not in Multimodal):
+                                continue
+
+                            inputMedia.append(mediaElement)
+
+                        inputText += f"### Post {scrapeData['posts'].index(post) + 1}\n\nTitle: {post['title']}\n\nContent:\n```markdown\n{post['content_text']}\n```\n\n"
+
+                    if (len(scrapeData["posts"]) == 0):
+                        inputText += "No posts available."
+
+                    continue
+
                 inputText += f"Title: {scrapeData['title']}\n\nContent:\n```markdown\n{scrapeData['content_text']}\n```"
 
-                if (scrapeData["type"] == "reddit post"):
-                    inputText += ""  # TODO
+                for mediaElement in scrapeData["content_media"]:
+                    if (mediaElement["type"] not in Multimodal):
+                        continue
+
+                    inputMedia.append(mediaElement)
             except Exception as ex:
                 inputText += f"Could not scrape website. Error type {type(ex)}, details: {ex}"
             
@@ -83,33 +103,59 @@ def ExecuteTool(ToolName: str, ToolArgs: dict[str, Any], MaxLength: int | None =
         if (MaxLength is not None and MaxLength >= 100):
             inputText = inputText[:MaxLength - 1]
 
-        return inputText
+        return inputMedia + [{"type": "text", "text": inputText}]
     elif (ToolName == "search_text"):
         if ("keywords" not in ToolArgs or not isinstance(ToolArgs["keywords"], str)):
             raise RuntimeError("Tool parsing error: required parameter does not exist or is an invalid type of data.")
 
-        # TODO: Create tool
         keywords = ToolArgs["keywords"]
-        websites = internet.SearchText(keywords)
         inputText = "# Results from all the websites\n\n"
+        inputMedia = []
 
-        for url in websites:
-            inputText += f"## {url}\n\n"
+        try:
+            websites = internet.SearchText(keywords)
 
-            try:
-                scrapeData = internet.Scrape_Auto(url)
-                inputText += f"Title: {scrapeData['title']}\n\nContent:\n```markdown\n{scrapeData['content_text']}\n```"
+            for url in websites:
+                inputText += f"## {url}\n\n"
 
-                if (scrapeData["type"] == "reddit post"):
-                    inputText += ""  # TODO
-            except Exception as ex:
-                inputText += f"Could not scrape website. Error type {type(ex)}, details: {ex}"
-            
-            inputText += "\n\n"
+                try:
+                    scrapeData = internet.Scrape_Auto(url)
+
+                    if (scrapeData["type"] == "reddit subreddit"):
+                        for post in scrapeData["posts"]:
+                            for mediaElement in post["content_media"]:
+                                if (mediaElement["type"] not in Multimodal):
+                                    continue
+
+                                inputMedia.append(mediaElement)
+
+                            inputText += f"### Post {scrapeData['posts'].index(post) + 1}\n\nTitle: {post['title']}\n\nContent:\n```markdown\n{post['content_text']}\n```\n\n"
+
+                        if (len(scrapeData["posts"]) == 0):
+                            inputText += "No posts available."
+
+                        continue
+
+                    inputText += f"Title: {scrapeData['title']}\n\nContent:\n```markdown\n{scrapeData['content_text']}\n```"
+
+                    for mediaElement in scrapeData["content_media"]:
+                        if (mediaElement["type"] not in Multimodal):
+                            continue
+
+                        inputMedia.append(mediaElement)
+                except Exception as ex:
+                    inputText += f"Could not scrape website. Error type {type(ex)}, details: {ex}"
+                
+                inputText += "\n\n"
+        except:
+            websites = []
         
+        if (len(websites) == 0):
+            inputText += "No results found."
+
         inputText = inputText.strip()
 
         if (MaxLength is not None and MaxLength >= 100):
             inputText = inputText[:MaxLength - 1]
 
-        return inputText
+        return inputMedia + [{"type": "text", "text": inputText}]
