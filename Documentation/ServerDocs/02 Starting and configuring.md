@@ -15,6 +15,10 @@ When running the server, it will create some files and directories.
 |config_\[module\].yaml|File|Global configuration of a module. This file will be created for each module.|
 |TOS.md|File|Terms Of Service to use the server.|
 
+# Closing the server
+
+To close the server you can send a **SIGINT** signal.
+
 # Configuration
 
 ## Server configuration

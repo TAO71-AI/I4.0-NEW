@@ -50,6 +50,31 @@ class Queue():
                 self.ProcessNextUser()
 
             time.sleep(0.1)
+    
+    def GetUsersBeforeUID(self, UID: int) -> int:
+        if (UID in self.__processing_uids__):
+            return 0
+        
+        if (UID not in self.__waiting_uids__):
+            return -1
+        
+        priorityUsers = [uid for uid in self.__waiting_uids__ if (uid <= 0)]
+        nonPriorityUsers = [uid for uid in self.__waiting_uids__ if (uid > 0)]
+
+        usersBefore = 0
+
+        if (UID <= 0):
+            for uid in priorityUsers:
+                if (uid > UID):
+                    usersBefore += 1
+        else:
+            usersBefore += len(priorityUsers)
+
+            for uid in nonPriorityUsers:
+                if (uid < UID):
+                    usersBefore += 1
+        
+        return usersBefore
 
 Queues: list[Queue] = []
 

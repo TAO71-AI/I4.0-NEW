@@ -248,7 +248,6 @@ def __process_client__(Message: str) -> Generator[dict[str, Any]]:
                     }
             elif (service == "get_queue_data"):
                 queueData = services_manager.queue.GetQueueForModel(modelName)
-                queueData.__waiting_uids__
 
                 if (queueData is None):
                     queueData = {

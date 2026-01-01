@@ -4,6 +4,16 @@ Using DD-MM-YYYY format.
 
 Keep in mind that these are only the more relevant changes.
 
+## 1-1-2026 (commit `v17.0.0-a9`)
+
+### Server changes
+
+- Added a new function to the queue script.
+
+### Other changes
+
+- Added more server documentation.
+
 ## 31-12-2025 (commit `v17.0.0-a8`)
 
 ### Server changes
