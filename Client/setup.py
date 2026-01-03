@@ -12,7 +12,8 @@ setup(
     install_requires = [
         "websockets>=15.0.0,<16.0.0",
         "asyncio",
-        "cryptography"
+        "cryptography",
+        "html2text"
     ],
     classifiers = [
         "Programming Language :: Python :: 3",

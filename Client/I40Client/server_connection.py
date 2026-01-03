@@ -9,6 +9,7 @@ import base64
 import asyncio
 
 VERSION: int = 170000
+TRANSFER_RATE = 8192 * 1024
 
 class ClientSocket():
     def __init__(
@@ -18,7 +19,6 @@ class ClientSocket():
     ) -> None:
         self.__socket__ = None
         self.__socket_type__ = Type  # TODO: More socket types in the future!
-        self.__transfer_rate__ = None
         self.__configuration__ = Configuration
         self.__server_public_key_str__ = None
         self.__server_public_key__ = None
@@ -42,13 +42,13 @@ class ClientSocket():
         if (self.__socket_type__ == "websocket"):
             uri = ("wss" if (Secure) else "ws") + f"://{Host}:{Port}"
             self.__socket__ = await WS_Connect(
-                uri = uri
+                uri = uri,
+                max_size = TRANSFER_RATE
             )
         
             while (self.__socket__.state == WS_State.CONNECTING):
                 await asyncio.sleep(0.1)
         
-        self.__transfer_rate__ = int(await self.SendAndReceive("get_transfer_rate")) * 1024
         await self.__set_server_public_key__()
 
     async def Close(self) -> None:
@@ -63,7 +63,6 @@ class ClientSocket():
                 pass
         
         self.__socket__ = None
-        self.__transfer_rate__ = None
     
     async def __set_server_public_key__(self) -> None:
         self.__server_public_key_str__ = await self.SendAndReceive("get_public_key")
@@ -86,10 +85,7 @@ class ClientSocket():
         return recv
     
     async def Send(self, Data: str) -> None:
-        if (self.__transfer_rate__ is None):
-            chunks = [Data]
-        else:
-            chunks = [Data[i:i + self.__transfer_rate__] for i in range(0, len(Data), self.__transfer_rate__)]
+        chunks = [Data[i:i + TRANSFER_RATE] for i in range(0, len(Data), TRANSFER_RATE)]
 
         for chunk in chunks:
             await self.__send__(chunk)
@@ -105,9 +101,7 @@ class ClientSocket():
             if (chunk == "--END--"):
                 break
             
-            if (self.__transfer_rate__ is not None):
-                chunk = chunk[:self.__transfer_rate__]
-            
+            chunk = chunk[:TRANSFER_RATE]
             data += chunk
         
         return data

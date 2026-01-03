@@ -78,7 +78,6 @@ server_client_version:
   min: 170000  # Minimum client version to accept, null = server version
   max: null  # Maximum client version to accept, null = server version
   accept_unknown: false  # Whether to accept clients with an unknown version or not
-server_transfer_rate: 8192  # in KB. Min 1, max 8192 (~8 MB)
 server_data:
   tos_file: "./TOS.md"
   temp_dir: "./Temp"

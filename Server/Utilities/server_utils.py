@@ -7,9 +7,9 @@ import asyncio
 import exceptions
 import Utilities.logs as logs
 
-class Client():
-    DEFAULT_TRANSFER_RATE = 8192
+TRANSFER_RATE = 8192 * 1024
 
+class Client():
     def __init__(
         self,
         Socket: WS_ServerConnection,
@@ -17,7 +17,6 @@ class Client():
     ) -> None:
         self.__socket__ = Socket
         self.__endpoint__ = EndPoint
-        self.TransferRate = self.DEFAULT_TRANSFER_RATE
 
         self.__validate_connection_type__()
         logs.WriteLog(logs.INFO, "[server_utils] Connection created.")
@@ -66,7 +65,7 @@ class Client():
 
     async def Send(self, Message: str) -> None:
         self.__validate_connection_type__()
-        chunks = [Message[i:i + self.TransferRate] for i in range(0, len(Message), self.TransferRate)]
+        chunks = [Message[i:i + TRANSFER_RATE] for i in range(0, len(Message), TRANSFER_RATE)]
 
         for chunk in chunks:
             await self.__send__(chunk)
@@ -99,7 +98,6 @@ class WebSocketsServer():
         self,
         ListenIP: str,
         ListenPort: int,
-        TransferRate: int,
         ConnectedCallback: Callable[[Client], Awaitable[None]] | None = None,
         DisconenctedCallback: Callable[[Client], Awaitable[None]] | None = None,
         ReceiveCallback: Callable[[Client, str], Awaitable[None]] | None = None,
@@ -112,7 +110,6 @@ class WebSocketsServer():
         self.IgnoreBasicCommands = IgnoreBasicCommands
         self.__new_thread__ = NewThread
         self.__endpoint__ = (ListenIP, ListenPort)
-        self.__transfer_rate__ = TransferRate
         self.__socket__ = None
         self.__started__ = False
 
@@ -123,7 +120,6 @@ class WebSocketsServer():
 
     async def __on_client_connected__(self, Socket: WS_ServerConnection) -> None:
         c = Client(Socket, Socket.remote_address)
-        c.TransferRate = self.__transfer_rate__ * 1024
 
         try:
             if (self.ConnectedCallback is not None):
@@ -135,9 +131,6 @@ class WebSocketsServer():
                 if (not self.IgnoreBasicCommands):
                     if (msg == "ping"):
                         await c.Send("pong")
-                        continue
-                    elif (msg == "get_transfer_rate"):
-                        await c.Send(str(self.__transfer_rate__))
                         continue
                     elif (msg == "close" or len(msg) == 0):
                         break
@@ -165,7 +158,7 @@ class WebSocketsServer():
                 handler = self.__on_client_connected__,
                 host = self.__endpoint__[0],
                 port = self.__endpoint__[1],
-                max_size = self.__transfer_rate__ * 1024 + 1
+                max_size = TRANSFER_RATE
             )
             self.__started__ = True
             

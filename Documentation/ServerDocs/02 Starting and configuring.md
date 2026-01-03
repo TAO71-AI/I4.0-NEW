@@ -54,7 +54,6 @@ To close the server you can send a **SIGINT** signal.
 |server_client_version:min|integer, null|Minimum version of the client API that the server accepts. `null` means the same version as the server.|
 |server_client_version:max|integer, null|Maximum version of the client API that the server accepts. `null` means the same version as the server.|
 |server_client_version:accept_unknown|bool|Accept clients with an unknown or not specificated version.|
-|server_transfer_rate|integer|Transfer rate of the server in KiloBytes. Smaller transfer rates are for slower internet connections. Minimum value is **1** (1 KB), maximum value is **8192** (~8 MB)|
 |server_data:tos_file|string|Path to the TOS file. Will be created if it doesn't exist. Requires at least **read** (4) permissions.|
 |server_data:temp_dir|string|Path to the temporal files directory. Will be created if it doesn't exist. Requires **read, write, and execute** (7) permissions.|
 |server_data:keys_dir|string|Path to the API keys directory. Will be created if it doesn't exist. Requires **read, write, and execute** (7) permissions.|

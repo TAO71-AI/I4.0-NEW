@@ -4,6 +4,31 @@ Using DD-MM-YYYY format.
 
 Keep in mind that these are only the more relevant changes.
 
+---
+
+## 3.1.2026 (commit `v17.0.0-a10`)
+
+### Server changes
+
+- Removed transfer rate.
+- Implemented model offloading.
+- Fixed bugs.
+
+### Client changes
+
+- Added new parameter to the `search_text` chatbot tool.
+- Changed HTML=>Markdown conversion to use an external library.
+- Added **Grokipedia** to the internet scrapper.
+- Removed transfer rate.
+
+### Other changes
+
+- Updated documentation.
+- Started creating client documentation.
+- Updated `README.md`.
+
+---
+
 ## 1-1-2026 (commit `v17.0.0-a9`)
 
 ### Server changes
@@ -13,6 +38,8 @@ Keep in mind that these are only the more relevant changes.
 ### Other changes
 
 - Added more server documentation.
+
+---
 
 ## 31-12-2025 (commit `v17.0.0-a8`)
 
@@ -25,6 +52,8 @@ Keep in mind that these are only the more relevant changes.
 - Better **HTML=>Markdown** parser.
 - Added the hability to also scrape media (images, gif, and videos) from Reddit posts (will be implemented soon for other websites).
 - Fixed some bugs.
+
+---
 
 ## 30-12-2025 (commit `v17.0.0-a7`)
 
@@ -42,6 +71,8 @@ Keep in mind that these are only the more relevant changes.
 
 - Started creating server documentation.
 
+---
+
 ## 29-12-2025 (commit `v17.0.0-a6`)
 
 ### Server changes
@@ -53,6 +84,8 @@ Keep in mind that these are only the more relevant changes.
 ### Client changes
 
 - Removed the API configuration in the client CLI.
+
+---
 
 ## 28-12-2025 (commit `v17.0.0-a5`)
 
@@ -73,6 +106,8 @@ Keep in mind that these are only the more relevant changes.
 - Added scrapping for [wikidot.com wikis](https://www.wikidot.com/) and [fandom.com wikis](https://www.fandom.com/).
 - Moved the **format_conversion.py**, **internet.py**, and **tools.py** scripts to the client's utilities.
 
+---
+
 ## 24-12-2025 (commit `v17.0.0-a4`)
 
 ### Server changes
@@ -92,6 +127,8 @@ Keep in mind that these are only the more relevant changes.
   - Added more key features.
   - Created requirements for the client API.
   - Removed the database server from the requirements.
+
+---
 
 ## 20-12-2025 (commit `v17.0.0-a3`)
 
@@ -120,11 +157,15 @@ Keep in mind that these are only the more relevant changes.
   - Prices are rounded to 5 decimal digits.
 - Fixed some issues related to the queue.
 
+---
+
 ## 4-12-2025 (commit `v17.0.0-a2`)
 
 ### Server changes
 
 - Fixed a small bug that closed the server with a warning.
+
+---
 
 ## 4-12-2025 (commit `v17.0.0-a1`)
 

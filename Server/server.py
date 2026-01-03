@@ -30,6 +30,48 @@ def LoadModels() -> None:
         logs.PrintLog(logs.CRITICAL, f"[server] Could not load models. Error: {ex}")
         raise RuntimeError(f"Could not load models: {ex}")
 
+def __offload_models_t__() -> None:
+    global CloseServerReason
+    models = {}
+
+    for modelName, modelConfig in config.Configuration["services"].items():
+        models[modelName] = [
+            modelConfig["offload_seconds"] if ("offload_seconds" in modelConfig and modelConfig["offload_seconds"] > 0) else None,
+            0
+        ]
+
+    while (CloseServerReason is None):
+        time.sleep(1)
+        modelsToOffload = []
+
+        for modelName, modelOT in models.items():
+            queue = services_manager.queue.GetQueueForModel(modelName)
+
+            if (modelOT[0] is None or (
+                queue is not None and
+                len(queue.__waiting_uids__) + len(queue.__processing_uids__) > 0
+            )):
+                modelOT[1] = 0
+                continue
+
+            if (modelOT[1] < modelOT[0]):
+                modelOT[1] += 1
+                continue
+
+            modelsToOffload.append(modelName)
+        
+        if (len(modelsToOffload) == 0):
+            continue
+        
+        services_manager.OffloadModels(modelsToOffload)
+        modelsToOffload.clear()
+
+        for modelOT in models.values():
+            if (modelOT[1] < modelOT[0]):
+                continue
+
+            modelOT[1] = 0
+
 async def __unhandled_connection__(Client: server_utils.Client) -> None:
     if (
         (
@@ -336,7 +378,6 @@ def StartServer() -> None:
                 server = server_utils.WebSocketsServer(
                     ListenIP = server["host"],
                     ListenPort = server["port"],
-                    TransferRate = config.Configuration["server_transfer_rate"],
                     ConnectedCallback = __unhandled_connection__,
                     DisconenctedCallback = None,
                     ReceiveCallback = __unhandled_received_message__,
@@ -399,14 +440,15 @@ CloseServerReason: str | None = None
 if (__name__ == "__main__"):
     LoadModels()
 
-    # TODO: Thread for model offloading
+    offloadThread = threading.Thread(target = __offload_models_t__)
+    offloadThread.start()
     
     asyncio.set_event_loop(asyncio.new_event_loop())
     StartServer()
 
     interactiveMode = sys.argv.count("--interactive") > 0 or sys.argv.count("-it") > 0
 
-    while (True):
+    while (CloseServerReason is None):
         try:
             if (not interactiveMode):
                 time.sleep(0.1)

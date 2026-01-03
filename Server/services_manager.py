@@ -347,12 +347,15 @@ def OffloadModels(Names: list[str]) -> None:
     global ServicesModules, ServicesModels
     modelsToOffload = {}
 
-    for modelName, modelConfig in ServicesModels.items():
-        if (modelName in Names):
-            modelsToOffload[modelConfig["service"]] = modelName
+    for serviceName, model in ServicesModels.items():
+        modelsToOffload[serviceName] = []
+
+        for modelName in model.keys():
+            if (modelName in Names):
+                modelsToOffload[serviceName].append(modelName)
     
-    for _, service in ServicesModules.items():
-        Service.RunModuleFunction(service.ServiceModule, "SERVICE_OFFLOAD_MODELS", [modelsToOffload])
+    for serviceName, service in ServicesModules.items():
+        Service.RunModuleFunction(service.ServiceModule, "SERVICE_OFFLOAD_MODELS", [modelsToOffload[serviceName]])
 
 def CalculateTokenPrice(ModelNameOrConfig: str | dict[str, Any], GetOutputPricing: bool, MessageContent: list[dict[str, str]]) -> float:
     if (isinstance(ModelNameOrConfig, str)):

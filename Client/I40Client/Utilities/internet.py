@@ -119,10 +119,7 @@ def Scrape_Base(URL: str) -> BeautifulSoup:
 
     return soup
 
-def Scrape_Wikipedia(URL: str) -> dict[str, str]:
-    parserURL = GetURLInfo(GetBaseURL(URL))
-    parserURL = f"{parserURL['protocol']}://" + (f"{parserURL['subdomain']}." if (parserURL["subdomain"] is not None) else "") + parserURL["website"]
-
+def Scrape_Wikipedia(URL: str) -> dict[str, str | list[dict[str, str]]]:
     soup = Scrape_Base(URL)
     title = soup.find("h1", {"class": "mw-first-heading"}).get_text().strip()
     paragraphs = soup.find("div", {"class": "mw-parser-output"}).find_all("p")
@@ -130,11 +127,11 @@ def Scrape_Wikipedia(URL: str) -> dict[str, str]:
 
     for p in paragraphs:
         if (p.get_text().strip()):
-            content.append(format_conversion.HTML_To_Markdown(str(p), parserURL).strip())
+            content.append(format_conversion.HTML_To_Markdown(str(p)).strip())
 
     return {"title": title, "content_text": "\n\n".join(content), "content_media": []}  # TODO: Scrape images too
 
-def Scrape_Reddit_Post(URL: str) -> dict[str, str | dict[str, str]]:
+def Scrape_Reddit_Post(URL: str) -> dict[str, str | list[dict[str, str]]]:
     soup = Scrape_Base(URL)
     title = soup.find("h1", {"slot": "title"})
     contentTxt = soup.find("div", {"property": "schema:articleBody"})
@@ -148,7 +145,7 @@ def Scrape_Reddit_Post(URL: str) -> dict[str, str | dict[str, str]]:
     if (contentTxt is None):
         contentTxt = "No text content"
     else:
-        contentTxt = format_conversion.HTML_To_Markdown(str(contentTxt), URL).strip()
+        contentTxt = format_conversion.HTML_To_Markdown(str(contentTxt)).strip()
     
     gallery = soup.find("gallery-carousel")
 
@@ -205,7 +202,7 @@ def Scrape_Reddit_Subreddit(
     IsName: bool = False,
     ScrapePosts: bool = False,
     PostsLimit: int | None = None
-) -> list[str | dict[str, str | dict[str, str]]]:
+) -> list[str | dict[str, str | list[dict[str, str]]]]:
     if (IsName):
         url = f"https://reddit.com/r/{URL}/hot.json"
     else:
@@ -225,37 +222,46 @@ def Scrape_Reddit_Subreddit(
     
     return posts
 
-def Scrape_Wikidot(URL: str) -> dict[str, str]:
-    parserURL = GetURLInfo(GetBaseURL(URL))
-    parserURL = f"{parserURL['protocol']}://" + (f"{parserURL['subdomain']}." if (parserURL["subdomain"] is not None) else "") + parserURL["website"]
-
+def Scrape_Wikidot(URL: str) -> dict[str, str | list[dict[str, str]]]:
     soup = Scrape_Base(URL)
     title = soup.find("div", {"id": "page-title"}).get_text().strip()
-    paragraphs = soup.find("div", {"id": "page-content"}).find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p", "span"])
+    paragraphs = soup.find("div", {"id": "page-content"}).find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p"])
     content = []
 
     for p in paragraphs:
         if (p.get_text().strip()):
-            content.append(format_conversion.HTML_To_Markdown(str(p), parserURL).strip())
+            content.append(format_conversion.HTML_To_Markdown(str(p)).strip())
 
     return {"title": title, "content_text": "\n\n".join(content), "content_media": []}  # TODO: Scrape images too
 
-def Scrape_Fandom(URL: str) -> dict[str, str]:
-    parserURL = GetURLInfo(GetBaseURL(URL))
-    parserURL = f"{parserURL['protocol']}://" + (f"{parserURL['subdomain']}." if (parserURL["subdomain"] is not None) else "") + parserURL["website"]
-
+def Scrape_Fandom(URL: str) -> dict[str, str | list[dict[str, str]]]:
     soup = Scrape_Base(URL)
     title = soup.find("h1", {"class": "page-header__title"}).get_text().strip()
-    paragraphs = soup.find("div", {"class": "mw-content-ltr"}).find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p", "span"])
+    paragraphs = soup.find("div", {"class": "mw-content-ltr"}).find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p"])
     content = []
 
     for p in paragraphs:
         if (p.get_text().strip()):
-            content.append(format_conversion.HTML_To_Markdown(str(p), parserURL).strip())
+            content.append(format_conversion.HTML_To_Markdown(str(p)).strip())
     
     return {"title": title, "content_text": "\n\n".join(content), "content_media": []}  # TODO: Scrape images too
 
-def Scrape_Auto(URL: str, RedditSubredditPosts: int | None = None) -> dict[str, Any]:
+def Scrape_Grokipedia(URL: str) -> dict[str, str | list[dict[str, str]]]:
+    soup = Scrape_Base(URL)
+    article = soup.find("article")
+    article.find("div", {"id": "references"}).decompose()
+
+    title = article.find("h1").get_text().strip()
+    paragraphs = article.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p", "span"], {"class": "block"})
+    content = []
+
+    for p in paragraphs:
+        if (p.get_text().strip()):
+            content.append(format_conversion.HTML_To_Markdown(str(p)).strip())
+    
+    return {"title": title, "content_text": "\n\n".join(content), "content_media": []}  # TODO: Scrape images too
+
+def Scrape_Auto(URL: str, RedditSubredditPosts: int | None = None) -> dict[str, str | list[dict[str, str]]]:
     urlInfo = GetURLInfo(GetBaseURL(URL))
 
     if (urlInfo["website"] == "reddit.com"):
@@ -271,10 +277,9 @@ def Scrape_Auto(URL: str, RedditSubredditPosts: int | None = None) -> dict[str, 
         return Scrape_Wikidot(URL) | {"type": "wikidot"}
     elif (urlInfo["website"] == "fandom.com"):
         return Scrape_Fandom(URL) | {"type": "fandom"}
+    elif (urlInfo["website"] == "grokipedia.com"):
+        return Scrape_Grokipedia(URL) | {"type": "grokipedia"}
     else:
         websiteContent = str(Scrape_Base(URL).find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p", "span"]))
-        websiteContent = format_conversion.HTML_To_Markdown(
-            websiteContent,
-            f"{urlInfo['protocol']}://{urlInfo['subdomain'] + '.' if (urlInfo['subdomain'] is not None) else ''}{urlInfo['website']}"
-        )
+        websiteContent = format_conversion.HTML_To_Markdown(websiteContent)
         return {"title": "No title detected", "content_text": websiteContent, "content_media": [], "type": "unknown"}

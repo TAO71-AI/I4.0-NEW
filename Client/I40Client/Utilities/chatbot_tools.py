@@ -15,7 +15,7 @@ def GetDefaultTools() -> list[dict[str, Any]]:
             "function": {
                 "name": "scrape_websites",
                 "description": (
-                    "Scrapes websites for information."
+                    "Scrapes websites for information"
                 ),
                 "parameters": {
                     "type": "object",
@@ -23,7 +23,7 @@ def GetDefaultTools() -> list[dict[str, Any]]:
                         "urls": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "URLs to scrape."
+                            "description": "URLs to scrape"
                         }
                     },
                     "required": ["urls"]
@@ -35,14 +35,22 @@ def GetDefaultTools() -> list[dict[str, Any]]:
             "function": {
                 "name": "search_text",
                 "description": (
-                    "Searches the internet for information using keywords."
+                    "Searches the internet for information using keywords"
                 ),
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "keywords": {
                             "type": "string",
-                            "description": "Keywords to search on the internet, space separated."
+                            "description": "Keywords to search on the internet, space separated, allows search operators"
+                        },
+                        "backend": {
+                            "type": "string",
+                            "description": (
+                                "Backend search engine to use. The available backends are: "
+                                "bing, brave, duckduckgo, google, grokipedia, mojeek, yandex, wikipedia, auto"
+                            ),
+                            "default": "auto"
                         }
                     },
                     "required": ["keywords"]
@@ -109,11 +117,12 @@ def ExecuteTool(ToolName: str, ToolArgs: dict[str, Any], MaxLength: int | None =
             raise RuntimeError("Tool parsing error: required parameter does not exist or is an invalid type of data.")
 
         keywords = ToolArgs["keywords"]
+        backend = ToolArgs["backend"] if ("backend" in ToolArgs) else "auto"
         inputText = "# Results from all the websites\n\n"
         inputMedia = []
 
         try:
-            websites = internet.SearchText(keywords)
+            websites = internet.SearchText(keywords, Backend = backend)
 
             for url in websites:
                 inputText += f"## {url}\n\n"
