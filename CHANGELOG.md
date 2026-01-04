@@ -6,7 +6,20 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
-## 3.1.2026 (commit `v17.0.0-a10`)
+## 4-1-2026 (commit `v17.0.0-a11`)
+
+### Server changes
+
+- Added new requirements environment variables.
+- Server now installs PyTorch.
+
+### Other changes
+
+- Updated documentation.
+
+---
+
+## 3-1-2026 (commit `v17.0.0-a10`)
 
 ### Server changes
 

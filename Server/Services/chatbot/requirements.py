@@ -30,6 +30,7 @@ def Install(Env: dict[str, Any] | None = None) -> None:
     forceCublas = "CHATBOT_FORCE_CUBLAS" in Env and bool(Env["CHATBOT_FORCE_CUBLAS"]) if (gpuType == gpu.GPUType.NVIDIA) else None
     forceMMQ = "CHATBOT_FORCE_MMQ" in Env and bool(Env["CHATBOT_FORCE_MMQ"]) if (gpuType == gpu.GPUType.NVIDIA) else None
     faAllQuants = not ("CHATBOT_NO_FA_ALL_QUANTS" in Env and bool(Env["CHATBOT_NO_FA_ALL_QUANTS"]))
+    forceUpgrade = ["--upgrade"] if ("BASE_FORCE_UPGRADE" in os.environ and bool(os.environ["BASE_FORCE_UPGRADE"])) else []
 
     logs.PrintLog(
         logs.INFO,
@@ -72,7 +73,7 @@ def Install(Env: dict[str, Any] | None = None) -> None:
         EnvVars = {
             "CMAKE_ARGS": lcppCmake
         },
-        PIPOptions = ["--verbose"]
+        PIPOptions = ["--verbose"] + forceUpgrade
     )
 
 if (__name__ == "__main__"):
