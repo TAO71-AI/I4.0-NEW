@@ -6,6 +6,14 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 4-1-2026 (commit `v17.0.0-a12`)
+
+### Other changes
+
+- Updated documentation to add the missing environment variable for requirements.
+
+---
+
 ## 4-1-2026 (commit `v17.0.0-a11`)
 
 ### Server changes

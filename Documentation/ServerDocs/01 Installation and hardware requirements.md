@@ -58,6 +58,7 @@ Second, execute the `requirements.py` script. This will automatically install al
 |----|----|-------------|------|-----------|
 |BASE_TORCH_CIDX|string|-|-|Sets a custom PIP index url for installing PyTorch.|
 |BASE_TORCH_IDX|string|cpu|-|Sets a pre-defined PIP index url for installing PyTorch. Values: `cuda13.0` for **NVIDIA** cards and CUDA >= 13.0, `cuda12.8` for **NVIDIA** cards and CUDA >= 12.8, 13.0, `cuda12.6` for **NVIDIA** cards and CUDA >= 12.6, < 12.8, `rocm6.4` for **AMD** cards and ROCm >= 6.4, `sycl` for **INTEL** cards with SYCL, `cpu` (default) for no GPU cards, `disable` to skip PyTorch installation.|
+|BASE_FORCE_UPGRADE|bool|false|-|Forces to upgrade PIP packages.|
 |CHATBOT_NO_F16|bool|false|chatbot|Disables F16 when compilating *llama.cpp*. NOTE: This has changed in the *llama.cpp* library. It is unknown if this variable changes anything.|
 |CHATBOT_NO_GPU|bool|false|chatbot|Forces the chatbot to not install the dependencies for the GPU.|
 |CHATBOT_NO_VULKAN|bool|false|chatbot|Forces the chatbot to not install the dependencies for Vulkan-compatible GPUs.|
