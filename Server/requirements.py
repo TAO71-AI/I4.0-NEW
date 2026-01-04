@@ -11,7 +11,10 @@ GENERAL_REQUIREMENTS = [
     "asyncio",
     "av",
     "cryptography",
-    "ddgs"
+    "ddgs",
+    "Pillow",
+    "numpy",
+    "accelerate"
 ]
 PYTORCH_REQUIREMENTS = [
     "torch",

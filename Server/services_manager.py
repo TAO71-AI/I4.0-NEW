@@ -102,7 +102,9 @@ class Service():
             
             if (self.ServiceModule is not None):
                 self.SetModuleVariable(self.ServiceModule, "ServiceConfiguration", self.Configuration, True)
-                self.SetModuleVariable(self.ServiceModule, "ServerConfiguration", copy.deepcopy(Configuration), True)
+        
+        if (self.ServiceModule is not None):
+            self.SetModuleVariable(self.ServiceModule, "ServerConfiguration", copy.deepcopy(Configuration), True)
     
     def UnloadModules(self, UnloadService: bool = True, UnloadRequirements: bool = True, UnloadConfiguration: bool = True) -> None:
         if (self.ServiceModule is not None and UnloadService):
@@ -171,6 +173,7 @@ def __delete_modules_and_info__() -> None:
 
 def __load_modules_and_info__(Models: dict[str, dict[str, Any]]) -> None:
     global ServicesModules, ServicesModels
+    services = GetServices()
 
     for modelName, modelConfig in Models.items():
         if ("service" not in modelConfig):
@@ -178,9 +181,10 @@ def __load_modules_and_info__(Models: dict[str, dict[str, Any]]) -> None:
         
         service = None
 
-        for serv in GetServices():
+        for serv in services:
             if (modelConfig["service"] == serv.Name):
                 service = serv
+                break
         
         if (service is None):
             raise RuntimeError(f"Invalid service for the model `{modelName}`.")
@@ -194,7 +198,7 @@ def __load_modules_and_info__(Models: dict[str, dict[str, Any]]) -> None:
                 not Service.ModuleContainsFunction(service.ServiceModule, "SERVICE_INFERENCE")
             ):
                 raise RuntimeError(f"Service module does not contains the required functions (`{service.Name}`).")
-            
+
             ServicesModules[modelConfig["service"]] = service
         
         if (modelConfig["service"] not in ServicesModels):

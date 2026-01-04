@@ -42,4 +42,7 @@ All of these functions and variables must be in the main module script. These ar
 
 ## Required module variables
 
-There are no required module variables at the moment.
+|Name|Type|Description|
+|----|----|-----------|
+|ServiceConfiguration|dictionary (string, Any), null|Global configuration of the service. Will be provided by the server.|
+|ServerConfiguration|dictionary (string, Any), null|Global configuration of the server. Will be provided by the server.|

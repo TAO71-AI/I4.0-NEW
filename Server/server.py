@@ -67,7 +67,7 @@ def __offload_models_t__() -> None:
         modelsToOffload.clear()
 
         for modelOT in models.values():
-            if (modelOT[1] < modelOT[0]):
+            if (modelOT[0] is None or modelOT[1] < modelOT[0]):
                 continue
 
             modelOT[1] = 0

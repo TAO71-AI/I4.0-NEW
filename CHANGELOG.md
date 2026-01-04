@@ -6,6 +6,22 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 4-1-2026 (commit `v17.0.0-a13`)
+
+### Server changes
+
+- Added more PIP requirements.
+- Fixed a bug when offloading.
+- Fixed bugs when loading more than one module.
+- Other minor bug fixes.
+- Created a new module: `imgclass` (Image Classification).
+
+### Other changes
+
+- Updated server documentation.
+
+---
+
 ## 4-1-2026 (commit `v17.0.0-a12`)
 
 ### Other changes

@@ -1,0 +1,2 @@
+test_inference_images:
+  - "./TestAssets/test_image.png"

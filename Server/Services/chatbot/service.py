@@ -16,7 +16,7 @@ def __check_service_configuration__() -> None:
     if (ServiceConfiguration is None):
         raise ValueError("Service configuration is not defined.")
     
-    if (ServiceConfiguration is None):
+    if (ServerConfiguration is None):
         raise ValueError("Server configuration is not defined.")
 
 def SERVICE_LOAD_MODELS(Models: dict[str, dict[str, Any]]) -> None:
@@ -29,8 +29,6 @@ def SERVICE_LOAD_MODELS(Models: dict[str, dict[str, Any]]) -> None:
     Returns:
         None
     """
-    __check_service_configuration__()
-
     for name, configuration in Models.items():
         LoadModel(name, configuration)
 
@@ -252,7 +250,6 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
         Conversation (list[dict[str, str | list[dict[str, str]]]]): Conversation of the model.
         Configuration (dict[str, Any]): Configuration of the model.
     """
-    __check_service_configuration__()
     LoadModel(Name, __models__[Name])
 
     conversation = copy.deepcopy(Conversation)
