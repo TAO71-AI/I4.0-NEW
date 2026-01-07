@@ -158,9 +158,6 @@ class ClientSocket():
                 break
     
     async def GetAvailableModels(self) -> list[str]:
-        if (self.__server_public_key__ is None):
-            await self.__set_server_public_key__()
-        
         models = None
         gen = self.AdvancedSendAndReceive("", Service = "get_available_models")
 
@@ -177,9 +174,6 @@ class ClientSocket():
         return models
     
     async def GetModelInfo(self, ModelName: str) -> dict[str, Any]:
-        if (self.__server_public_key__ is None):
-            await self.__set_server_public_key__()
-        
         modelInfo = None
         gen = self.AdvancedSendAndReceive(ModelName, Service = "get_model_info")
 
@@ -196,9 +190,6 @@ class ClientSocket():
         return modelInfo
     
     async def GetQueueData(self, ModelName: str) -> dict[str, int | float]:
-        if (self.__server_public_key__ is None):
-            await self.__set_server_public_key__()
-        
         queueData = None
         gen = self.AdvancedSendAndReceive(ModelName, Service = "get_queue_data")
 
@@ -213,3 +204,61 @@ class ClientSocket():
             raise RuntimeError("Could not get queue data.")
         
         return queueData
+    
+    async def CreateAPIKey(
+        self,
+        Tokens: int = 0,
+        ResetDaily: bool = False,
+        ExpireDate: dict[str, int] | None = None,
+        AllowedIPs: list[str] | None = None,
+        PrioritizeModels: list[str] = [],
+        Groups: list[str] = []
+    ) -> str:
+        key = None
+        gen = self.AdvancedSendAndReceive("", PromptParameters = {
+            "tokens": Tokens,
+            "reset_daily": ResetDaily,
+            "expire_date": ExpireDate,
+            "allowed_ips": AllowedIPs,
+            "prioritize_models": PrioritizeModels,
+            "groups": Groups
+        }, Service = "create_api_key")
+
+        async for token in gen:
+            if ("key" in token):
+                key = token["key"]
+            
+            if ("errors" in token and len(token["errors"]) > 0):
+                break
+
+        if (key is None):
+            raise RuntimeError("Could not create new API key.")
+        
+        return key
+    
+    async def DeleteAPIKey(self, Key: str) -> None:
+        gen = self.AdvancedSendAndReceive("", PromptParameters = {
+            "key": Key
+        }, Service = "delete_api_key")
+
+        async for token in gen:
+            if ("errors" in token and len(token["errors"]) > 0):
+                raise RuntimeError("Could not delete API key.")
+       
+    async def GetKeyData(self, Key: str) -> dict[str, Any] | None:
+        key = False
+        gen = self.AdvancedSendAndReceive("", PromptParameters = {
+            "key": Key
+        }, Service = "get_key_data")
+
+        async for token in gen:
+            if ("key" in token):
+                key = token["key"]
+            
+            if ("errors" in token and len(token["errors"]) > 0):
+                break
+
+        if (key == False):
+            raise RuntimeError("Could not fetch key data.")
+        
+        return key

@@ -6,6 +6,21 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 8-1-2026 (commit `v17.0.0-a14`)
+
+### Server changes
+
+- New server commands: `create_api_key`, `delete_api_key`, and `get_key_data`. All three require admin-level authorization to be executed.
+- Created `Utilities/torch_utils.py` script for generic PyTorch utilities that will be used by different modules.
+
+### Client changes
+
+- Removed the `setup.py` script, now everything will be in the `pyproject.toml` file.
+- Added a new command to the basic CLI client; `cls`, clears the screen.
+- Implemented the new server commands in the client API.
+
+---
+
 ## 4-1-2026 (commit `v17.0.0-a13`)
 
 ### Server changes

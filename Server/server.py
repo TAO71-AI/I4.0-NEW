@@ -330,6 +330,46 @@ def __process_client__(Message: str) -> Generator[dict[str, Any]]:
                     "_hash": messageHash,
                     "_public_key": messagePublicKey
                 }
+            elif (service == "create_api_key" and keyInstance.IsAdmin()):
+                keyData = prompt["parameters"] if ("parameters" in prompt) else {}
+
+                tokens = keyData["tokens"] if ("tokens" in keyData) else 0
+                resetDaily = keyData["reset_daily"] if ("reset_daily" in keyData) else False
+                expireDate = keyData["expire_date"] if ("expire_date" in keyData) else None
+                allowedIPs = keyData["allowed_ips"] if ("allowed_ips" in keyData) else None
+                prioritizeModels = keyData["prioritize_models"] if ("prioritize_models" in keyData) else []
+                groups = keyData["groups"] if ("groups" in keyData) else []
+
+                newKey = services_manager.keys_manager.APIKey(
+                    Tokens = tokens,
+                    ResetDaily = resetDaily,
+                    ExpireDate = expireDate,
+                    AllowedIPs = allowedIPs,
+                    PrioritizeModels = prioritizeModels,
+                    Groups = groups
+                )
+                newKey.SaveToFile()
+
+                yield {
+                    "key": newKey.Key,
+                    "_hash": messageHash,
+                    "_public_key": messagePublicKey
+                }
+            elif (service == "delete_api_key" and keyInstance.IsAdmin()):
+                keyToDelete = prompt["parameters"]["key"]
+                deleteKeyInstance = services_manager.keys_manager.APIKey.LoadFromFile(keyToDelete)
+                
+                if (deleteKeyInstance is not None):
+                    deleteKeyInstance.RemoveFile()
+            elif (service == "get_key_data" and keyInstance.IsAdmin()):
+                keyData = prompt["parameters"]["key"]
+                keyData = services_manager.keys_manager.APIKey.LoadFromFile(keyData)
+
+                yield {
+                    "key": keyData,
+                    "_hash": messageHash,
+                    "_public_key": messagePublicKey
+                }
             else:
                 raise ValueError("Invalid service.")
             

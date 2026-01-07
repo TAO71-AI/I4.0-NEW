@@ -1,3 +1,33 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "I4_0-Client-PY"
+version = "17.0.0"
+description = "Python bindings for I4.0, Client-side."
+authors = [{name = "TAO71-AI"}]
+license = {text = "TAO71 I4.0 License (version 2)"}
+requires-python = ">=3.11"
+dependencies = [
+    "websockets>=15.0.0,<16.0.0",
+    "asyncio",
+    "cryptography",
+    "html2text"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: Other/Proprietary License",
+    "Operating System :: OS Independent"
+]
+
+[project.urls]
+Homepage = "https://github.com/TAO71-AI/I4.0-NEW"
+Source = "https://github.com/TAO71-AI/I4.0-NEW/tree/master/Client"
+License = "https://github.com/TAO71-AI/I4.0-NEW/blob/master/LICENSE.md"
+
+[project.scripts]
+I40C = "I40Client.__main__:__main__"
+
+[tool.setuptools.packages.find]
+include = ["I40Client", "I40Client.*"]

@@ -194,7 +194,7 @@ def __main__() -> None:
 
         while (True):
             try:
-                mode = input("Mode ['e', 'scc', 'cc', 'pp', 'up', 'sc', 'h', 'c'*]: ").lower()
+                mode = input("Mode ['e', 'scc', 'cc', 'pp', 'up', 'sc', 'cls', 'h', 'c'*]: ").lower()
 
                 if (mode == "e"):
                     break
@@ -211,6 +211,20 @@ def __main__() -> None:
                         print(f"Message #{conversation['conv'].index(msg)}:\nRole: {msg['role']}\nContent:\n```\n{msgContent}\n```\n", flush = True)
 
                     continue
+                elif (mode == "cls"):
+                    CLEAR_CMDS = ["cls", "clear"]
+                    exitCode = None
+
+                    for c in CLEAR_CMDS:
+                        exitCode = os.system(c)
+
+                        if (exitCode == 0):
+                            break
+                    
+                    if (exitCode != 0):
+                        print("Could not clear screen.", flush = True)
+                    
+                    continue
                 elif (mode == "h"):
                     print((
                         "'e' - Exit - Closes the client.\n"
@@ -219,6 +233,7 @@ def __main__() -> None:
                         "'pp' - Prompt Parameters - Change the prompt parameters.\n"
                         "'up' - User Parameters - Change the user parameters.\n"
                         "'sc' - Show Conversation - Show the current conversation.\n"
+                        "'cls' - Clear screen.\n"
                         "'h' - Help - Show this help message.\n"
                         "'c' - Continue - Continue with inference.\n\n"
                         "* - Default option."

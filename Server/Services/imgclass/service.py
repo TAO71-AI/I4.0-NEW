@@ -8,6 +8,7 @@ import json
 import base64
 import torch
 import torch.nn.functional as tnnf
+import Utilities.torch_utils as torch_utils
 import Utilities.logs as logs
 
 __models__: dict[str, dict[str, Any]] = {}
@@ -15,8 +16,8 @@ ServiceConfiguration: dict[str, Any] | None = None
 ServerConfiguration: dict[str, Any] | None = None
 
 def __check_service_configuration__() -> None:
-    #if (ServiceConfiguration is None):
-    #    raise ValueError("Service configuration is not defined.")
+    if (ServiceConfiguration is None):
+        raise ValueError("Service configuration is not defined.")
     
     if (ServerConfiguration is None):
         raise ValueError("Server configuration is not defined.")
@@ -58,7 +59,7 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
                 inputs = __models__[Name]["_private_model"][1](
                     images = img[1],
                     return_tensors = "pt"
-                ).to(device = __models__[Name]["_private_device"], dtype = getattr(torch, __models__[Name]["dtype"]))
+                ).to(device = __models__[Name]["_private_device"], dtype = torch_utils.StringToDType(__models__[Name]["dtype"]))
                 outputs = __models__[Name]["_private_model"][0](**inputs)
                 logits = outputs.logits
             
@@ -97,7 +98,7 @@ def LoadModel(ModelName: str, Configuration: dict[str, Any]) -> None:
             AutoModelForImageClassification.from_pretrained(
                 pretrained_model_name_or_path = Configuration["_private_model_path"],
                 device_map = Configuration["_private_device"],
-                dtype = getattr(torch, Configuration["dtype"])
+                dtype = torch_utils.StringToDType(Configuration["dtype"])
             ),
             ViTImageProcessor.from_pretrained(
                 pretrained_model_name_or_path = Configuration["_private_model_path"]
