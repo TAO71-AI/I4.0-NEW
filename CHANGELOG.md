@@ -6,6 +6,14 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 8-1-2026 (commit `v17.0.0-a15`)
+
+### Other changes
+
+- Updated `README.md`.
+
+---
+
 ## 8-1-2026 (commit `v17.0.0-a14`)
 
 ### Server changes
