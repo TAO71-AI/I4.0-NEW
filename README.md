@@ -11,7 +11,7 @@ I4.0-NEW is a new, rewritten version of [I4.0](https://github.com/TAO71-AI/I4.0)
 - 🔧 **Easy to modify**: Everyone can modify this software and make it better.
 - ⚙️ **Easy to implement**: Even though it's not an OpenAI-like API, it's still easy to implement.
 
----
+# Documentation
 
 [💻 Client documentation](https://github.com/TAO71-AI/I4.0-NEW/tree/master/Documentation/ClientDocs)
 

@@ -6,6 +6,32 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 19-1-2026 (commit `v17.0.0-a16`)
+
+### Server changes
+
+- (`chatbot` module) Fixed a bug that made multimodal models not offload correctly, which kept consuming memory.
+- Updated configuration.
+- Implemented a ban system.
+- Allowed the usage of SSL certificates in the WebSockets server.
+- Updated requirements to automatically detect your GPU and install the recommended torch wheel for your hardware.
+- Fixed a small bug that didn't stopped generation when a user disconnects. This caused queues to bug and never end, and also consumed more tokens of the API key.
+- Added more services: `ban`, `pardon`. Only works for API keys that are in an admin group.
+- Added a new parameter for models: `enable_filter` (enabled if not specified). This parameter controls wether the model filters input messages or not.
+- Fixed a small bug in the queue system that could cause repetitive UIDs.
+
+### Client changes
+
+- Added kwargs for some functions.
+- Implemented the new server commands.
+
+### Other changes
+
+- Updated server documentation.
+- Created new client documentation.
+
+---
+
 ## 8-1-2026 (commit `v17.0.0-a15`)
 
 ### Other changes

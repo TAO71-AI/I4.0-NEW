@@ -5,6 +5,7 @@ INFO: int = 0
 WARNING: int = 1
 ERROR: int = 2
 CRITICAL: int = 3
+NONE: int = 9999
 
 LOG_DIRECTORY: str = "./Logs"
 LOG_FILE_NAME: str = f"{datetime.now().day}-{datetime.now().month}-{datetime.now().year}_{datetime.now().hour}:{datetime.now().minute}:{datetime.now().second}.log.txt"
@@ -31,6 +32,8 @@ def StringToLogLevel(Level: str) -> int | None:
         return ERROR
     elif (logLvl == "critical" or logLvl == "crit"):
         return CRITICAL
+    elif (logLvl == "none"):
+        return NONE
     
     return None
 
@@ -80,11 +83,11 @@ def WriteLog(Level: int, Message: str) -> None:
     Returns:
         None
     """
-    if (not os.path.exists(LOG_DIRECTORY)):
-        os.mkdir(LOG_DIRECTORY)
-
     if ("I4_LOG_LEVEL" in os.environ and Level < int(os.environ["I4_LOG_LEVEL"])):
         return
+    
+    if (not os.path.exists(LOG_DIRECTORY)):
+        os.mkdir(LOG_DIRECTORY)
 
     with open(f"{LOG_DIRECTORY}/{LOG_FILE_NAME}", "a") as f:
         f.write(f"{GetLogMessage(Level, Message)}\n")

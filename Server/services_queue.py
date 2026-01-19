@@ -6,21 +6,32 @@ class Queue():
         self.MAX_SIMULTANEOUS_USERS = MaxSimultaneousUsers
         self.__waiting_uids__ = []
         self.__processing_uids__ = []
+        self.__next_uid__ = 0
         self.TokensPerSecond = None
         self.FirstTokenSeconds = None
     
     def CreateNewWaitingID(self, Prioritize: bool = False) -> int:
+        if (
+            1 not in self.__waiting_uids__ and 1 not in self.__processing_uids__ and
+            -1 not in self.__waiting_uids__ and -1 not in self.__processing_uids__
+        ):
+            self.__next_uid__ = 0
+
+        self.__next_uid__ += 1
+
         if (Prioritize):
-            negativeUIDs = [uid for uid in self.__waiting_uids__ + self.__processing_uids__ if (uid <= 0)]
-            newUID = -len(negativeUIDs)
+            newUID = -self.__next_uid__
         else:
-            positiveUIDs = [uid for uid in self.__waiting_uids__ + self.__processing_uids__ if (uid > 0)]
-            newUID = len(positiveUIDs) + 1
+            newUID = self.__next_uid__
         
         self.__waiting_uids__.append(newUID)
         return newUID
     
-    def DeleteUID(self, UID: int) -> None:
+    def DeleteUID(self, UID: int | list[int]) -> None:
+        if (isinstance(UID, list)):
+            for uid in UID:
+                self.DeleteUID(uid)
+
         if (UID in self.__waiting_uids__):
             self.__waiting_uids__.remove(UID)
         

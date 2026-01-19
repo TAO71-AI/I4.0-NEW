@@ -1,5 +1,5 @@
 try:
-    from typing import Any
+    from typing import Any, Literal
     from collections.abc import Generator
     import os
     import sys
@@ -29,6 +29,35 @@ def LoadModels() -> None:
     except Exception as ex:
         logs.PrintLog(logs.CRITICAL, f"[server] Could not load models. Error: {ex}")
         raise RuntimeError(f"Could not load models: {ex}")
+
+def __ban_user__(Type: Literal["key", "ip"], Value: str) -> None:
+    global BannedUsers
+
+    if (Type == "key" and Value != "nokey"):
+        BannedUsers["keys"].append(Value)
+    elif (Type == "ip"):
+        BannedUsers["ips"].append(Value)
+    else:
+        raise ValueError("Could not ban.")
+
+    for server in Servers:
+        server.BannedIPs = BannedUsers["ips"]
+    
+    with open(
+        config.Configuration["server_data"]["banned_file"],
+        "w" if (os.path.exists(config.Configuration["server_data"]["banned_file"])) else "x"
+    ) as f:
+        f.write(json.dumps(BannedUsers))
+
+def __pardon_user__(Type: Literal["key", "ip"], Value: str) -> None:
+    global BannedUsers
+    
+    if (Type == "key" and Value in BannedUsers["keys"]):
+        BannedUsers["keys"].remove(Value)
+    elif (Type == "ip" and Value in BannedUsers["ips"]):
+        BannedUsers["ips"].remove(Value)
+    elif (Type != "key" and Type != "ip"):
+        raise ValueError("Could not pardon.")
 
 def __offload_models_t__() -> None:
     global CloseServerReason
@@ -63,6 +92,7 @@ def __offload_models_t__() -> None:
         if (len(modelsToOffload) == 0):
             continue
         
+        logs.WriteLog(logs.INFO, f"[server] Offloading models {modelsToOffload}.")
         services_manager.OffloadModels(modelsToOffload)
         modelsToOffload.clear()
 
@@ -102,7 +132,8 @@ async def __unhandled_received_message__(Client: server_utils.Client, Message: s
         else:
             # Process other commands
             async def __send_to_client__(Token: dict[str, Any]) -> None:
-                nonlocal clientPublicKey, clientPublicKeyStr, modelName, queueUID, keyInstance
+                global BannedUsers, Servers
+                nonlocal clientPublicKey, clientPublicKeyStr, modelName, queueUID, keyInstance, filterAction
 
                 tokenPublicParams = {k: v for k, v in Token.items() if (not k.startswith("_"))}
                 tokenPrivateParams = {k: v for k, v in Token.items() if (k.startswith("_"))}
@@ -115,6 +146,9 @@ async def __unhandled_received_message__(Client: server_utils.Client, Message: s
                 
                 if (keyInstance is None and "_key_instance" in tokenPrivateParams):
                     keyInstance = tokenPrivateParams["_key_instance"]
+                
+                if (filterAction is None and "_filter_action" in tokenPrivateParams):
+                    filterAction = tokenPrivateParams["_filter_action"]
                 
                 if (config.Configuration["server_encryption"]["force_response_hash"] is None):
                     responseHash = tokenPrivateParams["_hash"]
@@ -160,20 +194,15 @@ async def __unhandled_received_message__(Client: server_utils.Client, Message: s
                 try:
                     await Client.Send(resItem)
                 except services_manager.exceptions.ConnectionClosedError as ex:
-                    if (modelName is not None):
-                        modelQueue = services_manager.queue.GetQueueForModel(modelName)
-
-                        if (modelQueue is not None and queueUID is not None):
-                            modelQueue.DeleteUID(queueUID)
-                    
                     raise ex
                 except Exception as ex:
                     logs.WriteLog(logs.ERROR, f"[server] Error sending to client: {ex}")
+                    raise ex
 
             def __run_in_thread__() -> None:
-                nonlocal keyInstance
+                nonlocal keyInstance, modelName
 
-                gen = __process_client__(Message)
+                gen = __process_client__(Message, Client.GetEndPoint())
                 loop = asyncio.new_event_loop()
 
                 for token in gen:
@@ -182,7 +211,8 @@ async def __unhandled_received_message__(Client: server_utils.Client, Message: s
                     except:
                         if (keyInstance is not None):
                             keyInstance.SaveToFile()
-
+                        
+                        gen.throw(StopIteration)
                         break
                 
                 loop.close()
@@ -190,6 +220,7 @@ async def __unhandled_received_message__(Client: server_utils.Client, Message: s
             modelName = None
             queueUID = None
             keyInstance = None
+            filterAction = None
 
             th = threading.Thread(target = __run_in_thread__)
             th.start()
@@ -197,7 +228,7 @@ async def __unhandled_received_message__(Client: server_utils.Client, Message: s
         logs.WriteLog(logs.ERROR, f"[server] Error while receiving from client ({ex}). The connection will be closed.")
         await Client.Close()
 
-def __process_client__(Message: str) -> Generator[dict[str, Any]]:
+def __process_client__(Message: str, EndPoint: tuple[str, int]) -> Generator[dict[str, Any]]:
     global SERVER_VERSION
 
     try:
@@ -249,6 +280,7 @@ def __process_client__(Message: str) -> Generator[dict[str, Any]]:
             messageContent,
             config.Configuration["server_encryption"]["decryption_threads"]
         )
+        gen = None
 
         try:
             content = json.loads(messageContent)
@@ -272,6 +304,9 @@ def __process_client__(Message: str) -> Generator[dict[str, Any]]:
                 )
                 keyInstance.Key = "nokey"
             
+            if (keyInstance.Key != "nokey" and keyInstance.Key in BannedUsers["keys"]):
+                raise Exception("You are banned.")
+            
             if (service == "inference"):
                 gen = services_manager.InferenceModel(
                     ModelName = modelName,
@@ -282,6 +317,14 @@ def __process_client__(Message: str) -> Generator[dict[str, Any]]:
                 )
                 
                 for token in gen:
+                    if ("_filter_action" in token and token["_filter_action"] != "none"):
+                        if (keyInstance.Key == "nokey"):
+                            __ban_user__("ip", EndPoint[0])
+                        else:
+                            __ban_user__("key", keyInstance.Key)
+                        
+                        raise services_manager.exceptions.FilterException()
+
                     yield token | {
                         "_model": modelName,
                         "_hash": messageHash,
@@ -370,6 +413,16 @@ def __process_client__(Message: str) -> Generator[dict[str, Any]]:
                     "_hash": messageHash,
                     "_public_key": messagePublicKey
                 }
+            elif (service == "ban" and keyInstance.IsAdmin()):
+                banType = prompt["parameters"]["type"]
+                banVal = prompt["parameters"]["value"]
+
+                __ban_user__(banType, banVal)
+            elif (service == "pardon" and keyInstance.IsAdmin()):
+                pardonType = prompt["parameters"]["type"]
+                pardonVal = prompt["parameters"]["value"]
+
+                __pardon_user__(pardonType, pardonVal)
             else:
                 raise ValueError("Invalid service.")
             
@@ -379,6 +432,9 @@ def __process_client__(Message: str) -> Generator[dict[str, Any]]:
                 "_public_key": messagePublicKey
             }
         except Exception as ex:
+            if (gen is not None):
+                gen.close()
+
             yield {
                 "ended": True,
                 "errors": [f"Error processing message ({ex})."],
@@ -394,7 +450,7 @@ def __process_client__(Message: str) -> Generator[dict[str, Any]]:
         }
 
 def StartServer() -> None:
-    global PrivateKey, PublicKey, Servers
+    global PrivateKey, PublicKey, Servers, BannedUsers
     
     if (PrivateKey is None or PublicKey is None):
         PrivateKey, PublicKey = encryption.GenerateRSAKeys()
@@ -422,7 +478,11 @@ def StartServer() -> None:
                     DisconenctedCallback = None,
                     ReceiveCallback = __unhandled_received_message__,
                     NewThread = True,
-                    IgnoreBasicCommands = False
+                    IgnoreBasicCommands = False,
+                    SSLCertFile = server["ssl_crt"] if ("ssl_crt" in server) else None,
+                    SSLKeyFile = server["ssl_key"] if ("ssl_key" in server) else None,
+                    SSLPassword = server["ssl_passwd"] if ("ssl_passwd" in server) else None,
+                    BannedIPs = BannedUsers["ips"]
                 )
                 asyncio.get_event_loop().run_until_complete(server.Start())
 
@@ -465,8 +525,15 @@ if (not os.path.exists(config.Configuration["server_data"]["tos_file"])):
     with open(config.Configuration["server_data"]["tos_file"], "x") as f:
         f.write("# TOS\n\nNo TOS for now.\n")
 
+if (not os.path.exists(config.Configuration["server_data"]["banned_file"])):
+    with open(config.Configuration["server_data"]["banned_file"], "x") as f:
+        f.write(json.dumps({"ips": [], "keys": []}))
+
 with open(config.Configuration["server_data"]["tos_file"], "r") as f:
     TOSContent = f.read()
+
+with open(config.Configuration["server_data"]["banned_file"], "r") as f:
+    BannedUsers = json.loads(f.read())
 
 if (not os.path.exists(config.Configuration["server_data"]["temp_dir"])):
     os.mkdir(config.Configuration["server_data"]["temp_dir"])

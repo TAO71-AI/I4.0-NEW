@@ -1,5 +1,7 @@
 import os
+import services_manager as servMgr
 import Utilities.install_requirements as requirements
+import Utilities.gpu_utils as gpu_utils
 
 GENERAL_REQUIREMENTS = [
     "PyYAML",
@@ -30,21 +32,32 @@ def InstallRequirements() -> None:
         torchIdx = os.environ["BASE_TORCH_CIDX"]
     elif ("BASE_TORCH_IDX" in os.environ and len(os.environ["BASE_TORCH_IDX"].strip()) > 0):
         os.environ["BASE_TORCH_IDX"] = os.environ["BASE_TORCH_IDX"].strip().lower()
+    else:
+        gpu = gpu_utils.DetectGPU()
+        
+        if (gpu == gpu_utils.GPUType.NVIDIA):
+            os.environ["BASE_TORCH_IDX"] = "cuda"
+        elif (gpu == gpu_utils.GPUType.AMD):
+            os.environ["BASE_TORCH_IDX"] = "rocm"
+        elif (gpu == gpu_utils.GPUType.INTEL):
+            os.environ["BASE_TORCH_IDX"] = "sycl"
+        else:
+            os.environ["BASE_TORCH_IDX"] = "cpu"
 
-        if (os.environ["BASE_TORCH_IDX"] == "cuda13.0"):
-            torchIdx = "https://download.pytorch.org/whl/cu130"  # Fully tested
-        elif (os.environ["BASE_TORCH_IDX"] == "cuda12.8"):
-            torchIdx = "https://download.pytorch.org/whl/cu128"  # Partially tested
-        elif (os.environ["BASE_TORCH_IDX"] == "cuda12.6"):
-            torchIdx = "https://download.pytorch.org/whl/cu126"  # Partially tested
-        elif (os.environ["BASE_TORCH_IDX"] == "rocm6.4"):
-            torchIdx = "https://download.pytorch.org/whl/rocm6.4"  # Not tested
-        elif (os.environ["BASE_TORCH_IDX"] == "sycl"):
-            torchIdx = "https://download.pytorch.org/whl/xpu"  # Not tested
-        elif (os.environ["BASE_TORCH_IDX"] == "disable"):
-            torchIdx = None
-        elif (os.environ["BASE_TORCH_IDX"] != "cpu"):
-            raise ValueError("Invalid PyTorch idx. Please see documentation.")
+    if (os.environ["BASE_TORCH_IDX"] == "cuda13.0"):
+        torchIdx = "https://download.pytorch.org/whl/cu130"  # Fully tested
+    elif (os.environ["BASE_TORCH_IDX"] == "cuda12.8"):
+        torchIdx = "https://download.pytorch.org/whl/cu128"  # Partially tested
+    elif (os.environ["BASE_TORCH_IDX"] == "cuda12.6" or os.environ["BASE_TORCH_IDX"] == "cuda"):
+        torchIdx = "https://download.pytorch.org/whl/cu126"  # Partially tested
+    elif (os.environ["BASE_TORCH_IDX"] == "rocm6.4" or os.environ["BASE_TORCH_IDX"] == "rocm"):
+        torchIdx = "https://download.pytorch.org/whl/rocm6.4"  # Not tested
+    elif (os.environ["BASE_TORCH_IDX"] == "sycl"):
+        torchIdx = "https://download.pytorch.org/whl/xpu"  # Not tested
+    elif (os.environ["BASE_TORCH_IDX"] == "disable"):
+        torchIdx = None
+    elif (os.environ["BASE_TORCH_IDX"] != "cpu"):
+        raise ValueError("Invalid PyTorch idx. Please see documentation.")
 
     if (torchIdx is not None):
         requirements.InstallPackage(
@@ -53,8 +66,6 @@ def InstallRequirements() -> None:
         )
     
     requirements.InstallPackage(Packages = GENERAL_REQUIREMENTS, PIPOptions = forceUpgrade)
-
-    import services_manager as servMgr
     servMgr.InstallAllRequirements()
 
 if (__name__ == "__main__"):

@@ -20,3 +20,7 @@ class ConnectionTypeInvalid(Exception):
 class ConnectionClosedError(Exception):
     def __init__(self) -> None:
         super().__init__("The connection was closed.")
+
+class FilterException(Exception):
+    def __init__(self):
+        super().__init__("Your message does not comply with the server's Terms of Service.")

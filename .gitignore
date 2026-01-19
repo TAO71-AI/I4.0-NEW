@@ -5,6 +5,7 @@ Server/config.yaml
 Server/config_*.yaml
 Server/Database/
 Server/TOS.md
+Server/banned.json
 Server/Temp/
 Server/API_Keys/
 Server/Logs/

@@ -1,9 +1,10 @@
-from typing import Any
+from typing import Any, Literal
 from collections.abc import Generator
 from io import BytesIO
 from pydub import AudioSegment
 from PIL import Image as PILImage
 import os
+import gc
 import copy
 import shutil
 import time
@@ -360,6 +361,8 @@ def OffloadModels(Names: list[str]) -> None:
     
     for serviceName, service in ServicesModules.items():
         Service.RunModuleFunction(service.ServiceModule, "SERVICE_OFFLOAD_MODELS", [modelsToOffload[serviceName]])
+    
+    gc.collect()
 
 def CalculateTokenPrice(ModelNameOrConfig: str | dict[str, Any], GetOutputPricing: bool, MessageContent: list[dict[str, str]]) -> float:
     if (isinstance(ModelNameOrConfig, str)):
@@ -446,6 +449,70 @@ def CalculateTokenPrice(ModelNameOrConfig: str | dict[str, Any], GetOutputPricin
     
     return price
 
+def ExecuteFilter(
+    Type: Literal["text", "image", "audio", "video"],
+    Conversation: list[dict[str, str | dict[str, str]]]
+) -> Generator[dict[str, Any]]:
+    if (Type == "text"):
+        filterConfig = Configuration["server_automatic_blacklist"]["text_filter_service"]
+    elif (Type == "image"):
+        filterConfig = Configuration["server_automatic_blacklist"]["image_filter_service"]
+    elif (Type == "audio"):
+        filterConfig = Configuration["server_automatic_blacklist"]["audio_filter_service"]
+    elif (Type == "video"):
+        filterConfig = Configuration["server_automatic_blacklist"]["video_filter_service"]
+    
+    filterModel = filterConfig["model_name"]
+    filterKeyword = filterConfig["keyword"]
+    filterThreshold = filterConfig["threshold"]
+    filterAction = filterConfig["action"]
+    filterPP = filterConfig["prompt_parameters"]
+    filterUP = filterConfig["user_parameters"]
+    filterQueue = queue.GetQueueForModel(filterModel)
+    filterModelConfig = GetModelConfiguration(filterModel)
+
+    if ("max_simul_users" in filterModelConfig and filterModelConfig["max_simul_users"] > 0):
+        maxSimulUsers = filterModelConfig["max_simul_users"]
+    else:
+        logs.WriteLog(logs.INFO, "[services_manager] Max simultaneously users not set in model configuration. Setting to 1.")
+        maxSimulUsers = 1
+
+    if (filterQueue is None):
+        filterQueue = queue.Queue(ModelName = filterModel, MaxSimultaneousUsers = maxSimulUsers)
+        queue.Queues.append(filterQueue)
+    
+    filterQueueUID = filterQueue.CreateNewWaitingID(Prioritize = True)  # Wait with priority for faster inference
+    yield {"_queue_uid": filterQueueUID}
+
+    filterQueue.WaitForProcessing(filterQueueUID)
+
+    filterModule = FindServiceForModel(filterModel, False)
+    isSafe = True
+
+    for filterToken in filterModule.RunModuleFunction(
+        filterModule.ServiceModule,
+        "SERVICE_INFERENCE",
+        [
+            filterModel,
+            filterPP,
+            filterUP | {
+                "conversation": Conversation
+            }
+        ]
+    ):
+        if ("extra" not in filterToken or "label" not in filterToken["extra"] or "confidence" not in filterToken["extra"]):
+            continue
+
+        label = filterToken["extra"]["label"]
+        confidence = filterToken["extra"]["confidence"] * 100
+
+        if (label == filterKeyword and confidence >= filterThreshold):
+            isSafe = False
+            break
+    
+    filterQueue.DeleteUID(filterQueueUID)
+    yield {"_action": "none" if (isSafe) else filterAction}
+
 def InferenceModel(
     ModelName: str,
     Prompt: dict[str, str | list[dict[str, str]] | dict[str, Any]],
@@ -463,47 +530,73 @@ def InferenceModel(
     if (ModelName not in ServicesModels[serviceName]):
         raise ValueError("Model name not found.")
 
-    modelConfiguration = ServicesModels[serviceName][ModelName]
-    serviceModule = ServicesModules[serviceName]
-
-    if ("max_simul_users" in modelConfiguration and modelConfiguration["max_simul_users"] > 0):
-        maxSimulUsers = modelConfiguration["max_simul_users"]
-    else:
-        logs.WriteLog(logs.INFO, "[services_manager] Max simultaneously users not set in model configuration. Setting to 1.")
-        maxSimulUsers = 1
-
-    modelQueue = queue.GetQueueForModel(ModelName)
-
-    if (modelQueue is None):
-        modelQueue = queue.Queue(ModelName = ModelName, MaxSimultaneousUsers = maxSimulUsers)
-        queue.Queues.append(modelQueue)
-
-    queueUID = modelQueue.CreateNewWaitingID(Prioritize = ModelName in UserParameters["key_info"]["PrioritizeModels"])
-    modelQueue.WaitForProcessing(queueUID)
-
-    # TODO: Automatic blacklist
-
-    conversation = Prompt["conversation"] if ("conversation" in Prompt) else []
-    userConfig = Prompt["parameters"] if ("parameters" in Prompt) else {}
-    price = 0
-
-    for msg in conversation:
-        if (isinstance(msg["content"], str)):
-            msg["content"] = [{"type": "text", "text": msg["content"]}]
-        
-        price += CalculateTokenPrice(modelConfiguration, False, msg["content"])
-
-    if (UserParameters["key_info"]["Tokens"] < price):
-        raise exceptions.NotEnoughTokensException(price, UserParameters["key_info"]["Tokens"])
-        
-    UserParameters["key_info"]["Tokens"] -= price
-
-    firstToken = True
-    lastTokenTime = time.time()
-    exc = None
-    tokensProcessingTime = None
-
     try:
+        modelConfiguration = ServicesModels[serviceName][ModelName]
+        serviceModule = ServicesModules[serviceName]
+
+        if ("max_simul_users" in modelConfiguration and modelConfiguration["max_simul_users"] > 0):
+            maxSimulUsers = modelConfiguration["max_simul_users"]
+        else:
+            logs.WriteLog(logs.INFO, "[services_manager] Max simultaneously users not set in model configuration. Setting to 1.")
+            maxSimulUsers = 1
+
+        modelQueue = queue.GetQueueForModel(ModelName)
+
+        if (modelQueue is None):
+            modelQueue = queue.Queue(ModelName = ModelName, MaxSimultaneousUsers = maxSimulUsers)
+            queue.Queues.append(modelQueue)
+
+        queueUID = modelQueue.CreateNewWaitingID(Prioritize = ModelName in UserParameters["key_info"]["PrioritizeModels"])
+        modelQueue.WaitForProcessing(queueUID)
+
+        conversation = Prompt["conversation"] if ("conversation" in Prompt) else []
+        userConfig = Prompt["parameters"] if ("parameters" in Prompt) else {}
+        price = 0
+
+        for msg in conversation:
+            if (isinstance(msg["content"], str)):
+                msg["content"] = [{"type": "text", "text": msg["content"]}]
+            
+            price += CalculateTokenPrice(modelConfiguration, False, msg["content"])
+
+        if (UserParameters["key_info"]["Tokens"] < price):
+            raise exceptions.NotEnoughTokensException(price, UserParameters["key_info"]["Tokens"])
+            
+        UserParameters["key_info"]["Tokens"] -= price
+
+        if (
+            Configuration["server_automatic_blacklist"]["enabled"] and
+            (
+                "enable_filter" not in modelConfiguration or
+                modelConfiguration["enable_filter"]
+            )
+        ):
+            filterTypes = []
+
+            if (Configuration["server_automatic_blacklist"]["text_filter_service"]["enabled"]):
+                filterTypes.append("text")
+            
+            if (Configuration["server_automatic_blacklist"]["image_filter_service"]["enabled"]):
+                filterTypes.append("image")
+
+            if (Configuration["server_automatic_blacklist"]["audio_filter_service"]["enabled"]):
+                filterTypes.append("audio")
+            
+            if (Configuration["server_automatic_blacklist"]["video_filter_service"]["enabled"]):
+                filterTypes.append("video")
+            
+            for filterType in filterTypes:
+                for filterToken in ExecuteFilter(filterType, conversation):
+                    if ("_queue_uid" in filterToken):
+                        yield {"_queue_uid": [filterToken["_queue_uid"], queueUID]}
+                    
+                    if ("_action" in filterToken):
+                        yield {"_filter_action": filterToken["_action"]}
+
+        firstToken = True
+        lastTokenTime = time.time()
+        tokensProcessingTime = None
+
         for token in Service.RunModuleFunction(serviceModule.ServiceModule, "SERVICE_INFERENCE", [
             ModelName,
             userConfig,
@@ -553,8 +646,8 @@ def InferenceModel(
             "conversation_result": conversation,
             "_queue_uid": queueUID
         }
-    except Exception as ex:
-        exc = ex
+    except StopIteration:
+        pass
     finally:
         if (tokensProcessingTime is not None):
             if (modelQueue.TokensPerSecond is not None):
@@ -562,10 +655,8 @@ def InferenceModel(
             
             modelQueue.TokensPerSecond = round(1 / tokensProcessingTime, 3)
         
-        modelQueue.DeleteUID(queueUID)
+        if (modelQueue is not None):
+            modelQueue.DeleteUID(queueUID)
 
         apiKey = keys_manager.APIKey.__from_dict__(UserParameters["key_info"])
         apiKey.SaveToFile()
-
-        if (exc is not None):
-            raise exc

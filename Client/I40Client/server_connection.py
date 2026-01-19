@@ -2,8 +2,7 @@ from typing import Any, Literal
 from collections.abc import AsyncGenerator
 from websockets import connect as WS_Connect
 from websockets.protocol import State as WS_State
-from . import configuration
-from . import encryption
+from . import configuration, encryption
 import json
 import base64
 import asyncio
@@ -31,10 +30,10 @@ class ClientSocket():
     
     def IsConnected(self) -> bool:
         if (self.__socket__ is None):
-            return False
+            return False  # Make sure the socket is not null
         
         if (self.__socket_type__ == "websocket"):
-            return self.__socket__.state == WS_State.OPEN
+            return self.__socket__.state == WS_State.OPEN  # Make sure the connection is OPEN
         
         return False
 
@@ -157,9 +156,9 @@ class ClientSocket():
             if ("ended" in token and token["ended"]):
                 break
     
-    async def GetAvailableModels(self) -> list[str]:
+    async def GetAvailableModels(self, **kwargs) -> list[str]:
         models = None
-        gen = self.AdvancedSendAndReceive("", Service = "get_available_models")
+        gen = self.AdvancedSendAndReceive("", Service = "get_available_models", **kwargs)
 
         async for token in gen:
             if ("models" in token):
@@ -173,9 +172,9 @@ class ClientSocket():
         
         return models
     
-    async def GetModelInfo(self, ModelName: str) -> dict[str, Any]:
+    async def GetModelInfo(self, ModelName: str, **kwargs) -> dict[str, Any]:
         modelInfo = None
-        gen = self.AdvancedSendAndReceive(ModelName, Service = "get_model_info")
+        gen = self.AdvancedSendAndReceive(ModelName, Service = "get_model_info", **kwargs)
 
         async for token in gen:
             if ("config" in token):
@@ -189,9 +188,9 @@ class ClientSocket():
         
         return modelInfo
     
-    async def GetQueueData(self, ModelName: str) -> dict[str, int | float]:
+    async def GetQueueData(self, ModelName: str, **kwargs) -> dict[str, int | float]:
         queueData = None
-        gen = self.AdvancedSendAndReceive(ModelName, Service = "get_queue_data")
+        gen = self.AdvancedSendAndReceive(ModelName, Service = "get_queue_data", **kwargs)
 
         async for token in gen:
             if ("queue" in token):
@@ -212,7 +211,8 @@ class ClientSocket():
         ExpireDate: dict[str, int] | None = None,
         AllowedIPs: list[str] | None = None,
         PrioritizeModels: list[str] = [],
-        Groups: list[str] = []
+        Groups: list[str] = [],
+        **kwargs
     ) -> str:
         key = None
         gen = self.AdvancedSendAndReceive("", PromptParameters = {
@@ -222,7 +222,7 @@ class ClientSocket():
             "allowed_ips": AllowedIPs,
             "prioritize_models": PrioritizeModels,
             "groups": Groups
-        }, Service = "create_api_key")
+        }, Service = "create_api_key", **kwargs)
 
         async for token in gen:
             if ("key" in token):
@@ -236,20 +236,20 @@ class ClientSocket():
         
         return key
     
-    async def DeleteAPIKey(self, Key: str) -> None:
+    async def DeleteAPIKey(self, Key: str, **kwargs) -> None:
         gen = self.AdvancedSendAndReceive("", PromptParameters = {
             "key": Key
-        }, Service = "delete_api_key")
+        }, Service = "delete_api_key", **kwargs)
 
         async for token in gen:
             if ("errors" in token and len(token["errors"]) > 0):
                 raise RuntimeError("Could not delete API key.")
        
-    async def GetKeyData(self, Key: str) -> dict[str, Any] | None:
+    async def GetKeyData(self, Key: str, **kwargs) -> dict[str, Any] | None:
         key = False
         gen = self.AdvancedSendAndReceive("", PromptParameters = {
             "key": Key
-        }, Service = "get_key_data")
+        }, Service = "get_key_data", **kwargs)
 
         async for token in gen:
             if ("key" in token):
@@ -262,3 +262,23 @@ class ClientSocket():
             raise RuntimeError("Could not fetch key data.")
         
         return key
+    
+    async def BanUser(self, Type: Literal["key", "ip"], Value: str, **kwargs) -> None:
+        gen = self.AdvancedSendAndReceive("", PromptParameters = {
+            "type": Type,
+            "value": Value
+        }, Service = "ban", **kwargs)
+
+        async for token in gen:
+            if ("errors" in token and len(token["errors"]) > 0):
+                raise RuntimeError("Could not ban user.")
+    
+    async def PardonUser(self, Type: Literal["key", "ip"], Value: str, **kwargs) -> None:
+        gen = self.AdvancedSendAndReceive("", PromptParameters = {
+            "type": Type,
+            "value": Value
+        }, Service = "pardon", **kwargs)
+
+        async for token in gen:
+            if ("errors" in token and len(token["errors"]) > 0):
+                raise RuntimeError("Could not pardon user.")

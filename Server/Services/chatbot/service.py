@@ -6,7 +6,7 @@ import json
 import copy
 import Services.chatbot.llama_utils as utils_llama
 import Utilities.logs as logs
-import services_manager as servmgr
+#import services_manager as servmgr
 
 __models__: dict[str, dict[str, Any]] = {}
 ServiceConfiguration: dict[str, Any] | None = None
@@ -57,6 +57,10 @@ def SERVICE_OFFLOAD_MODELS(Names: list[str]) -> None:
 
         # Offload the model
         if (__models__[name]["_private_type"] == "lcpp"):
+            if (isinstance(__models__[name]["_private_model"].chat_handler, utils_llama.CH_Llava15)):
+                __models__[name]["_private_model"].chat_handler._mtmd_cpp.mtmd_free(__models__[name]["_private_model"].chat_handler.mtmd_ctx)
+                __models__[name]["_private_model"].chat_handler = None
+            
             __models__[name]["_private_model"].close()
         
         __models__[name]["_private_model"] = None
@@ -197,14 +201,15 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
     elif (reasoningLevel == "nonreasoning"):
         reasoningLevel = __models__[Name]["reasoning"]["non_reasoning_level"]
     elif (reasoningLevel == "auto"):
-        if (servmgr.IsServiceInstalled("text_classification")):
-            pass  # TODO: Get auto level
-        else:
-            logs.WriteLog(
-                logs.WARNING,
-                "[service_chatbot] Optional `text_classification` service not installed, but trying to use automatic reasoning level. Changing to `reasoning`."
-            )
-            reasoningLevel = __models__[Name]["reasoning"]["default_reasoning_level"]
+        #if (servmgr.IsServiceInstalled("text_classification")):
+        #    pass  # TODO: Get auto level
+        #else:
+        #    logs.WriteLog(
+        #        logs.WARNING,
+        #        "[service_chatbot] Optional `text_classification` service not installed, but trying to use automatic reasoning level. Changing to `reasoning`."
+        #    )
+        #    reasoningLevel = __models__[Name]["reasoning"]["default_reasoning_level"]
+        reasoningLevel = __models__[Name]["reasoning"]["default_reasoning_level"]  # TODO: Replace
     elif (reasoningLevel in __models__[Name]["reasoning"]["levels"]):
         pass  # TODO
     else:

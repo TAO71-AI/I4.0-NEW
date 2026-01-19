@@ -1,8 +1,9 @@
 from collections.abc import Awaitable, Callable
 from websockets.asyncio.server import ServerConnection as WS_ServerConnection
 from websockets.protocol import State as WS_State
-import threading
 import websockets
+import ssl
+import threading
 import asyncio
 import exceptions
 import Utilities.logs as logs
@@ -102,15 +103,21 @@ class WebSocketsServer():
         DisconenctedCallback: Callable[[Client], Awaitable[None]] | None = None,
         ReceiveCallback: Callable[[Client, str], Awaitable[None]] | None = None,
         NewThread: bool = True,
-        IgnoreBasicCommands: bool = False
+        IgnoreBasicCommands: bool = False,
+        SSLCertFile: str | None = None,
+        SSLKeyFile: str | None = None,
+        SSLPassword: str | None = None,
+        BannedIPs: list[str] = []
     ) -> None:
         self.ConnectedCallback = ConnectedCallback
         self.DisconnectedCallback = DisconenctedCallback
         self.ReceiveCallback = ReceiveCallback
         self.IgnoreBasicCommands = IgnoreBasicCommands
+        self.BannedIPs = BannedIPs
         self.__new_thread__ = NewThread
         self.__endpoint__ = (ListenIP, ListenPort)
         self.__socket__ = None
+        self.__ssl__ = None if (SSLCertFile is None or SSLKeyFile is None) else (SSLCertFile, SSLKeyFile, SSLPassword)
         self.__started__ = False
 
         logs.WriteLog(logs.INFO, "[server_utils] New WebSockets server created.")
@@ -124,6 +131,10 @@ class WebSocketsServer():
         try:
             if (self.ConnectedCallback is not None):
                 await self.ConnectedCallback(c)
+            
+            if (c.GetEndPoint()[0] in self.BannedIPs):
+                await c.Send("You are banned.")
+                return
 
             while (self.__started__ and c.IsConnected()):
                 msg = await c.Receive()
@@ -154,11 +165,18 @@ class WebSocketsServer():
             self.__stop__()
 
         try:
+            if (self.__ssl__ is None):
+                sslCtx = None
+            else:
+                sslCtx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+                sslCtx.load_cert_chain(self.__ssl__[0], self.__ssl__[1], self.__ssl__[2])
+
             self.__socket__ = await websockets.serve(
                 handler = self.__on_client_connected__,
                 host = self.__endpoint__[0],
                 port = self.__endpoint__[1],
-                max_size = TRANSFER_RATE
+                max_size = TRANSFER_RATE,
+                ssl = sslCtx
             )
             self.__started__ = True
             

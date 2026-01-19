@@ -35,29 +35,29 @@ server_automatic_blacklist:
     model_name: ""  # Keep in mind that the service here will be provided FREE OF CHARGE when using the automatic filter
     keyword: ""  # Keyword to filter - example: "NSFW" in `michellejieli/NSFW_text_classifier`
     threshold: 0  # Threshold to exceed to filter the prompt - from 0 to 1
-    action: "ban"  # "ban", "warn", "raise" - action to take if the prompt is filtered
-    extra_service_params: {}  # Extra parameters for the service inference
+    prompt_parameters: {}  # Prompt parameters for inference
+    user_parameters: {}  # User parameters for inference
   image_filter_service:  # Requires the "image_classification" module
     enabled: false
     model_name: ""
     keyword: ""
     threshold: 0
-    action: "ban"
-    extra_service_params: {}
+    prompt_parameters: {}
+    user_parameters: {}
   audio_filter_service:  # No classifier yet, doesn't work for now
     enabled: false
     model_name: ""
     keyword: ""
     threshold: 0
-    action: "ban"
-    extra_service_params: {}
+    prompt_parameters: {}
+    user_parameters: {}
   video_filter_service:  # No classifier yet, current workaround is to pick random frames (or all frames) from the video and use the image filter
     enabled: false
     model_name: ""
     keyword: ""
     threshold: 0
-    action: "ban"
-    extra_service_params: {}
+    prompt_parameters: {}
+    user_parameters: {}
 server_encryption:
   allowed_hashes:
     hashes:
@@ -82,6 +82,7 @@ server_data:
   tos_file: "./TOS.md"
   temp_dir: "./Temp"
   keys_dir: "./API_Keys"
+  banned_file: "./banned.json"
 server_listen:
   - type: "websockets"
     host: "0.0.0.0"

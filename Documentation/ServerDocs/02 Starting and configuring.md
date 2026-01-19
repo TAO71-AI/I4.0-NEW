@@ -41,8 +41,8 @@ To close the server you can send a **SIGINT** signal.
 |server_automatic_blacklist:text_filter_service:model_name|string|Name of the model that will be used for the automatic moderation. NOTE: This model will be provided FREE OF CHARGE when using the automatic moderation, even if the model is not free to use.|
 |server_automatic_blacklist:text_filter_service:keyword|string|Not safe keyword to search in the text response of the service.|
 |server_automatic_blacklist:text_filter_service:threshold|float|Threshold until the *server_automatic_blacklist:text_filter_service:keyword* keyword is considered unsafe. Range from 0 to 1.|
-|server_automatic_blacklist:text_filter_service:action|string|Action taken by the automatic moderation when the filter detecting unsafe content. `ban` bans the API key (if valid) or the IP address (if the API key is not valid). `warn` sends a warning to the user, but continues with the inference. `raise` throws an error and stops the inference.|
-|server_automatic_blacklist:text_filter_service:extra_service_params|dictionary (string, value)|Extra parameters when inferencing the service.|
+|server_automatic_blacklist:text_filter_service:prompt_parameters|dictionary (string, value)|Prompt parameters for the service.|
+|server_automatic_blacklist:text_filter_service:user_parameters|dictionary (string, value)|User parameters for the service.|
 |server_automatic_blacklist:image_filter_service:*|-|Same as *server_automatic_blacklist:text_filter_service:\[name\]*, but for images. Requires the `image_classification` module.|
 |server_automatic_blacklist:audio_filter_service:*|-|Same as *server_automatic_blacklist:text_filter_service:\[name\]*, but for audios. Doesn't work for now, since there is no compatible classificators in HuggingFace.|
 |server_automatic_blacklist:video_filter_service:*|-|Same as *server_automatic_blacklist:text_filter_service:\[name\]*, but for videos. Doesn't work for now, since there is no compatible classificators in HuggingFace.|
@@ -57,6 +57,7 @@ To close the server you can send a **SIGINT** signal.
 |server_data:tos_file|string|Path to the TOS file. Will be created if it doesn't exist. Requires at least **read** (4) permissions.|
 |server_data:temp_dir|string|Path to the temporal files directory. Will be created if it doesn't exist. Requires **read, write, and execute** (7) permissions.|
 |server_data:keys_dir|string|Path to the API keys directory. Will be created if it doesn't exist. Requires **read, write, and execute** (7) permissions.|
+|server_data:banned_file|string|Path to the file where the banned IPs and API keys will be stored. Will be created if it doesn't exist. Requires **read, write, and execute** (7) permissions.|
 |server_listen|list (dictionary (string, any))|Sockets that will listen for clients. `type` (string; `websockets`) is the type of socket. `host` (string) is the IP address where the server will listen, **0.0.0.0** will listen in all addresses, **127.0.0.1** listen only in the server machine, etc. `port` (integer) is the port where the server will listen, this port can't be repeated in any socket (even if it's of another type). Multiple instances of the same type can be created.|
 
 See the `config_server.yaml` configuration file for more details (when created).
