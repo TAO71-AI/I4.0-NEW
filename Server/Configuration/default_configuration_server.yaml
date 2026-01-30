@@ -83,6 +83,7 @@ server_data:
   temp_dir: "./Temp"
   keys_dir: "./API_Keys"
   banned_file: "./banned.json"
+  support_file: "./support.json"
 server_listen:
   - type: "websockets"
     host: "0.0.0.0"

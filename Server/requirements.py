@@ -16,17 +16,28 @@ GENERAL_REQUIREMENTS = [
     "ddgs",
     "Pillow",
     "numpy",
-    "accelerate"
+    "accelerate",
+    "transformers>=4.57.3"
+]
+OPTIONAL_REQUIREMENTS = [
+    "bitsandbytes",
+    #"flash-attn"
 ]
 PYTORCH_REQUIREMENTS = [
-    "torch",
+    "torch>=2.10.0",
     "torchvision",
     "torchaudio"
 ]
 
 def InstallRequirements() -> None:
     torchIdx = "https://download.pytorch.org/whl/cpu"
-    forceUpgrade = ["--upgrade"] if ("BASE_FORCE_UPGRADE" in os.environ and bool(os.environ["BASE_FORCE_UPGRADE"])) else []
+    args = []
+
+    if ("FORCE_UPGRADE" in os.environ and len(os.environ["FORCE_UPGRADE"].strip()) > 0):
+        args.append("--upgrade")
+    
+    if ("VERBOSE" in os.environ and len(os.environ["VERBOSE"].strip()) > 0):
+        args.append("--verbose")
 
     if ("BASE_TORCH_CIDX" in os.environ and len(os.environ["BASE_TORCH_CIDX"].strip()) > 0):
         torchIdx = os.environ["BASE_TORCH_CIDX"]
@@ -58,15 +69,19 @@ def InstallRequirements() -> None:
         torchIdx = None
     elif (os.environ["BASE_TORCH_IDX"] != "cpu"):
         raise ValueError("Invalid PyTorch idx. Please see documentation.")
+    
+    requirements.InstallPackage(Packages = GENERAL_REQUIREMENTS, PIPOptions = args)
+    servMgr.InstallAllRequirements()
 
     if (torchIdx is not None):
         requirements.InstallPackage(
             Packages = PYTORCH_REQUIREMENTS,
-            PIPOptions = ["--index-url", torchIdx] + forceUpgrade
+            PIPOptions = ["--index-url", torchIdx] + args
         )
     
-    requirements.InstallPackage(Packages = GENERAL_REQUIREMENTS, PIPOptions = forceUpgrade)
-    servMgr.InstallAllRequirements()
+    if ("INSTALL_OPTIONAL" in os.environ and len(os.environ["INSTALL_OPTIONAL"].strip()) > 0):
+        requirements.InstallPackage(Packages = OPTIONAL_REQUIREMENTS, PIPOptions = args)
+        requirements.InstallPackage(Packages = ["flash-attn"], PIPOptions = ["--no-build-isolation"] + args)
 
 if (__name__ == "__main__"):
     InstallRequirements()

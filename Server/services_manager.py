@@ -596,6 +596,9 @@ def InferenceModel(
         firstToken = True
         lastTokenTime = time.time()
         tokensProcessingTime = None
+        convResultTxt = None
+        convResultFiles = []
+        saveResponse = True
 
         for token in Service.RunModuleFunction(serviceModule.ServiceModule, "SERVICE_INFERENCE", [
             ModelName,
@@ -604,6 +607,18 @@ def InferenceModel(
                 "conversation": conversation
             }
         ]):
+            if ("text" in token):
+                if (convResultTxt is None):
+                    convResultTxt = ""
+                
+                convResultTxt += token["text"]
+            
+            if ("files" in token):
+                convResultFiles += token["files"]
+            
+            if ("_save_response" in token):
+                saveResponse = token["_save_response"]
+
             outputToken = {
                 "response": {
                     "text": token["text"] if ("text" in token) else "",
@@ -641,6 +656,12 @@ def InferenceModel(
             
             lastTokenTime = time.time()
             yield outputToken
+        
+        if (saveResponse):
+            conversation.append({
+                "role": "assistant",
+                "content": ([{"type": "text", "text": convResultTxt}] if (convResultTxt is not None) else []) + convResultFiles
+            })
 
         yield {
             "conversation_result": conversation,

@@ -1,0 +1,16 @@
+temperature:
+  default: 0.2
+  modified_by_user: true
+top_p:
+  default: 0.95
+  modified_by_user: true
+top_k:
+  default: 40
+  modified_by_user: true
+repeat_penalty:
+  default: 1
+  modified_by_user: true
+max_length:
+  default: 9999
+  allow_greater_than_default: false
+  modified_by_user: true

@@ -85,7 +85,7 @@ def InstallPackage(
     process = subprocess.run(cmd, env = env, stderr = subprocess.PIPE)
 
     if (process.returncode != 0):
-        logs.WriteLog(logs.ERROR, f"[requirements_installation] Error executing installation command:\n```plaintext\n{process.stderr}\n```")
-        raise exceptions.InstallationError(f"Error executing installation command:\n```plaintext\n{process.stderr}\n```")
+        logs.WriteLog(logs.ERROR, f"[requirements_installation] Error executing installation command:\n```plaintext\n{process.stderr.decode('utf-8')}\n```")
+        raise exceptions.InstallationError(f"Error executing installation command:\n```plaintext\n{process.stderr.decode('utf-8')}\n```")
     
     logs.WriteLog(logs.INFO, "[requirements_installation] Package installed!")

@@ -1,3 +1,5 @@
+from typing import Any
+from transformers import BitsAndBytesConfig
 import torch
 
 def StringToDType(DType: str) -> torch.dtype:
@@ -33,3 +35,41 @@ def StringToDType(DType: str) -> torch.dtype:
         return torch.int8
     
     raise ValueError("Invalid or unrecognized PyTorch DType.")
+
+def CreateBNBQuantization(Config: dict[str, Any], FromModelConfig: bool = False) -> BitsAndBytesConfig | None:
+    if (FromModelConfig):
+        conf = Config["bnb_quantization"] if ("bnb_quantization" in Config) else None
+    else:
+        conf = Config
+    
+    if (conf is None):
+        return None
+    
+    bnbBits = conf["bits"] if ("bits" in conf) else None
+
+    if (bnbBits is None or (bnbBits != 4 and bnbBits != 8)):
+        raise ValueError("Invalid bits in BNB config.")
+    
+    return BitsAndBytesConfig(
+        load_in_8bit = bnbBits == 8,
+        load_in_4bit = bnbBits == 4
+    )
+
+def GetAttnImpl(ModelConfig: dict[str, Any]) -> str | None:
+    if ("attn" not in ModelConfig):
+        return None
+    
+    attn = ModelConfig["attn"].lower()
+
+    if (attn == "none"):
+        return None
+    elif (attn == "eager" or attn == "sdpa"):
+        return attn
+    elif (attn == "flash" or attn == "flash_attn" or attn == "flash_attn_2"):
+        return "flash_attention_2"
+    elif (attn == "flash_3" or attn == "flash_attn_3"):
+        return "flash_attention_3"
+    elif (attn == "flex" or attn == "flex_attn"):
+        return "flex_attention"
+    
+    raise ValueError("Invalid attention implementation.")

@@ -58,6 +58,7 @@ To close the server you can send a **SIGINT** signal.
 |server_data:temp_dir|string|Path to the temporal files directory. Will be created if it doesn't exist. Requires **read, write, and execute** (7) permissions.|
 |server_data:keys_dir|string|Path to the API keys directory. Will be created if it doesn't exist. Requires **read, write, and execute** (7) permissions.|
 |server_data:banned_file|string|Path to the file where the banned IPs and API keys will be stored. Will be created if it doesn't exist. Requires **read, write, and execute** (7) permissions.|
+|server_data:support_file|string|Path to the file where the support contact information will be stored. It is recommended that this file's JSON syntax looks similar to `[{"name": "my name", "email": "support@mydomain.com", "phone_number": "+1 234567890"}]`. Will be created if it doesn't exist. Requires at least **read** (4) permissions.|
 |server_listen|list (dictionary (string, any))|Sockets that will listen for clients. `type` (string; `websockets`) is the type of socket. `host` (string) is the IP address where the server will listen, **0.0.0.0** will listen in all addresses, **127.0.0.1** listen only in the server machine, etc. `port` (integer) is the port where the server will listen, this port can't be repeated in any socket (even if it's of another type). Multiple instances of the same type can be created.|
 
 See the `config_server.yaml` configuration file for more details (when created).

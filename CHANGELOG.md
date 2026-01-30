@@ -6,6 +6,29 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 30-1-2026 (commit `v17.0.0-a17`)
+
+### Server changes
+
+- Moved the HuggingFace model to a different script in the `imgclass` module.
+- Created `musicgen` module, for music generation. Supports only **HeartMuLa** for now.
+- Created `tts` module, Text-To-Speech. Supports only **Qwen3-TTS** for now.
+- Moved the PyTorch utilities file to `Utilities/model_utils.py`. It also has more utilities now.
+- Updated requirements.
+- Added a new service to the server: `get_support`. Clients can now get the contact info of the support.
+- The services manager can now save the assistant response.
+
+### Client changes
+
+- Implemented new service: `get_support`.
+
+### Other changes
+
+- Updated server documentation.
+- Updated gitignore.
+
+---
+
 ## 19-1-2026 (commit `v17.0.0-a16`)
 
 ### Server changes

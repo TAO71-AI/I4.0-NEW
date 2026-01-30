@@ -246,7 +246,7 @@ class ClientSocket():
                 raise RuntimeError("Could not delete API key.")
        
     async def GetKeyData(self, Key: str, **kwargs) -> dict[str, Any] | None:
-        key = False
+        key = None
         gen = self.AdvancedSendAndReceive("", PromptParameters = {
             "key": Key
         }, Service = "get_key_data", **kwargs)
@@ -258,7 +258,7 @@ class ClientSocket():
             if ("errors" in token and len(token["errors"]) > 0):
                 break
 
-        if (key == False):
+        if (key is None):
             raise RuntimeError("Could not fetch key data.")
         
         return key
@@ -282,3 +282,19 @@ class ClientSocket():
         async for token in gen:
             if ("errors" in token and len(token["errors"]) > 0):
                 raise RuntimeError("Could not pardon user.")
+    
+    async def GetSupport(self, **kwargs) -> list[dict[str, str]]:
+        support = None
+        gen = self.AdvancedSendAndReceive("", Service = "get_support", **kwargs)
+
+        async for token in gen:
+            if ("support" in token):
+                support = token["support"]
+            
+            if ("errors" in token and len(token["errors"]) > 0):
+                break
+
+        if (support is None):
+            raise RuntimeError("Could not fetch support data.")
+        
+        return support

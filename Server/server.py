@@ -423,6 +423,12 @@ def __process_client__(Message: str, EndPoint: tuple[str, int]) -> Generator[dic
                 pardonVal = prompt["parameters"]["value"]
 
                 __pardon_user__(pardonType, pardonVal)
+            elif (service == "get_support"):
+                yield {
+                    "support": Support,
+                    "_hash": messageHash,
+                    "_public_key": messagePublicKey
+                }
             else:
                 raise ValueError("Invalid service.")
             
@@ -529,11 +535,18 @@ if (not os.path.exists(config.Configuration["server_data"]["banned_file"])):
     with open(config.Configuration["server_data"]["banned_file"], "x") as f:
         f.write(json.dumps({"ips": [], "keys": []}))
 
+if (not os.path.exists(config.Configuration["server_data"]["support_file"])):
+    with open(config.Configuration["server_data"]["support_file"], "x") as f:
+        f.write("[]")
+
 with open(config.Configuration["server_data"]["tos_file"], "r") as f:
     TOSContent = f.read()
 
 with open(config.Configuration["server_data"]["banned_file"], "r") as f:
     BannedUsers = json.loads(f.read())
+
+with open(config.Configuration["server_data"]["support_file"], "r") as f:
+    Support = json.loads(f.read())
 
 if (not os.path.exists(config.Configuration["server_data"]["temp_dir"])):
     os.mkdir(config.Configuration["server_data"]["temp_dir"])

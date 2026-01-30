@@ -32,6 +32,8 @@ Keep in mind that these requirements may change in the future.
 
 Follow the guide and documentation of your OS to install Python.
 
+It is recommended to install **Python 3.11**.
+
 # Creating a Python VENV
 
 It is recommended to run the server using a VENV. To create a VENV, run the following command:
@@ -56,6 +58,9 @@ Second, execute the `requirements.py` script. This will automatically install al
 
 |Name|Type|Default value|Module|Description|
 |----|----|-------------|------|-----------|
+|FORCE_UPGRADE|bool|false|-|Forces to upgrade all packages.|
+|VERBOSE|bool|false|-|Prints more information when installing.|
+|INSTALL_OPTIONAL|bool|false|-|Installs optional (but recommended) packages.|
 |BASE_TORCH_CIDX|string|-|-|Sets a custom PIP index url for installing PyTorch.|
 |BASE_TORCH_IDX|string|cpu|-|Sets a pre-defined PIP index url for installing PyTorch. Values: `cuda13.0` for **NVIDIA** cards and CUDA >= 13.0, `cuda12.8` for **NVIDIA** cards and CUDA >= 12.8, < 13.0, `cuda12.6` for **NVIDIA** cards and CUDA >= 12.6, < 12.8, `rocm6.4` for **AMD** cards and ROCm >= 6.4, `sycl` for **INTEL** cards with SYCL, `cpu` (default) for no GPU cards, `disable` to skip PyTorch installation.|
 |BASE_FORCE_UPGRADE|bool|false|-|Forces to upgrade PIP packages.|

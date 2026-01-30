@@ -382,9 +382,6 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
             
             yield {"text": tokenText}
         
-        logs.WriteLog(logs.INFO, "[service_chatbot] Finished inference. Saving conversation.")
-        Conversation.append({"role": "assistant", "content": [{"type": "text", "text": fullAssistantText}]})
-
         yield {"extra": {"tools": [json.loads(tool) for tool in tools]}}
         logs.WriteLog(logs.INFO, "[service_chatbot] Finished inference.")
 

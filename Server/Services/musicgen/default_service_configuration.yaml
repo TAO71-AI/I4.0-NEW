@@ -1,0 +1,13 @@
+max_length:
+  modified_by_user: true
+  allow_greater_than_default: false
+  default: 300
+temperature:
+  modified_by_user: true
+  default: 1
+top_k:
+  modified_by_user: true
+  default: 50
+cfg_scale:
+  modified_by_user: true
+  default: 1.5

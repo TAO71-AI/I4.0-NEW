@@ -2,13 +2,10 @@ from typing import Any
 from collections.abc import Generator
 from io import BytesIO
 from PIL import Image
-from transformers import AutoModelForImageClassification, ViTImageProcessor
 import time
 import json
 import base64
-import torch
-import torch.nn.functional as tnnf
-import Utilities.torch_utils as torch_utils
+import Services.imgclass.hf as hf
 import Utilities.logs as logs
 
 __models__: dict[str, dict[str, Any]] = {}
@@ -53,24 +50,16 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
     if (len(imgs) == 0):
         return
 
-    for img in imgs:
-        if (__models__[Name]["_private_type"] == "hf"):
-            with torch.no_grad():
-                inputs = __models__[Name]["_private_model"][1](
-                    images = img[1],
-                    return_tensors = "pt"
-                ).to(device = __models__[Name]["_private_device"], dtype = torch_utils.StringToDType(__models__[Name]["dtype"]))
-                outputs = __models__[Name]["_private_model"][0](**inputs)
-                logits = outputs.logits
-            
-            probabilities = tnnf.softmax(logits, dim = -1)
-            predictedID = logits.argmax(-1).item()
-
-            confidence = probabilities[0, predictedID].item()
-            predictedLabel = __models__[Name]["_private_model"][0].config.id2label[predictedID]
-
-        data = {"confidence": confidence, "label": predictedLabel}
-        yield {"text": json.dumps(data), "extra": data}
+    if (__models__[Name]["_private_type"] == "hf"):
+        gen = hf.InferenceModel(
+            Images = [i[1] for i in imgs],
+            Model = __models__[Name]["_private_model"],
+            Device = __models__[Name]["_private_device"],
+            DType = __models__[Name]["dtype"]
+        )
+    
+    for token in gen:
+        yield {"text": json.dumps(token), "extra": token}
 
     for img in imgs:
         img[1].close()
@@ -88,22 +77,7 @@ def LoadModel(ModelName: str, Configuration: dict[str, Any]) -> None:
     logs.WriteLog(logs.INFO, "[service_imgclass] Loading model...")
 
     if (Configuration["_private_type"] == "hf"):
-        if ("_private_device" not in Configuration):
-            Configuration["_private_device"] = "cpu"
-        
-        if ("dtype" not in Configuration):
-            Configuration["dtype"] = "float32"
-
-        model = [
-            AutoModelForImageClassification.from_pretrained(
-                pretrained_model_name_or_path = Configuration["_private_model_path"],
-                device_map = Configuration["_private_device"],
-                dtype = torch_utils.StringToDType(Configuration["dtype"])
-            ),
-            ViTImageProcessor.from_pretrained(
-                pretrained_model_name_or_path = Configuration["_private_model_path"]
-            )
-        ]
+        model = hf.LoadModel(Configuration)
     else:
         raise ValueError("Invalid model type.")
     
