@@ -6,6 +6,15 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 1-2-2026 (commit `v17.0.0`)
+
+### Other changes
+
+- Open-Sourced the I4.0 v17.0.0 code! Future versions will also be Open-Source.
+- Updated license.
+
+---
+
 ## 30-1-2026 (commit `v17.0.0-a17`)
 
 ### Server changes
