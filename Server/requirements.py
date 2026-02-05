@@ -1,19 +1,16 @@
 import os
-import services_manager as servMgr
 import Utilities.install_requirements as requirements
 import Utilities.gpu_utils as gpu_utils
 
 GENERAL_REQUIREMENTS = [
     "PyYAML",
     "requests",
-    "beautifulsoup4",
     "tiktoken",
     "pydub",
     "websockets>=15.0.0,<16.0.0",
     "asyncio",
     "av",
     "cryptography",
-    "ddgs",
     "Pillow",
     "numpy",
     "accelerate",
@@ -70,7 +67,14 @@ def InstallRequirements() -> None:
     elif (os.environ["BASE_TORCH_IDX"] != "cpu"):
         raise ValueError("Invalid PyTorch idx. Please see documentation.")
     
+    if ("BASE_FLASH_ATTN_MAX_JOBS" in os.environ):
+        faMj = int(os.environ["BASE_FLASH_ATTN_MAX_JOBS"])
+    else:
+        faMj = None
+    
     requirements.InstallPackage(Packages = GENERAL_REQUIREMENTS, PIPOptions = args)
+
+    import services_manager as servMgr
     servMgr.InstallAllRequirements()
 
     if (torchIdx is not None):
@@ -81,7 +85,11 @@ def InstallRequirements() -> None:
     
     if ("INSTALL_OPTIONAL" in os.environ and len(os.environ["INSTALL_OPTIONAL"].strip()) > 0):
         requirements.InstallPackage(Packages = OPTIONAL_REQUIREMENTS, PIPOptions = args)
-        requirements.InstallPackage(Packages = ["flash-attn"], PIPOptions = ["--no-build-isolation"] + args)
+        requirements.InstallPackage(
+            Packages = ["flash-attn"],
+            PIPOptions = ["--no-build-isolation"] + args,
+            EnvVars = {"MAX_JOBS": faMj} if (faMj is not None) else {}
+        )
 
 if (__name__ == "__main__"):
     InstallRequirements()

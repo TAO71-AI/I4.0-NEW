@@ -133,8 +133,12 @@ def __main__() -> None:
                             
                             print(f"\nFile saved at '{fileName}'.", flush = True)
                     
-                    if ("tools" in token["response"]):
-                        tools += token["response"]["tools"]
+                    if ("extra" in token["response"] and "tools" in token["response"]["extra"]):
+                        tools += token["response"]["extra"]["tools"]
+                        token["response"]["extra"].pop(tools)
+                    
+                    if ("extra" in token["response"] and len(token["response"]["extra"]) > 0):
+                        print(f"Received extra data: {token['response']['extra']}", flush = True)
                 
                 if ("warnings" in token):
                     for warning in token["warnings"]:

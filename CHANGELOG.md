@@ -6,6 +6,31 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 5-2-2026 (commit `v17.1.0`)
+
+### Server changes
+
+- Fixed bugs.
+- Added `BASE_FLASH_ATTN_MAX_JOBS` environment variable to the requirements installation.
+- (chatbot module) Removed unnecesary configuration.
+- (chatbot module) Replaced chatbot `test_inference_files` and `test_inference_text` parameters with `test_inference_conversation` and `test_inference_configuration`.
+- (chatbot module) Removed reasoning, since it will be provided by the client.
+- (chatbot module) Added a `stop_tokens` parameter. This will stop the inference when any of the tokens in the list are generated.
+- (musicgen module) Added a warning log when loading a HeartMuLa model.
+- Implemented a new module: **stt** (*Speech To Text*).
+  - If you are using the Qwen3-ASR with ForcedAligner, keep in mind that it has not been fully tested yet.
+
+### Client changes
+
+- (Basic CLI Client) Updated tools detection when using a chatbot.
+- (Basic CLI Client) Added a message when receiving the `extra` parameter in the tokens response.
+
+### Other changes
+
+- Updated server documentation.
+
+---
+
 ## 1-2-2026 (commit `v17.0.0`)
 
 ### Other changes

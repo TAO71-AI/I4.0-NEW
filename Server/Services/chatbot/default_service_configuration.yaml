@@ -25,24 +25,26 @@ frequency_penalty:
 repeat_penalty:
   default: 1
   modified_by_user: true
-tools:
-  default: []
-  modified_by_user: true
-tool_choice:
-  default: "auto"
-  modified_by_user: true
-extra_system_prompt:
-  default: ""
-  modified_by_user: true
 tool_start_token: "<tool_call>"
 tool_end_token: "</tool_call>"
 max_length:
   default: 999999
   modified_by_user: true
   allow_greater_than_default: false
-test_inference_files:
-  - {"type": "image", "data": "./TestAssets/test_image.png"}
-  - {"type": "audio", "data": "./TestAssets/test_audio.wav"}
-  - {"type": "video", "data": "./TestAssets/test_video.mp4"}
-test_inference_prompt: "Hey!"
-test_inference_max_length: 1000
+test_inference_conversation:
+  - role: "system"
+    content:
+      - type: "text"
+        text: "Your name is 'I4.0'. You are a nekomimi with blue hair and green eyes."
+  - role: "user"
+    content:
+      - type: "image"
+        image: "./TestAssets/test_image.png"
+      - type: "audio"
+        audio: "./TestAssets/test_audio.wav"
+      - type: "video"
+        video: "./TestAssets/test_video.mp4"
+      - type: "text"
+        text: "Hey! How are you?"
+test_inference_configuration:
+  max_length: 1024

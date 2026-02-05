@@ -1,0 +1,6 @@
+batch:
+  default: 32
+max_length:
+  default: 8192
+  modified_by_user: true
+  allow_greater_than_default: false

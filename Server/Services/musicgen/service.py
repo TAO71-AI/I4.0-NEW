@@ -27,7 +27,7 @@ def SERVICE_OFFLOAD_MODELS(Names: list[str]) -> None:
         if (__models__[name]["_private_model"] is None):
             continue
         
-        logs.WriteLog(logs.INFO, "[service_audgen] Offloading model.")
+        logs.WriteLog(logs.INFO, "[service_musicgen] Offloading model.")
 
         if (__models__[name]["_private_type"] == "hml"):
             __models__[name]["_private_model"]._unload()
@@ -99,7 +99,7 @@ def LoadModel(ModelName: str, Configuration: dict[str, Any]) -> None:
         return
     
     loadTime = time.time()
-    logs.WriteLog(logs.INFO, "[service_audgen] Loading model...")
+    logs.WriteLog(logs.INFO, "[service_musicgen] Loading model...")
 
     if ("_private_device" not in Configuration):
         Configuration["_private_device"] = "cpu"
@@ -119,4 +119,4 @@ def LoadModel(ModelName: str, Configuration: dict[str, Any]) -> None:
     }
 
     loadTime = round(time.time() - loadTime, 3)
-    logs.WriteLog(logs.INFO, f"[service_audgen] Model loaded in {loadTime} seconds.")
+    logs.WriteLog(logs.INFO, f"[service_musicgen] Model loaded in {loadTime} seconds.")

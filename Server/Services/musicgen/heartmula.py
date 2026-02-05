@@ -9,9 +9,12 @@ from heartlib import HeartMuLaGenPipeline
 import json
 import base64
 import torch
-import Server.Utilities.model_utils as model_utils
+import Utilities.model_utils as model_utils
+import Utilities.logs as logs
 
 def LoadModel(Configuration: dict[str, Any]) -> HeartMuLaGenPipeline:
+    logs.PrintLog(logs.WARNING, "[heartmula] If you're having errors when loading or inferencing a HeartMuLa model, downgrade PyTorch to 2.4.0 and try again.")
+
     if (isinstance(Configuration["_private_device"], dict) and (
         "mula" in Configuration["_private_device"] and "codec" in Configuration["_private_device"]
     )):

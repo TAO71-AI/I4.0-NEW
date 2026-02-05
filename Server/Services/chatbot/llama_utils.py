@@ -277,7 +277,7 @@ def StringToChatHandler(
     UseGPU: bool,
     ImageTokens: tuple[int, int],
     Verbose: bool
-) -> CH_Llava15 | CH_Llava16 | CH_Llama3VisionAlpha | CH_MiniCPMv26 | CH_Moondream | CH_NanoLlava | CH_Qwen25VL | None:
+) -> CH_Llava15 | None:
     """
     Converts a string (chat handler name) into a class.
 
@@ -288,7 +288,7 @@ def StringToChatHandler(
         ImageTokens (tuple[int, int]): Min and max image tokens.
     
     Returns:
-        CH_Llava15 | CH_Llava16 | CH_Llama3VisionAlpha | CH_MiniCPMv26 | CH_Moondream | CH_NanoLlava | CH_Qwen25VL | CH_Qwen3VL | None
+        CH_Llava15 | None
     """
     # Lower the chat handler name
     chatHandler = ChatHandler.lower()
@@ -727,132 +727,6 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         cacheType = None
         logs.WriteLog(logs.INFO, "[llama_utils] `_private_cache_type` not defined. Set to None.")
     
-    # Set reasoning configuration
-    if ("reasoning" in Configuration):
-        reasoningConfiguration = Configuration["reasoning"]
-        autoReasoningClassifier = None  # Requires the `text-classification` service
-        autoReasoningConvert = {}  # {"classifier_output": "level_name", "default": "level_name"}
-        reasoningLevels = []
-        reasoningDefaultMode = "auto"
-        nonReasoningLevel = None
-        defaultReasoningLevel = None
-        reasoningStartToken = "<think>"
-        reasoningEndToken = "</think>"
-        reasoningParameters = {}
-        reasoningUserPrompt = {"position": "end", "separator": " ", "levels": []}
-        reasoningSystemPrompt = {"position": "end", "separator": " ", "levels": []}
-
-        if ("levels" in reasoningConfiguration):
-            reasoningLevels = reasoningConfiguration["levels"]
-
-        if ("_private_auto" in reasoningConfiguration):
-            if ("classifier" in reasoningConfiguration["_private_auto"]):
-                autoReasoningClassifier = reasoningConfiguration["_private_auto"]["classifier"]
-            
-            if ("convert" in reasoningConfiguration["_private_auto"]):
-                autoReasoningConvert = reasoningConfiguration["_private_auto"]["convert"]
-        
-        if ("default_mode" in reasoningConfiguration):
-            defaultMode = reasoningConfiguration["default_mode"]
-
-            if (defaultMode != "reasoning" and defaultMode != "nonreasoning" and defaultMode != "auto"):
-                logs.PrintLog(logs.WARNING, "[llama_utils] Default reasoning mode is expected to be `reasoning`, `nonreasoning`, or `auto`. Setting to default.")
-                defaultMode = "auto"
-        
-        if ("non_reasoning_level" in reasoningConfiguration):
-            nonReasoningLevel = reasoningConfiguration["non_reasoning_level"]
-        
-        if ("default_reasoning_level" in reasoningConfiguration):
-            defaultReasoningLevel = reasoningConfiguration["default_reasoning_level"]
-        
-        if (nonReasoningLevel not in reasoningLevels):
-            raise ValueError(f"Non-reasoning level `{nonReasoningLevel}` not in the levels list `{reasoningLevels}`.")
-        
-        if (defaultReasoningLevel not in reasoningLevels):
-            raise ValueError(f"Reasoning level `{defaultReasoningLevel}` not in the levels list `{reasoningLevels}`.")
-        
-        if ("start_token" in reasoningConfiguration):
-            reasoningStartToken = reasoningConfiguration["start_token"]
-        else:
-            logs.WriteLog(logs.INFO, f"[llama_utils] Reasoning start token not detected in config. Using default `{reasoningStartToken}`.")
-
-        if ("end_token" in reasoningConfiguration):
-            reasoningStartToken = reasoningConfiguration["end_token"]
-        else:
-            logs.WriteLog(logs.INFO, f"[llama_utils] Reasoning end token not detected in config. Using default `{reasoningEndToken}`.")
-        
-        if ("_private_parameters" in reasoningConfiguration):
-            reasoningParameters = reasoningConfiguration["_private_parameters"]
-        
-        if ("_private_user_prompt" in reasoningConfiguration):
-            if ("position" in reasoningConfiguration["_private_user_prompt"]):
-                reasoningUserPrompt["position"] = reasoningConfiguration["_private_user_prompt"]["position"]
-            else:
-                logs.PrintLog(logs.INFO, f"[llama_utils] Position not set at user prompt (reasoning). Using default `{reasoningUserPrompt['position']}`.")
-            
-            if ("separator" in reasoningConfiguration["_private_user_prompt"]):
-                reasoningUserPrompt["separator"] = reasoningConfiguration["_private_user_prompt"]["separator"]
-            else:
-                logs.PrintLog(logs.INFO, f"[llama_utils] Separator not set at user prompt (reasoning). Using default `{reasoningUserPrompt['separator']}`.")
-            
-            if ("levels" in reasoningConfiguration["_private_user_prompt"]):
-                reasoningUserPrompt["levels"] = reasoningConfiguration["_private_user_prompt"]["levels"]
-            
-        if ("_private_system_prompt" in reasoningConfiguration):
-            if ("position" in reasoningConfiguration["_private_system_prompt"]):
-                reasoningSystemPrompt["position"] = reasoningConfiguration["_private_system_prompt"]["position"]
-            else:
-                logs.PrintLog(logs.INFO, f"[llama_utils] Position not set at system prompt (reasoning). Using default `{reasoningSystemPrompt['position']}`.")
-            
-            if ("separator" in reasoningConfiguration["_private_system_prompt"]):
-                reasoningSystemPrompt["separator"] = reasoningConfiguration["_private_system_prompt"]["separator"]
-            else:
-                logs.PrintLog(logs.INFO, f"[llama_utils] Separator not set at system prompt (reasoning). Using default `{reasoningSystemPrompt['separator']}`.")
-            
-            if ("levels" in reasoningConfiguration["_private_system_prompt"]):
-                reasoningSystemPrompt["levels"] = reasoningConfiguration["_private_system_prompt"]["levels"]
-        
-        reasoning = {
-            "auto": {
-                "classifier": autoReasoningClassifier,
-                "convert": autoReasoningConvert
-            },
-            "levels": reasoningLevels,
-            "default_mode": reasoningDefaultMode,
-            "non_reasoning_level": nonReasoningLevel,
-            "default_reasoning_level": defaultReasoningLevel,
-            "start_token": reasoningStartToken,
-            "end_token": reasoningEndToken,
-            "parameters": reasoningParameters,
-            "user_prompt": reasoningUserPrompt,
-            "system_prompt": reasoningSystemPrompt
-        }
-    else:
-        reasoning = {
-            "auto": {
-                "classifier": None,
-                "convert": {}
-            },
-            "levels": ["no_reasoning"],
-            "default_mode": "nonreasoning",
-            "non_reasoning_level": "no_reasoning",
-            "default_reasoning_level": "no_reasoning",
-            "start_token": "<think>",
-            "end_token": "</think>",
-            "parameters": {},
-            "user_prompt": {
-                "position": "end",
-                "separator": " ",
-                "levels": {}
-            },
-            "system_prompt": {
-                "position": "end",
-                "separator": " ",
-                "levels": {}
-            }
-        }
-        logs.WriteLog(logs.INFO, f"[llama_utils] `reasoning` not defined. Set to default mode; {reasoning}.")
-    
     # Set multimodal type
     if ("multimodal" in Configuration):
         multimodal = Configuration["multimodal"]
@@ -926,6 +800,5 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
     logs.WriteLog(logs.INFO, f"[llama_utils] Model loaded in {loadingTime} seconds.")
     return {
         "_private_model": model,
-        "_private_type": "lcpp",
-        "reasoning": reasoning
+        "_private_type": "lcpp"
     }

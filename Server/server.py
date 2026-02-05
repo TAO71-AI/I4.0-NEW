@@ -461,12 +461,6 @@ def StartServer() -> None:
     if (PrivateKey is None or PublicKey is None):
         PrivateKey, PublicKey = encryption.GenerateRSAKeys()
     
-    if (config.Configuration["server_transfer_rate"] < 1 or config.Configuration["server_transfer_rate"] > 8192):
-        newServerTransferRate = max(1, min(config.Configuration["server_transfer_rate"], 8192))
-
-        logs.PrintLog(logs.WARNING, f"[server] Server transfer rate is too low or too high. Adjusting to {newServerTransferRate}.")
-        config.Configuration["server_transfer_rate"] = newServerTransferRate
-    
     for server in config.Configuration["server_listen"]:
         try:
             if (
@@ -551,7 +545,7 @@ with open(config.Configuration["server_data"]["support_file"], "r") as f:
 if (not os.path.exists(config.Configuration["server_data"]["temp_dir"])):
     os.mkdir(config.Configuration["server_data"]["temp_dir"])
 
-SERVER_VERSION: int = 170000
+SERVER_VERSION: int = 170100
 Servers: list[Any] = []
 PrivateKey: Any | None = None
 PublicKey: Any | None = None

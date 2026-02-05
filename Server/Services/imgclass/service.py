@@ -6,6 +6,7 @@ import time
 import json
 import base64
 import Services.imgclass.hf as hf
+import Utilities.model_utils as model_utils
 import Utilities.logs as logs
 
 __models__: dict[str, dict[str, Any]] = {}
@@ -75,6 +76,14 @@ def LoadModel(ModelName: str, Configuration: dict[str, Any]) -> None:
     
     loadTime = time.time()
     logs.WriteLog(logs.INFO, "[service_imgclass] Loading model...")
+
+    if ("_private_device" not in Configuration):
+        Configuration["_private_device"] = "cpu"
+    
+    if ("dtype" not in Configuration):
+        Configuration["dtype"] = "float32"
+
+    Configuration["_private_bnb_model_config"] = model_utils.CreateBNBQuantization(Config = Configuration, FromModelConfig = True)
 
     if (Configuration["_private_type"] == "hf"):
         model = hf.LoadModel(Configuration)

@@ -8,12 +8,6 @@ import soundfile as sf
 import Utilities.model_utils as model_utils
 
 def LoadModel(Configuration: dict[str, Any]) -> Qwen3TTSModel:
-    if ("_private_device" not in Configuration):
-        Configuration["_private_device"] = "cpu"
-    
-    if ("dtype" not in Configuration):
-        Configuration["dtype"] = "float32"
-    
     model = Qwen3TTSModel.from_pretrained(
         pretrained_model_name_or_path = Configuration["_private_model_path"],
         device_map = Configuration["_private_device"],

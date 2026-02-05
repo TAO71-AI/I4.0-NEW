@@ -4,16 +4,9 @@ from PIL.Image import Image
 from transformers import AutoModelForImageClassification, ViTImageProcessor
 import torch
 import torch.nn.functional as tnnf
-import Server.Utilities.model_utils as model_utils
+import Utilities.model_utils as model_utils
 
 def LoadModel(Configuration: dict[str, Any]) -> list[AutoModelForImageClassification | ViTImageProcessor]:
-    if ("_private_device" not in Configuration):
-        Configuration["_private_device"] = "cpu"
-    
-    if ("dtype" not in Configuration):
-        Configuration["dtype"] = "float32"
-    
-    Configuration["_private_bnb_model_config"] = model_utils.CreateBNBQuantization(Config = Configuration, FromModelConfig = True)
     model = AutoModelForImageClassification.from_pretrained(
         pretrained_model_name_or_path = Configuration["_private_model_path"],
         device_map = Configuration["_private_device"],

@@ -55,11 +55,11 @@ def CreateBNBQuantization(Config: dict[str, Any], FromModelConfig: bool = False)
         load_in_4bit = bnbBits == 4
     )
 
-def GetAttnImpl(ModelConfig: dict[str, Any]) -> str | None:
-    if ("attn" not in ModelConfig):
+def GetAttnImpl(ModelConfig: dict[str, Any], ParamName: str = "attn") -> str | None:
+    if (ParamName not in ModelConfig):
         return None
     
-    attn = ModelConfig["attn"].lower()
+    attn = ModelConfig[ParamName].lower()
 
     if (attn == "none"):
         return None

@@ -6,7 +6,6 @@ import json
 import copy
 import Services.chatbot.llama_utils as utils_llama
 import Utilities.logs as logs
-#import services_manager as servmgr
 
 __models__: dict[str, dict[str, Any]] = {}
 ServiceConfiguration: dict[str, Any] | None = None
@@ -72,13 +71,12 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
     Args:
         Name (str): Name of the model.
         UserConfig (dict[str, Any]): Configuration of the user.
-        UserParameters (dict[str, Any]): Parameters of the user ("key_info", "conversation_name", "conversation").
+        UserParameters (dict[str, Any]): Parameters of the user ("key_info", "conversation").
     """
     __check_service_configuration__()
 
     conversation = UserParameters["conversation"]
     tools = []
-    extraSystemPrompt = {"model": None, "service": None}
 
     if ("temperature" in UserConfig and ServiceConfiguration["temperature"]["modified_by_user"]):
         temperature = UserConfig["temperature"]
@@ -142,16 +140,6 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
         repeatPenalty = __models__[Name]["repeat_penalty"]
     else:
         repeatPenalty = ServiceConfiguration["repeat_penalty"]["default"]
-    
-    if ("tools" in UserConfig and ServiceConfiguration["tools"]["modified_by_user"]):
-        userTools = UserConfig["tools"]
-    elif ("tools" in __models__[Name]):
-        userTools = __models__[Name]["tools"]
-    else:
-        userTools = ServiceConfiguration["tools"]["default"]
-    
-    if (isinstance(userTools, str)):
-        userTools = userTools.split(" ")
 
     if ("tools" in UserConfig and ServiceConfiguration["tools"]["modified_by_user"]):
         tools = UserConfig["tools"]
@@ -177,49 +165,13 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
     if (maxLength > ServiceConfiguration["max_length"]["default"] and not ServiceConfiguration["max_length"]["allow_greater_than_default"]):
         maxLength = ServiceConfiguration["max_length"]["default"]
     
-    if ("extra_system_prompt" in __models__[Name]):
-        extraSystemPrompt["model"] = __models__[Name]["extra_system_prompt"]
-    
-    if (
-        ServiceConfiguration["extra_system_prompt"]["default"] is not None and
-        len(ServiceConfiguration["extra_system_prompt"]["default"].strip()) != 0
-    ):
-        extraSystemPrompt["service"] = ServiceConfiguration["extra_system_prompt"]["default"]
+    if ("stop_tokens" in UserConfig):
+        stopTokens = UserConfig["stop_tokens"] if (isinstance(UserConfig["stop_tokens"], list)) else [str(UserConfig["stop_tokens"])]
     
     if ("_private_extra_parameters" in __models__[Name]):
         extraParameters = __models__[Name]["_private_extra_parameters"]
     else:
         extraParameters = {}
-    
-    if ("reasoning" in UserConfig):
-        reasoningLevel = UserConfig["reasoning"]
-    else:
-        reasoningLevel = __models__[Name]["reasoning"]["default_mode"]
-
-    if (reasoningLevel == "reasoning"):
-        reasoningLevel = __models__[Name]["reasoning"]["default_reasoning_level"]
-    elif (reasoningLevel == "nonreasoning"):
-        reasoningLevel = __models__[Name]["reasoning"]["non_reasoning_level"]
-    elif (reasoningLevel == "auto"):
-        #if (servmgr.IsServiceInstalled("text_classification")):
-        #    pass  # TODO: Get auto level
-        #else:
-        #    logs.WriteLog(
-        #        logs.WARNING,
-        #        "[service_chatbot] Optional `text_classification` service not installed, but trying to use automatic reasoning level. Changing to `reasoning`."
-        #    )
-        #    reasoningLevel = __models__[Name]["reasoning"]["default_reasoning_level"]
-        reasoningLevel = __models__[Name]["reasoning"]["default_reasoning_level"]  # TODO: Replace
-    elif (reasoningLevel in __models__[Name]["reasoning"]["levels"]):
-        pass  # TODO
-    else:
-        raise ValueError("Invalid reasoning mode or level.")
-    
-    if (
-        "parameters" in __models__[Name]["reasoning"] and
-        reasoningLevel in __models__[Name]["reasoning"]["parameters"]
-    ):
-        extraParameters |= __models__[Name]["reasoning"]["parameters"][reasoningLevel]
     
     generator = InferenceModel(
         Name,
@@ -237,9 +189,8 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
             "tools": tools,
             "tool_choice": toolChoice,
             "max_length": maxLength,
-            "extra_system_prompt": extraSystemPrompt,
-            "extra_parameters": extraParameters,
-            "reasoning": reasoningLevel
+            "stop": stopTokens,
+            "extra_parameters": extraParameters
         }
     )
 
@@ -270,43 +221,12 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
                     
                 content += cont["text"]
 
-            if (Configuration["extra_system_prompt"]["service"] is not None):
-                content = Configuration["extra_system_prompt"]["service"] + "\n" + content
-            
-            if (Configuration["extra_system_prompt"]["model"] is not None):
-                content = Configuration["extra_system_prompt"]["model"] + "\n" + content
-
-            if ("reasoning" in Configuration and Configuration["reasoning"] in __models__[Name]["reasoning"]["system_prompt"]["levels"]):
-                if (__models__[Name]["reasoning"]["system_prompt"]["position"] == "start"):
-                    content = __models__[Name]["reasoning"]["system_prompt"]["levels"][Configuration["reasoning"]] + __models__[Name]["reasoning"]["system_prompt"]["separator"] + content
-                else:
-                    content += __models__[Name]["reasoning"]["system_prompt"]["separator"] + __models__[Name]["reasoning"]["system_prompt"]["levels"][Configuration["reasoning"]]
-
             message["content"] = content
-        elif (message["role"] == "user" and conversation.index(message) == len(conversation) - 1):
-            if ("reasoning" in Configuration and Configuration["reasoning"] in __models__[Name]["reasoning"]["user_prompt"]["levels"]):
-                contentTextIdx = None
-
-                for content in message["content"]:
-                    if (content["type"] == "text"):
-                        contentTextIdx = content["content"].index(content)
-
-                        if (__models__[Name]["reasoning"]["user_prompt"]["position"] == "start"):
-                            break
-                
-                if (contentTextIdx is None):
-                    contentTextIdx = len(message["content"])
-                    message["content"].append({"type": "text", "text": ""})
-
-                if (__models__[Name]["reasoning"]["user_prompt"]["position"] == "start"):
-                    message["content"][contentTextIdx]["text"] = __models__[Name]["reasoning"]["user_prompt"]["levels"][Configuration["reasoning"]] + __models__[Name]["reasoning"]["user_prompt"]["separator"] + message["content"][contentTextIdx]["text"]
-                else:
-                    message["content"][contentTextIdx]["text"] += __models__[Name]["reasoning"]["user_prompt"]["separator"] + __models__[Name]["reasoning"]["user_prompt"]["levels"][Configuration["reasoning"]]
 
         if (isinstance(message["content"], list)):
             for content in message["content"]:
                 if (content["type"] not in __models__[Name]["multimodal"]):
-                    yield {"warnings": [f"Content type '{content['type']}' not supported by this model."]}
+                    yield {"warnings": [f"Content type '{content['type']}' not supported by this model, this will be ignored."]}
                     continue
 
                 if (__models__[Name]["_private_type"] == "lcpp"):
@@ -336,6 +256,7 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
             presence_penalty = Configuration["presence_penalty"],
             frequency_penalty = Configuration["frequency_penalty"],
             repeat_penalty = Configuration["repeat_penalty"],
+            stop = Configuration["stop"],
             **Configuration["extra_parameters"]
         )
         tools = []
@@ -426,6 +347,17 @@ def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
 
     __models__[Name] = Configuration | model
 
+    testInferenceConversation = ServiceConfiguration["test_inference_conversation"]
+
+    for message in testInferenceConversation:
+        if (isinstance(message["content"], str)):
+            message["content"] = [{"type": "text", "text": message["content"]}]
+
+        for content in message["content"]:
+            if (content["type"] != "text"):
+                with open(content[content["type"]], "rb") as f:
+                    content[content["type"]] = base64.b64encode(f.read()).decode("utf-8")
+
     # Test the inference
     if ("_private_test_inference" in Configuration and Configuration["_private_test_inference"]):
         logs.WriteLog(logs.INFO, "[service_chatbot] Testing inference of the model.")
@@ -442,24 +374,10 @@ def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
         else:
             logs.WriteLog(logs.INFO, "[service_chatbot] Inference test files not specified.")
 
-        response = InferenceModel(
+        response = SERVICE_INFERENCE(
             Name,
-            [{"role": "user", "content": files + [{"type": "text", "text": ServiceConfiguration["test_inference_prompt"]}]}],
-            {
-                "temperature": 0,
-                "top_p": 0.95,
-                "top_k": 40,
-                "min_p": 0.05,
-                "typical_p": 1,
-                "seed": None,
-                "presence_penalty": 0,
-                "frequency_penalty": 0,
-                "repeat_penalty": 1,
-                "tools": [],
-                "extra_tools": [],
-                "tool_choice": "none",
-                "max_length": ServiceConfiguration["test_inference_max_length"]
-            }
+            ServiceConfiguration["test_inference_configuration"],
+            {"conversation": testInferenceConversation}
         )
         testInferenceResponse = ""
 
