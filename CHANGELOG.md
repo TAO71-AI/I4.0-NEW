@@ -6,6 +6,14 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 7-2-2026 (commit `v17.1.1`)
+
+### Server changes
+
+- (chatbot module) Fixed bugs.
+
+---
+
 ## 5-2-2026 (commit `v17.1.0`)
 
 ### Server changes

@@ -25,6 +25,10 @@ frequency_penalty:
 repeat_penalty:
   default: 1
   modified_by_user: true
+tools:
+  modified_by_user: true
+tool_choice:
+  modified_by_user: true
 tool_start_token: "<tool_call>"
 tool_end_token: "</tool_call>"
 max_length:

@@ -74,9 +74,7 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
         UserParameters (dict[str, Any]): Parameters of the user ("key_info", "conversation").
     """
     __check_service_configuration__()
-
     conversation = UserParameters["conversation"]
-    tools = []
 
     if ("temperature" in UserConfig and ServiceConfiguration["temperature"]["modified_by_user"]):
         temperature = UserConfig["temperature"]
@@ -143,17 +141,13 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
 
     if ("tools" in UserConfig and ServiceConfiguration["tools"]["modified_by_user"]):
         tools = UserConfig["tools"]
-    elif ("tools" in __models__[Name]):
-        tools = __models__[Name]["tools"]
     else:
-        tools = ServiceConfiguration["tools"]["default"]
+        tools = []
     
     if ("tool_choice" in UserConfig and ServiceConfiguration["tool_choice"]["modified_by_user"]):
         toolChoice = UserConfig["tool_choice"]
-    elif ("tool_choice" in __models__[Name]):
-        toolChoice = __models__[Name]["tool_choice"]
     else:
-        toolChoice = ServiceConfiguration["tool_choice"]["default"]
+        toolChoice = "auto"
     
     if ("max_length" in UserConfig and ServiceConfiguration["max_length"]["modified_by_user"]):
         maxLength = UserConfig["max_length"]
@@ -167,6 +161,8 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
     
     if ("stop_tokens" in UserConfig):
         stopTokens = UserConfig["stop_tokens"] if (isinstance(UserConfig["stop_tokens"], list)) else [str(UserConfig["stop_tokens"])]
+    else:
+        stopTokens = []
     
     if ("_private_extra_parameters" in __models__[Name]):
         extraParameters = __models__[Name]["_private_extra_parameters"]
@@ -382,6 +378,7 @@ def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
         testInferenceResponse = ""
 
         for token in response:
-            testInferenceResponse += token["text"]
+            if ("text" in token):
+                testInferenceResponse += token["text"]
         
         logs.WriteLog(logs.INFO, f"[service_chatbot] Test inference response for model `{Name}`:\n```markdown\n{testInferenceResponse}\n```")
