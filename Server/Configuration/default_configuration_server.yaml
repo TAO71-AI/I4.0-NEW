@@ -72,7 +72,7 @@ server_encryption:
       sha224:
         - "You are using a weak hash. The message is encrypted; but it can be decrypted by anyone."
   force_response_hash: null  # "none", "sha224", "sha256", "sha384", "sha512"
-  decryption_threads: 2  # -1 for all threads
+  encryption_threads: 2  # -1 for all threads
   obfuscate: true  # Adds a random length string to the encryption to patch https://arxiv.org/pdf/2511.03675
 server_client_version:
   min: 170000  # Minimum client version to accept, null = server version

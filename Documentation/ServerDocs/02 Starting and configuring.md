@@ -49,7 +49,7 @@ To close the server you can send a **SIGINT** signal.
 |server_encryption:allowed_hashes:hashes|list (string)|All of the allowed hashes in the server. `none` is no encryption, no security. `sha224` is a weak hash, almost no security. `sha256` is a decent hash, good security. `sha384` is a very secure hash, extremely good security. `sha512` is the most secure hash, maximum security.|
 |server_encryption:allowed_hashes:warnings|dictonary (string, list (string))|Warnings that will be sent to the user when using a specific hash.|
 |server_encryption:force_response_hash|string, null|Forces the server to use a hash for the responses. `null` will return the response in the same hash the user is using.|
-|server_encryption:decryption_threads|integer|Threads that the server will use when decrypting, more threads will require more power but will take less time. `-1` uses all the threads of the CPU.|
+|server_encryption:encryption_threads|integer|Threads that the server will use when encrypting and decrypting, more threads will require more power but will take less time. `-1` uses all the threads of the CPU.|
 |server_encryption:obfuscate|bool|Adds a random length string to the response to patch a vulnerability. [See more here](https://arxiv.org/pdf/2511.03675).|
 |server_client_version:min|integer, null|Minimum version of the client API that the server accepts. `null` means the same version as the server.|
 |server_client_version:max|integer, null|Maximum version of the client API that the server accepts. `null` means the same version as the server.|

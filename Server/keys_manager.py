@@ -3,6 +3,7 @@ import os
 import random
 import datetime
 import json
+import time
 import Utilities.logs as logs
 
 Configuration: dict[str, Any] = {}
@@ -123,7 +124,7 @@ class APIKey():
     @staticmethod
     def __wait__(Key: str) -> None:
         while (Key in __busy__):
-            raise Exception("ª")
+            time.sleep(0.1)
     
     @staticmethod
     def KeyFileExists(Key: str) -> bool:

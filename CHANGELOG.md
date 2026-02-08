@@ -6,6 +6,27 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 8-2-2026 (commit `v17.2.0`)
+
+### Server changes
+
+- (chatbot module) Implemented LoRA.
+- The server now stores a list with all the clients connected and closes all of the clients connections when closing.
+- Updated encryption script to allow multi-thread encryption.
+- Fixed a bug that made all of the models free-to-use.
+- Fixed a bug regarding model pricing for input.
+- Updated configuration.
+
+### Client changes
+
+- Updated encryption script.
+
+### Other changes
+
+- Updated server documentation.
+
+---
+
 ## 7-2-2026 (commit `v17.1.1`)
 
 ### Server changes

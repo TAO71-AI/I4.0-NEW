@@ -375,6 +375,8 @@ def CalculateTokenPrice(ModelNameOrConfig: str | dict[str, Any], GetOutputPricin
 
     if ("pricing" in modelConfiguration):
         modelPricing = modelConfiguration["pricing"]
+    elif ("price" in modelConfiguration):
+        modelPricing = modelConfiguration["price"]
     else:
         logs.WriteLog(logs.WARNING, "[services_manager] Pricing not set. Everything will default to 0 (free of charge).")
         modelPricing = {}
@@ -387,12 +389,12 @@ def CalculateTokenPrice(ModelNameOrConfig: str | dict[str, Any], GetOutputPricin
         videoPriceR = modelPricing["video_output_r"] if ("video_output_r" in modelPricing) else 0
         otherPrice = modelPricing["other_output"] if ("other_output" in modelPricing) else 0
     else:
-        textPrice = modelPricing["text_input"] if ("text_output" in modelPricing) else 0
-        imagePrice = modelPricing["image_input"] if ("image_output" in modelPricing) else 0
-        audioPrice = modelPricing["audio_input"] if ("audio_output" in modelPricing) else 0
-        videoPriceS = modelPricing["video_input_s"] if ("video_output_s" in modelPricing) else 0
-        videoPriceR = modelPricing["video_input_r"] if ("video_output_r" in modelPricing) else 0
-        otherPrice = modelPricing["other_input"] if ("other_output" in modelPricing) else 0
+        textPrice = modelPricing["text_input"] if ("text_input" in modelPricing) else 0
+        imagePrice = modelPricing["image_input"] if ("image_input" in modelPricing) else 0
+        audioPrice = modelPricing["audio_input"] if ("audio_input" in modelPricing) else 0
+        videoPriceS = modelPricing["video_input_s"] if ("video_input_s" in modelPricing) else 0
+        videoPriceR = modelPricing["video_input_r"] if ("video_input_r" in modelPricing) else 0
+        otherPrice = modelPricing["other_input"] if ("other_input" in modelPricing) else 0
     
     for content in MessageContent:
         if (len(content[content["type"]]) == 0):
@@ -424,8 +426,7 @@ def CalculateTokenPrice(ModelNameOrConfig: str | dict[str, Any], GetOutputPricin
 
                 fps = float(stream.average_rate) if (stream.average_rate) else 0
                 numberOfFrames = stream.frames
-                duration = float(reader.duration / av.time_base) if (reader.duration) else (numberOfFrames / fps if (fps) else 0)
-                durationInSeconds = math.floor(duration)
+                durationInSeconds = float(reader.duration / av.time_base) if (reader.duration) else (numberOfFrames / fps if (fps) else 0)
 
                 width = stream.width
                 height = stream.height
@@ -525,6 +526,7 @@ def InferenceModel(
     ):
         raise ValueError("Required user parameters not defined.")
     
+    tokensProcessingTime = None
     serviceName = FindServiceForModel(ModelName, True)
     
     if (ModelName not in ServicesModels[serviceName]):
@@ -595,7 +597,6 @@ def InferenceModel(
 
         firstToken = True
         lastTokenTime = time.time()
-        tokensProcessingTime = None
         convResultTxt = None
         convResultFiles = []
         saveResponse = True

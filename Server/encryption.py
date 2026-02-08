@@ -109,7 +109,18 @@ def LoadKeysFromContent(
 
     return (privateKey, publicKey)
 
-def Encrypt(Hash: hashes.HashAlgorithm | None, PublicKey: rsa.RSAPublicKey, Data: str | bytes) -> str | bytes:
+def Encrypt(Hash: hashes.HashAlgorithm | None, PublicKey: rsa.RSAPublicKey, Data: str | bytes, MaxThreads: int) -> str | bytes:
+    def _encrypt(Key: bytes, Nonce: bytes, Idx: int, Chunk: bytes, ChunkSize: int) -> tuple[int, bytes]:
+        nonceInt = int.from_bytes(Nonce, "big")
+        blocksPerChunk = ChunkSize // 16
+        offset = Idx * blocksPerChunk
+        derivedNonce = (nonceInt + offset).to_bytes(16, "big")
+
+        cipher = Cipher(algorithms.AES(Key), modes.CTR(derivedNonce), backend = default_backend())
+        encryptor = cipher.encryptor()
+        
+        return (Idx, encryptor.update(Chunk) + encryptor.finalize())
+
     if (Hash is None):
         return Data
     
@@ -131,15 +142,26 @@ def Encrypt(Hash: hashes.HashAlgorithm | None, PublicKey: rsa.RSAPublicKey, Data
     )
 
     nonce = os.urandom(16)
-    cipher = Cipher(algorithms.AES(key), modes.CTR(nonce), backend = default_backend())
-    encryptor = cipher.encryptor()
-    ciphertext = encryptor.update(data) + encryptor.finalize()
+    chunkSize = 1024 * 1024
+    chunks = [data[i:i + chunkSize] for i in range(0, len(data), chunkSize)]
+
+    results = [None] * len(chunks)
+
+    with ThreadPoolExecutor(max_workers = MaxThreads) as executor:
+        futures = [
+            executor.submit(_encrypt, key, nonce, idx, chunk, chunkSize)
+            for idx, chunk in enumerate(chunks)
+        ]
+
+        for future in futures:
+            idx, ciphertext = future.result()
+            results[idx] = ciphertext
 
     result = (
         len(encriptedKey).to_bytes(4, "big") +
         encriptedKey +
         nonce +
-        ciphertext
+        b"".join(results)
     )
     result = base64.b64encode(result)
 

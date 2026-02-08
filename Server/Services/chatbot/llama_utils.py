@@ -409,6 +409,18 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
     else:
         raise AttributeError("[llama_utils] `_private_model_path` must be in the configuration of the model.")
     
+    # Get the LoRA
+    if ("_private_lora" in Configuration):
+        if ("path" not in Configuration["_private_lora"]):
+            raise ValueError("[llama_utils] Could not load LoRA. No path found.")
+        
+        loraPath = Configuration["_private_lora"]["path"]
+        loraBase = Configuration["_private_lora"]["base_path"] if ("base_path" in Configuration["_private_lora"]) else None
+        loraScale = Configuration["_private_lora"]["scale"] if ("scale" in Configuration["_private_lora"]) else 1
+
+        if (not isinstance(loraScale, int)):
+            raise AttributeError("[llama_utils] Invalid LoRA scale.")
+    
     # Get the GPU layers
     if ("_private_gpu_layers" in Configuration):
         gpuLayers = Configuration["_private_gpu_layers"]
@@ -783,6 +795,9 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         "type_v": ftypeV,
         "spm_infill": spmInfill,
         "cache_type": cacheType,
+        "lora_path": loraPath,
+        "lora_base": loraBase,
+        "lora_scale": loraScale,
         "chat_handler": chatHandler,
         "verbose": verbose
     }

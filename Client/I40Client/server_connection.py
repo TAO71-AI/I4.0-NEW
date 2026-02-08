@@ -7,7 +7,7 @@ import json
 import base64
 import asyncio
 
-VERSION: int = 170100
+VERSION: int = 170200
 TRANSFER_RATE = 8192 * 1024
 
 class ClientSocket():
@@ -137,7 +137,7 @@ class ClientSocket():
                 "user_parameters": UserParameters
             }
         }
-        data["content"] = encryption.Encrypt(h, self.__server_public_key__, json.dumps(data["content"]))
+        data["content"] = encryption.Encrypt(h, self.__server_public_key__, json.dumps(data["content"]), self.__configuration__.Encryption_Threads)
         await self.Send(json.dumps(data))
 
         while (True):

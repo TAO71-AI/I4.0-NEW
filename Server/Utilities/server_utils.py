@@ -119,6 +119,7 @@ class WebSocketsServer():
         self.__socket__ = None
         self.__ssl__ = None if (SSLCertFile is None or SSLKeyFile is None) else (SSLCertFile, SSLKeyFile, SSLPassword)
         self.__started__ = False
+        self.__connected_clients__ = []
 
         logs.WriteLog(logs.INFO, "[server_utils] New WebSockets server created.")
 
@@ -135,6 +136,8 @@ class WebSocketsServer():
             if (c.GetEndPoint()[0] in self.BannedIPs):
                 await c.Send("You are banned.")
                 return
+            
+            self.__connected_clients__.append(c)
 
             while (self.__started__ and c.IsConnected()):
                 msg = await c.Receive()
@@ -153,6 +156,7 @@ class WebSocketsServer():
         finally:
             try:
                 await c.Close()
+                self.__connected_clients__.remove(c)
                 
                 if (self.DisconnectedCallback is not None):
                     await self.DisconnectedCallback(c)
@@ -162,7 +166,7 @@ class WebSocketsServer():
     async def __start_server__(self) -> None:
         if (self.IsStarted()):
             logs.WriteLog(logs.INFO, "[server_utils] Server already started! Restarting.")
-            self.__stop__()
+            self.Stop()
 
         try:
             if (self.__ssl__ is None):
@@ -204,21 +208,22 @@ class WebSocketsServer():
         else:
             await self.__start_server__()
 
-    async def __stop__(self) -> None:
+    async def Stop(self) -> None:
         if (not self.IsStarted()):
             return
         
         try:
+            if (len(self.__connected_clients__) > 0):
+                for client in self.__connected_clients__:
+                    try:
+                        client.Close()
+                    except:
+                        logs.WriteLog(logs.WARNING, "[server_utils] Could not disconnect client.")
+
             if (self.__socket__ is not None):
                 self.__socket__.close(True)
                 await self.__socket__.wait_closed()
         except Exception as ex:
             logs.PrintLog(logs.ERROR, f"[server_utils] Could not fully close WebSockets server: {ex}")
-        
-        self.__started__ = False
-    
-    async def Stop(self) -> None:
-        if (not self.IsStarted()):
-            return
-
-        self.__started__ = False
+        finally:
+            self.__started__ = False

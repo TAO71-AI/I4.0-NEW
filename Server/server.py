@@ -182,7 +182,8 @@ async def __unhandled_received_message__(Client: server_utils.Client, Message: s
                     encrItem = encryption.Encrypt(
                         responseHashParsed,
                         clientPublicKey,
-                        json.dumps(tokenPublicParams)
+                        json.dumps(tokenPublicParams),
+                        config.Configuration["server_encryption"]["encryption_threads"]
                     )
                 
                 resItem = {
@@ -239,12 +240,12 @@ def __process_client__(Message: str, EndPoint: tuple[str, int]) -> Generator[dic
         clientVersion = message["version"] if ("version" in message) else -1
 
         if (config.Configuration["server_client_version"]["min"] is None):
-            serverMinVersion = SERVER_VERSION
+            serverMinVersion = 170000
         else:
             serverMinVersion = config.Configuration["server_client_version"]["min"]
         
         if (config.Configuration["server_client_version"]["max"] is None):
-            serverMaxVersion = SERVER_VERSION
+            serverMaxVersion = 2 ** 31
         else:
             serverMaxVersion = config.Configuration["server_client_version"]["max"]
 
@@ -278,7 +279,7 @@ def __process_client__(Message: str, EndPoint: tuple[str, int]) -> Generator[dic
             messageHashParsed,
             PrivateKey,
             messageContent,
-            config.Configuration["server_encryption"]["decryption_threads"]
+            config.Configuration["server_encryption"]["encryption_threads"]
         )
         gen = None
 
@@ -545,7 +546,7 @@ with open(config.Configuration["server_data"]["support_file"], "r") as f:
 if (not os.path.exists(config.Configuration["server_data"]["temp_dir"])):
     os.mkdir(config.Configuration["server_data"]["temp_dir"])
 
-SERVER_VERSION: int = 170100
+SERVER_VERSION: int = 170200
 Servers: list[Any] = []
 PrivateKey: Any | None = None
 PublicKey: Any | None = None
@@ -780,7 +781,7 @@ if (__name__ == "__main__"):
                 print(f"Key created! Key: {createdKey.Key}", flush = True)
             elif (prompt == "help"):
                 helpMsg = (
-                    f"\033[34mI4.0\033[0m Server (version \033[35m{SERVER_VERSION}\033[0m)\n"
+                    f"\033[34mI4.0\033[0m Server (version \033[35m{int(str(SERVER_VERSION)[:2])}.{int(str(SERVER_VERSION)[2:4])}.{int(str(SERVER_VERSION)[4:])}\033[0m)\n"
                     "\033[32mCommands:\033[0m\n"
                     "- \033[31minference\033[0m: Tests the inference.\n"
                     "- \033[31mexit\033[0m (alias: \033[31mclose\033[0m): Closes the server.\n"
