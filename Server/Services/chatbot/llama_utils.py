@@ -420,6 +420,10 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
 
         if (not isinstance(loraScale, int)):
             raise AttributeError("[llama_utils] Invalid LoRA scale.")
+    else:
+        loraPath = None
+        loraBase = None
+        loraScale = 1
     
     # Get the GPU layers
     if ("_private_gpu_layers" in Configuration):
