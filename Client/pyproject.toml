@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "I4_0-Client-PY"
-version = "17.2.0"
+version = "17.2.2"
 description = "Python bindings for I4.0, Client-side."
 authors = [{name = "TAO71-AI"}]
 license = {text = "TAO71 I4.0 License (version 2)"}
