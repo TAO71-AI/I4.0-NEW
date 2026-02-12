@@ -13,7 +13,10 @@ dependencies = [
     "websockets>=15.0.0,<16.0.0",
     "asyncio",
     "cryptography",
-    "html2text"
+    "html2text",
+    "requests",
+    "beautifulsoup4",
+    "ddgs"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",

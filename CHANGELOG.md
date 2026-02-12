@@ -6,6 +6,20 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 12-2-2026
+
+### Server changes
+
+- Fixed some bugs in the server script.
+- (chatbot module) Fixed a bug for non-multimodal models.
+
+### Client changes
+
+- Added some dependencies that were missing in previous versions.
+- Implemented a ping interval parameter so the connection will not be closed.
+
+---
+
 ## 8-2-2026 (commit `v17.2.1`)
 
 ### Server changes

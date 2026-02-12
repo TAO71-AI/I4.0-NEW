@@ -131,7 +131,7 @@ async def __unhandled_received_message__(Client: server_utils.Client, Message: s
             await Client.Send(TOSContent)
         else:
             # Process other commands
-            async def __send_to_client__(Token: dict[str, Any]) -> None:
+            async def __send_to_client_2__(Token: dict[str, Any]) -> None:
                 global BannedUsers, Servers
                 nonlocal clientPublicKey, clientPublicKeyStr, modelName, queueUID, keyInstance, filterAction
 
@@ -199,31 +199,41 @@ async def __unhandled_received_message__(Client: server_utils.Client, Message: s
                 except Exception as ex:
                     logs.WriteLog(logs.ERROR, f"[server] Error sending to client: {ex}")
                     raise ex
+            
+            async def __send_to_client__(Token: dict[str, Any]) -> None:
+                nonlocal exc
+
+                try:
+                    await __send_to_client_2__(Token)
+                except Exception as ex:
+                    exc = ex
 
             def __run_in_thread__() -> None:
-                nonlocal keyInstance, modelName
-
+                nonlocal keyInstance, asyncLoop, exc
                 gen = __process_client__(Message, Client.GetEndPoint())
-                loop = asyncio.new_event_loop()
 
                 for token in gen:
-                    try:
-                        loop.run_until_complete(__send_to_client__(token))
-                    except:
+                    if (exc is None):
+                        future = asyncio.run_coroutine_threadsafe(
+                            coro = __send_to_client__(token),
+                            loop = asyncLoop
+                        )
+                        future.result()
+                    else:
                         if (keyInstance is not None):
                             keyInstance.SaveToFile()
                         
                         gen.throw(StopIteration)
                         break
-                
-                loop.close()
             
             modelName = None
             queueUID = None
             keyInstance = None
             filterAction = None
+            exc = None
+            asyncLoop = asyncio.get_running_loop()
 
-            th = threading.Thread(target = __run_in_thread__)
+            th = threading.Thread(target = __run_in_thread__, daemon = True)
             th.start()
     except Exception as ex:
         logs.WriteLog(logs.ERROR, f"[server] Error while receiving from client ({ex}). The connection will be closed.")

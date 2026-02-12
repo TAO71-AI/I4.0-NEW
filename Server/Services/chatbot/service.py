@@ -220,10 +220,17 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
             message["content"] = content
 
         if (isinstance(message["content"], list)):
+            txt = None
+
             for content in message["content"]:
                 if (content["type"] not in __models__[Name]["multimodal"]):
                     yield {"warnings": [f"Content type '{content['type']}' not supported by this model, this will be ignored."]}
                     continue
+                elif (len(__models__[Name]["multimodal"]) == 1 and __models__[Name]["multimodal"][0] == "text"):
+                    if (txt is None):
+                        txt = content["text"]
+                    else:
+                        txt += content["text"]
 
                 if (__models__[Name]["_private_type"] == "lcpp"):
                     if (content["type"] == "image"):
@@ -232,6 +239,9 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
                         content["type"] = "image_url"
                         content.pop("image")
                     # TODO: Add video and audio when supported
+            
+            if (txt is not None):
+                message["content"] = txt
 
         modelConversation.append(message)
 

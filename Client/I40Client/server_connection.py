@@ -42,7 +42,9 @@ class ClientSocket():
             uri = ("wss" if (Secure) else "ws") + f"://{Host}:{Port}"
             self.__socket__ = await WS_Connect(
                 uri = uri,
-                max_size = TRANSFER_RATE
+                max_size = TRANSFER_RATE,
+                ping_interval = self.__configuration__.PingInterval,
+                ping_timeout = None
             )
         
             while (self.__socket__.state == WS_State.CONNECTING):
@@ -165,7 +167,7 @@ class ClientSocket():
                 models = token["models"]
             
             if ("errors" in token and len(token["errors"]) > 0):
-                break
+                raise RuntimeError(f"Unexpected server error(s): {token['errors']}")
         
         if (models is None):
             raise RuntimeError("Could not get models.")
@@ -181,7 +183,7 @@ class ClientSocket():
                 modelInfo = token["config"]
             
             if ("errors" in token and len(token["errors"]) > 0):
-                break
+                raise RuntimeError(f"Unexpected server error(s): {token['errors']}")
         
         if (modelInfo is None):
             raise RuntimeError("Could not get model information.")
@@ -197,7 +199,7 @@ class ClientSocket():
                 queueData = token["queue"]
             
             if ("errors" in token and len(token["errors"]) > 0):
-                break
+                raise RuntimeError(f"Unexpected server error(s): {token['errors']}")
         
         if (queueData is None):
             raise RuntimeError("Could not get queue data.")
@@ -229,7 +231,7 @@ class ClientSocket():
                 key = token["key"]
             
             if ("errors" in token and len(token["errors"]) > 0):
-                break
+                raise RuntimeError(f"Unexpected server error(s): {token['errors']}")
 
         if (key is None):
             raise RuntimeError("Could not create new API key.")
@@ -243,7 +245,7 @@ class ClientSocket():
 
         async for token in gen:
             if ("errors" in token and len(token["errors"]) > 0):
-                raise RuntimeError("Could not delete API key.")
+                raise RuntimeError(f"Unexpected server error(s): {token['errors']}")
        
     async def GetKeyData(self, Key: str, **kwargs) -> dict[str, Any] | None:
         key = None
@@ -256,7 +258,7 @@ class ClientSocket():
                 key = token["key"]
             
             if ("errors" in token and len(token["errors"]) > 0):
-                break
+                raise RuntimeError(f"Unexpected server error(s): {token['errors']}")
 
         if (key is None):
             raise RuntimeError("Could not fetch key data.")
@@ -271,7 +273,7 @@ class ClientSocket():
 
         async for token in gen:
             if ("errors" in token and len(token["errors"]) > 0):
-                raise RuntimeError("Could not ban user.")
+                raise RuntimeError(f"Unexpected server error(s): {token['errors']}")
     
     async def PardonUser(self, Type: Literal["key", "ip"], Value: str, **kwargs) -> None:
         gen = self.AdvancedSendAndReceive("", PromptParameters = {
@@ -281,7 +283,7 @@ class ClientSocket():
 
         async for token in gen:
             if ("errors" in token and len(token["errors"]) > 0):
-                raise RuntimeError("Could not pardon user.")
+                raise RuntimeError(f"Unexpected server error(s): {token['errors']}")
     
     async def GetSupport(self, **kwargs) -> list[dict[str, str]]:
         support = None
@@ -292,7 +294,7 @@ class ClientSocket():
                 support = token["support"]
             
             if ("errors" in token and len(token["errors"]) > 0):
-                break
+                raise RuntimeError(f"Unexpected server error(s): {token['errors']}")
 
         if (support is None):
             raise RuntimeError("Could not fetch support data.")
