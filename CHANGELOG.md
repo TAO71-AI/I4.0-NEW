@@ -6,7 +6,7 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
-## 12-2-2026
+## 12-2-2026 (commit `v17.2.2`)
 
 ### Server changes
 
