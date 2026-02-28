@@ -4,17 +4,10 @@ import copy
 import Utilities.install_requirements as req
 import Utilities.gpu_utils as gpu
 import Utilities.logs as logs
-import services_manager
 
 def Install(Env: dict[str, Any] | None = None) -> None:
     if (Env is None):
         Env = copy.deepcopy(os.environ)
-    
-    logs.PrintLog(logs.INFO, (
-        "Optional dependencies (services):\n"
-        "- text_classification - For automatic reasoning support. STATUS: "
-        "INSTALLED" if (services_manager.IsServiceInstalled("text_classification")) else "NOT INSTALLED"
-    ))
 
     if ("CHATBOT_NO_GPU" in Env and bool(Env["CHATBOT_NO_GPU"])):
         gpuType = gpu.GPUType.NO_GPU
@@ -31,6 +24,7 @@ def Install(Env: dict[str, Any] | None = None) -> None:
     forceMMQ = "CHATBOT_FORCE_MMQ" in Env and bool(Env["CHATBOT_FORCE_MMQ"]) if (gpuType == gpu.GPUType.NVIDIA) else None
     faAllQuants = not ("CHATBOT_NO_FA_ALL_QUANTS" in Env and bool(Env["CHATBOT_NO_FA_ALL_QUANTS"]))
     forceUpgrade = ["--upgrade"] if ("BASE_FORCE_UPGRADE" in os.environ and bool(os.environ["BASE_FORCE_UPGRADE"])) else []
+    verbose = [] if ("VERBOSE" in os.environ and not bool(os.environ["VERBOSE"])) else ["--verbose"]
 
     logs.PrintLog(
         logs.INFO,
@@ -73,7 +67,7 @@ def Install(Env: dict[str, Any] | None = None) -> None:
         EnvVars = {
             "CMAKE_ARGS": lcppCmake
         },
-        PIPOptions = ["--verbose"] + forceUpgrade
+        PIPOptions = verbose + forceUpgrade
     )
 
 if (__name__ == "__main__"):

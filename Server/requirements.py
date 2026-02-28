@@ -30,10 +30,10 @@ def InstallRequirements() -> None:
     torchIdx = "https://download.pytorch.org/whl/cpu"
     args = []
 
-    if ("FORCE_UPGRADE" in os.environ and len(os.environ["FORCE_UPGRADE"].strip()) > 0):
+    if ("FORCE_UPGRADE" in os.environ and len(os.environ["FORCE_UPGRADE"].strip()) > 0 and bool(os.environ["FORCE_UPGRADE"])):
         args.append("--upgrade")
     
-    if ("VERBOSE" in os.environ and len(os.environ["VERBOSE"].strip()) > 0):
+    if ("VERBOSE" in os.environ and len(os.environ["VERBOSE"].strip()) > 0 and bool(os.environ["VERBOSE"])):
         args.append("--verbose")
 
     if ("BASE_TORCH_CIDX" in os.environ and len(os.environ["BASE_TORCH_CIDX"].strip()) > 0):

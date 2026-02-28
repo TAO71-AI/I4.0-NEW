@@ -67,7 +67,8 @@ from llama_cpp.llama_chat_format import (
     Llama3VisionAlphaChatHandler as CH_Llama3VisionAlpha,
     MiniCPMv26ChatHandler as CH_MiniCPMv26,
     Qwen25VLChatHandler as CH_Qwen25VL,
-    Qwen3VLChatHandler as CH_Qwen3VL
+    Qwen3VLChatHandler as CH_Qwen3VL,
+    Qwen35ChatHandler as CH_Qwen35
 )
 from typing import Any
 import time
@@ -276,7 +277,8 @@ def StringToChatHandler(
     Mmproj: str,
     UseGPU: bool,
     ImageTokens: tuple[int, int],
-    Verbose: bool
+    Verbose: bool,
+    **ExtraArgs: dict[str, Any]
 ) -> CH_Llava15 | None:
     """
     Converts a string (chat handler name) into a class.
@@ -298,7 +300,7 @@ def StringToChatHandler(
         "image_min_tokens": ImageTokens[0],
         "image_max_tokens": ImageTokens[1],
         "verbose": Verbose
-    }
+    } | ExtraArgs
 
     if (ImageTokens[1] < ImageTokens[0] and ImageTokens[1] > -1):
         raise ValueError("[llama_utils] `mmproj_max_image_tokens` can't be less than `mmproj_min_image_tokens`.")
@@ -322,7 +324,9 @@ def StringToChatHandler(
         if (ImageTokens[0] < 1024):
             logs.PrintLog(logs.WARNING, "[llama_utils] For Qwen3-VL it's recommended to set `mmproj_min_image_tokens` to 1024.")
 
-        return CH_Qwen3VL(**generalArgs, force_reasoning = False, add_vision_id = True)
+        return CH_Qwen3VL(**generalArgs)
+    elif (chatHandler == "qwen35" or chatHandler == "qwen3.5"):
+        return CH_Qwen35(**generalArgs)
 
     return None
 

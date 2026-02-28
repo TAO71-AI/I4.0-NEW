@@ -7,7 +7,7 @@ import json
 import base64
 import asyncio
 
-VERSION: int = 170200
+VERSION: int = 180000
 TRANSFER_RATE = 8192 * 1024
 
 class ClientSocket():

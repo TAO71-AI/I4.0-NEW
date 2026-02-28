@@ -6,6 +6,17 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 28-2-2026 (commit `v18.0.0`)
+
+### Server changes
+
+- (chatbot module) Implemented reasoning.
+- (chatbot module) Implemented Qwen3.5 chat handler (still testing).
+- (chatbot module) Implemented user-provided chat template arguments; users can modify the model's chat template (still testing).
+- New module: `rvcgen`. This module uses RVC. NOTE: This service does not work out-of-the-box, you need to manually modify Python scripts.
+
+---
+
 ## 12-2-2026 (commit `v17.2.2`)
 
 ### Server changes

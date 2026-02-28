@@ -1,0 +1,17 @@
+hubert_model_path: "./hubert_base.pt"
+rmvpe_model_dir: "."  # Name must be `rmvpe.pt`.
+f0:
+  default: 0
+  modified_by_user: true
+protect:
+  default: 0.33
+  modified_by_user: true
+filter_radius:
+  default: 3
+  modified_by_user: true
+index_rate:
+  default: 0.75
+  modified_by_user: true
+mix_rate:
+  default: 0.25
+  modified_by_user: true

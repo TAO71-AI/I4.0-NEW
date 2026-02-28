@@ -31,6 +31,11 @@ tool_choice:
   modified_by_user: true
 tool_start_token: "<tool_call>"
 tool_end_token: "</tool_call>"
+reasoning_start_token: "<think>"
+reasoning_end_token: "</think>"
+extra_chat_template_parameters:
+  parameters: {}  # Example: `"add_vision_count": {"type": "handler", "value": true}`
+  modified_by_user: true
 max_length:
   default: 999999
   modified_by_user: true

@@ -292,8 +292,16 @@ def InstallAllRequirements(Services: list[Service] | None = None) -> None:
             with open(service.RequirementsFilePath, "r") as f:
                 reqs = f.read()
             
+            options = []
+
+            if ("FORCE_UPGRADE" in os.environ and len(os.environ["FORCE_UPGRADE"].strip()) > 0 and bool(os.environ["FORCE_UPGRADE"])):
+                options.append("--upgrade")
+    
+            if ("VERBOSE" in os.environ and len(os.environ["VERBOSE"].strip()) > 0 and bool(os.environ["VERBOSE"])):
+                options.append("--verbose")
+            
             logs.PrintLog(logs.INFO, f"[services_manager] Installing requirements for the service `{service.Name}` (using requirements file)...")
-            requirements.InstallPackage(reqs.splitlines())
+            requirements.InstallPackage(reqs.splitlines(), PIPOptions = options)
             logs.PrintLog(logs.INFO, f"[services_manager] Requirements for the service `{service.Name}` installed!")
         else:
             logs.PrintLog(logs.INFO, f"[services_manager] Installing requirements for the service `{service.Name}` (using module)...")

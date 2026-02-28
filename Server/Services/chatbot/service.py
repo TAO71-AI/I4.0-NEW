@@ -169,6 +169,87 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
     else:
         extraParameters = {}
     
+    extraModelCTParams = {}
+    extraHandlerCTParams = {}
+
+    if ("extra_chat_template_parameters" in ServiceConfiguration):
+        for pn, pv in ServiceConfiguration["extra_chat_template_parameters"]["parameters"].items():
+            if (pv["type"] == "base" or pv["type"] == "model"):
+                extraModelCTParams[pn] = pv["value"]
+            elif (pv["type"] == "mmproj" or pv["type"] == "handler"):
+                extraHandlerCTParams[pn] = pv["value"]
+            else:
+                raise ValueError("Invalid extra parameter type.")
+        
+    if ("extra_chat_template_parameters" in __models__[Name]):
+        for pn, pv in __models__[Name]["extra_chat_template_parameters"].items():
+            if (pv["type"] == "base" or pv["type"] == "model"):
+                extraModelCTParams[pn] = pv["value"]
+            elif (pv["type"] == "mmproj" or pv["type"] == "handler"):
+                extraHandlerCTParams[pn] = pv["value"]
+            else:
+                raise ValueError("Invalid extra parameter type.")
+    
+    if ("template_parameters" in UserConfig and ServiceConfiguration["extra_chat_template_parameters"]["modified_by_user"]):
+        for pn, pv in UserConfig["template_parameters"].items():
+            if (
+                ((pv["type"] == "base" or pv["type"] == "model") and pn not in extraModelCTParams) or
+                ((pv["type"] == "mmproj" or pv["type"] == "handler") and pn not in extraHandlerCTParams)
+            ):
+                yield {"warnings": [f"Tried to pass an invalid parameter ({pn}). Parameter ignored."]}
+                continue
+            
+            if (pv["type"] == "base" or pv["type"] == "model"):
+                extraModelCTParams[pn] = pv["value"]
+            elif (pv["type"] == "mmproj" or pv["type"] == "handler"):
+                extraHandlerCTParams[pn] = pv["value"]
+            else:
+                yield {"warnings": [f"Invalid parameter type for {pn}. Parameter ignored."]}
+                continue
+
+    if ("reasoning_mode" in UserConfig and "reasoning" in __models__[Name] and "levels" in __models__[Name]["reasoning"] and UserConfig["reasoning_mode"] in __models__[Name]["reasoning"]["levels"]):
+        startsThinking = "starts_thinking" in __models__[Name]["reasoning"] and __models__[Name]["reasoning"]["starts_thinking"]
+        generatesStartToken = "generates_start_token" in __models__[Name]["reasoning"] and __models__[Name]["reasoning"]["generates_start_token"]
+        
+        if ("_private_model_params" in __models__[Name]["reasoning"] and UserConfig["reasoning_mode"] in __models__[Name]["reasoning"]["_private_model_params"]):
+            for pn, pv in __models__[Name]["reasoning"]["_private_model_params"][UserConfig["reasoning_mode"]].items():
+                if (pn == "starts_thinking"):
+                    startsThinking = pv
+                elif (pn == "generates_start_token"):
+                    generatesStartToken = pv
+                else:
+                    extraParameters[pn] = pv
+        
+        if ("_private_model_template" in __models__[Name]["reasoning"] and UserConfig["reasoning_mode"] in __models__[Name]["reasoning"]["_private_model_template"]):
+            for pn, pv in __models__[Name]["reasoning"]["_private_model_template"][UserConfig["reasoning_mode"]].items():
+                if (pv["type"] == "base" or pv["type"] == "model"):
+                    extraModelCTParams[pn] = pv["value"]
+                elif (pv["type"] == "mmproj" or pv["type"] == "handler"):
+                    extraHandlerCTParams[pn] = pv["value"]
+                else:
+                    raise ValueError("Invalid extra parameter type.")
+        
+        if ("model_params" in __models__[Name]["reasoning"] and UserConfig["reasoning_mode"] in __models__[Name]["reasoning"]["model_params"]):
+            for pn, pv in __models__[Name]["reasoning"]["model_params"][UserConfig["reasoning_mode"]].items():
+                if (pn == "starts_thinking"):
+                    startsThinking = pv
+                elif (pn == "generates_start_token"):
+                    generatesStartToken = pv
+                else:
+                    extraParameters[pn] = pv
+        
+        if ("model_template" in __models__[Name]["reasoning"] and UserConfig["reasoning_mode"] in __models__[Name]["reasoning"]["model_template"]):
+            for pn, pv in __models__[Name]["reasoning"]["model_template"][UserConfig["reasoning_mode"]].items():
+                if (pv["type"] == "base" or pv["type"] == "model"):
+                    extraModelCTParams[pn] = pv["value"]
+                elif (pv["type"] == "mmproj" or pv["type"] == "handler"):
+                    extraHandlerCTParams[pn] = pv["value"]
+                else:
+                    raise ValueError("Invalid extra parameter type.")
+    else:
+        startsThinking = False
+        generatesStartToken = False
+    
     generator = InferenceModel(
         Name,
         conversation,
@@ -186,7 +267,11 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
             "tool_choice": toolChoice,
             "max_length": maxLength,
             "stop": stopTokens,
-            "extra_parameters": extraParameters
+            "extra_parameters": extraParameters,
+            "extra_template_parameters_model": extraModelCTParams,
+            "extra_template_parameters_handler": extraHandlerCTParams,
+            "reasoning_starts_thinking": startsThinking,
+            "reasoning_generates_start_token": generatesStartToken
         }
     )
 
@@ -244,9 +329,52 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
                 message["content"] = txt
 
         modelConversation.append(message)
+    
+    tools = []
+    currentToolIdx = None
+
+    if ("tool_start_token" in __models__[Name]):
+        toolStartToken = __models__[Name]["tool_start_token"]
+    elif ("tool_start_token" in ServiceConfiguration):
+        toolStartToken = ServiceConfiguration["tool_start_token"]
+    else:
+        toolStartToken = "<tool_call>"
+    
+    if ("tool_end_token" in __models__[Name]):
+        toolEndToken = __models__[Name]["tool_end_token"]
+    elif ("tool_end_token" in ServiceConfiguration):
+        toolEndToken = ServiceConfiguration["tool_end_token"]
+    else:
+        toolEndToken = "</tool_call>"
+    
+    logs.WriteLog(logs.INFO, "[service_chatbot] Inferencing chatbot model.")
+
+    fullAssistantText = ""
+    firstToken = True
+    isThinking = Configuration["reasoning_starts_thinking"]
+    reasoningStartToken = __models__[Name]["reasoning"]["start_token"] if ("reasoning" in __models__[Name] and "start_token" in __models__[Name]["reasoning"]) else None
+    reasoningEndToken = __models__[Name]["reasoning"]["end_token"] if ("reasoning" in __models__[Name] and "end_token" in __models__[Name]["reasoning"]) else None
+
+    if (reasoningStartToken is None):
+        reasoningStartToken = ServiceConfiguration["reasoning_start_token"]
+    
+    if (reasoningEndToken is None):
+        reasoningEndToken = ServiceConfiguration["reasoning_end_token"]
 
     if (__models__[Name]["_private_type"] == "lcpp"):
         model: utils_llama.Llama = __models__[Name]["_private_model"]
+        prevModelChatTemplateArgs = None
+        prevChatHandlerTemplateArgs = None
+
+        for pn, pv in Configuration["extra_template_parameters_model"].items():
+            pass  # TODO
+
+        if (model.chat_handler is not None):
+            prevChatHandlerTemplateArgs = copy.deepcopy(model.chat_handler.extra_template_arguments)
+
+            for pn, pv in Configuration["extra_template_parameters_handler"].items():
+                model.chat_handler.extra_template_arguments[pn] = pv
+
         response = model.create_chat_completion(
             messages = modelConversation,
             tools = Configuration["tools"],
@@ -259,58 +387,57 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
             stream = True,
             seed = Configuration["seed"],
             max_tokens = Configuration["max_length"],
-            presence_penalty = Configuration["presence_penalty"],
+            present_penalty = Configuration["presence_penalty"],
             frequency_penalty = Configuration["frequency_penalty"],
             repeat_penalty = Configuration["repeat_penalty"],
             stop = Configuration["stop"],
             **Configuration["extra_parameters"]
         )
-        tools = []
-        currentToolIdx = None
 
-        if ("tool_start_token" in __models__[Name]):
-            toolStartToken = __models__[Name]["tool_start_token"]
-        elif ("tool_start_token" in ServiceConfiguration):
-            toolStartToken = ServiceConfiguration["tool_start_token"]
-        else:
-            toolStartToken = "<tool_call>"
-        
-        if ("tool_end_token" in __models__[Name]):
-            toolEndToken = __models__[Name]["tool_end_token"]
-        elif ("tool_end_token" in ServiceConfiguration):
-            toolEndToken = ServiceConfiguration["tool_end_token"]
-        else:
-            toolEndToken = "</tool_call>"
-        
-        logs.WriteLog(logs.INFO, "[service_chatbot] Inferencing chatbot model.")
-        fullAssistantText = ""
+        try:
+            for token in response:
+                if (
+                    not "choices" in token or
+                    len(token["choices"]) == 0 or
+                    not "delta" in token["choices"][0] or
+                    not "content" in token["choices"][0]["delta"]
+                ):
+                    continue
 
-        for token in response:
-            if (
-                not "choices" in token or
-                len(token["choices"]) == 0 or
-                not "delta" in token["choices"][0] or
-                not "content" in token["choices"][0]["delta"]
-            ):
-                continue
+                tokenText = token["choices"][0]["delta"]["content"]
+                fullAssistantText += tokenText
 
-            tokenText = token["choices"][0]["delta"]["content"]
-            fullAssistantText += tokenText
+                if (toolEndToken in tokenText and currentToolIdx is not None):
+                    tools[currentToolIdx] += tokenText[:tokenText.index(toolEndToken)]
+                    currentToolIdx = None
 
-            if (toolEndToken in tokenText and currentToolIdx is not None):
-                tools[currentToolIdx] += tokenText[:tokenText.index(toolEndToken)]
-                currentToolIdx = None
+                if (toolStartToken in tokenText and currentToolIdx is None):
+                    currentToolIdx = len(tools)
+                    tools.append(tokenText[tokenText.index(toolStartToken) + len(toolStartToken):])
+                elif (currentToolIdx is not None):
+                    tools[currentToolIdx] += tokenText
+                
+                if (firstToken and isThinking and not Configuration["reasoning_generates_start_token"]):
+                    yield {"text": reasoningStartToken, "extra": {"thinking": isThinking}}
 
-            if (toolStartToken in tokenText and currentToolIdx is None):
-                currentToolIdx = len(tools)
-                tools.append(tokenText[tokenText.index(toolStartToken) + len(toolStartToken):])
-            elif (currentToolIdx is not None):
-                tools[currentToolIdx] += tokenText
-            
-            yield {"text": tokenText}
-        
-        yield {"extra": {"tools": [json.loads(tool) for tool in tools]}}
-        logs.WriteLog(logs.INFO, "[service_chatbot] Finished inference.")
+                if (not isThinking and fullAssistantText.strip().endswith(reasoningStartToken)):
+                    isThinking = True
+
+                firstToken = False
+                yield {"text": tokenText, "extra": {"thinking": isThinking}}
+
+                if (isThinking and fullAssistantText.strip().endswith(reasoningEndToken)):
+                    isThinking = False
+                
+            yield {"extra": {"tools": [json.loads(tool) for tool in tools]}}
+        finally:
+            logs.WriteLog(logs.INFO, "[service_chatbot] Finished inference.")
+
+            if (prevModelChatTemplateArgs is not None):
+                pass  # TODO
+                
+            if (prevChatHandlerTemplateArgs is not None):
+                model.chat_handler.extra_template_arguments = prevChatHandlerTemplateArgs
 
 def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
     """
