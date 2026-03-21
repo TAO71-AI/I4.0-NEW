@@ -5,7 +5,7 @@ import Utilities.install_requirements as req
 import Utilities.gpu_utils as gpu
 import Utilities.logs as logs
 
-def Install(Env: dict[str, Any] | None = None) -> None:
+def Install(Env: dict[str, Any] | None = None, Args: list[str] = []) -> None:
     if (Env is None):
         Env = copy.deepcopy(os.environ)
 
@@ -23,8 +23,6 @@ def Install(Env: dict[str, Any] | None = None) -> None:
     forceCublas = "CHATBOT_FORCE_CUBLAS" in Env and bool(Env["CHATBOT_FORCE_CUBLAS"]) if (gpuType == gpu.GPUType.NVIDIA) else None
     forceMMQ = "CHATBOT_FORCE_MMQ" in Env and bool(Env["CHATBOT_FORCE_MMQ"]) if (gpuType == gpu.GPUType.NVIDIA) else None
     faAllQuants = not ("CHATBOT_NO_FA_ALL_QUANTS" in Env and bool(Env["CHATBOT_NO_FA_ALL_QUANTS"]))
-    forceUpgrade = ["--upgrade"] if ("BASE_FORCE_UPGRADE" in os.environ and bool(os.environ["BASE_FORCE_UPGRADE"])) else []
-    verbose = [] if ("VERBOSE" in os.environ and not bool(os.environ["VERBOSE"])) else ["--verbose"]
 
     logs.PrintLog(
         logs.INFO,
@@ -43,7 +41,7 @@ def Install(Env: dict[str, Any] | None = None) -> None:
     
     if (gpuType == gpu.GPUType.NVIDIA):
         lcppCmake = (
-            f"-DGGML_CUDA=1 -DGGML_CUDE_FORCE_CUBLAS={forceCublas} -DGGML_CUDA_FORCE_MMQ={forceMMQ} "
+            f"-DGGML_CUDA=1 -DGGML_CUDA_FORCE_CUBLAS={forceCublas} -DGGML_CUDA_FORCE_MMQ={forceMMQ} "
             f"-DGGML_CUDA_F16={f16} -DGGML_CUDA_ENABLE_UNIFIED_MEMORY={unifiedMemory} -DGGML_CUDA_FA_ALL_QUANTS={faAllQuants}"
         )
     elif (gpuType == gpu.GPUType.AMD):
@@ -67,7 +65,7 @@ def Install(Env: dict[str, Any] | None = None) -> None:
         EnvVars = {
             "CMAKE_ARGS": lcppCmake
         },
-        PIPOptions = verbose + forceUpgrade
+        PIPOptions = Args
     )
 
 if (__name__ == "__main__"):

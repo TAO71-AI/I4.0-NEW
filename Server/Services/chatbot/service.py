@@ -346,8 +346,6 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
         toolEndToken = ServiceConfiguration["tool_end_token"]
     else:
         toolEndToken = "</tool_call>"
-    
-    logs.WriteLog(logs.INFO, "[service_chatbot] Inferencing chatbot model.")
 
     fullAssistantText = ""
     firstToken = True
@@ -431,13 +429,13 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
                 
             yield {"extra": {"tools": [json.loads(tool) for tool in tools]}}
         finally:
-            logs.WriteLog(logs.INFO, "[service_chatbot] Finished inference.")
-
             if (prevModelChatTemplateArgs is not None):
                 pass  # TODO
                 
             if (prevChatHandlerTemplateArgs is not None):
                 model.chat_handler.extra_template_arguments = prevChatHandlerTemplateArgs
+            
+            utils_llama.ClearLlamaCache(model)
 
 def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
     """

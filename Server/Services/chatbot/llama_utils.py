@@ -57,7 +57,13 @@ from llama_cpp import (
     LLAMA_FTYPE_MOSTLY_IQ3_S as FTYPE_IQ3_S,
     LLAMA_FTYPE_MOSTLY_IQ3_M as FTYPE_IQ3_M,
     LLAMA_FTYPE_MOSTLY_IQ4_XS as FTYPE_IQ4_XS,
-    LLAMA_FTYPE_MOSTLY_IQ4_NL as FTYPE_IQ4_NL
+    LLAMA_FTYPE_MOSTLY_IQ4_NL as FTYPE_IQ4_NL,
+
+    LLAMA_FTYPE_MOSTLY_MXFP4_MOE as FTYPE_MXFP4,
+
+    # Other
+    llama_get_memory,
+    llama_memory_seq_rm
 )
 from llama_cpp.llama_chat_format import (
     Llava15ChatHandler as CH_Llava15,
@@ -68,7 +74,11 @@ from llama_cpp.llama_chat_format import (
     MiniCPMv26ChatHandler as CH_MiniCPMv26,
     Qwen25VLChatHandler as CH_Qwen25VL,
     Qwen3VLChatHandler as CH_Qwen3VL,
-    Qwen35ChatHandler as CH_Qwen35
+    Qwen35ChatHandler as CH_Qwen35,
+    Gemma3ChatHandler as CH_Gemma3,
+    ObsidianChatHandler as CH_Obsidian,
+    MiniCPMv45ChatHandler as CH_MiniCPMv45,
+    GraniteDoclingChatHandler as CH_GraniteDocling
 )
 from typing import Any
 import time
@@ -108,7 +118,9 @@ __FTYPES__: dict[str | tuple[str, ...], int] = {
     "iq3_s": FTYPE_IQ3_S,
     "iq3_m": FTYPE_IQ3_M,
     "iq4_xs": FTYPE_IQ4_XS,
-    "iq4_nl": FTYPE_IQ4_NL
+    "iq4_nl": FTYPE_IQ4_NL,
+
+    ("mxfp4", "mxfp4_moe", "mxfp4moe"): FTYPE_MXFP4
 }
 __SPLIT_MODES__: dict[str | tuple[str, ...], int] = {
     "layer": SPM_LAYER,
@@ -326,9 +338,24 @@ def StringToChatHandler(
 
         return CH_Qwen3VL(**generalArgs)
     elif (chatHandler == "qwen35" or chatHandler == "qwen3.5"):
+        if (ImageTokens[0] < 1024):
+            logs.PrintLog(logs.WARNING, "[llama_utils] For Qwen3.5 it's recommended to set `mmproj_min_image_tokens` to 1024.")
+        
         return CH_Qwen35(**generalArgs)
+    elif (chatHandler == "gemma3"):
+        return CH_Gemma3(**generalArgs)
+    elif (chatHandler == "obsidian"):
+        return CH_Obsidian(**generalArgs)
+    elif (chatHandler == "minicpmv4.5" or chatHandler == "minicpmv45" or chatHandler == "minicpm45"):
+        return CH_MiniCPMv45(**generalArgs)
+    elif (chatHandler == "granitedocling"):
+        return CH_GraniteDocling(**generalArgs)
 
     return None
+
+def ClearLlamaCache(Model: Llama) -> None:
+    kv = llama_get_memory(Model.ctx)
+    llama_memory_seq_rm(kv, -1, -1, -1)
 
 def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
     """

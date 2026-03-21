@@ -78,6 +78,9 @@ def InstallPackage(
     cmd = PIPCommand.split(" ") + ["install"] + PIPOptions + Packages
     env = copy.deepcopy(os.environ)
 
+    if ("--verbose" in PIPOptions):
+        logs.PrintLog(logs.INFO, f"[requirements_installation] Executing command `{' '.join(f'{k}={v}' for k, v in env.items())} {' '.join(cmd)}`")
+
     for name, value in EnvVars.items():
         env[name] = value
 

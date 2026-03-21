@@ -38,7 +38,7 @@ To close the server you can send a **SIGINT** signal.
 |server_blacklist:key_blacklist|list (string)|List of banned API keys.|
 |server_automatic_blacklist:enabled|bool|Enables the automatic moderation of the server. NOTE: This required the *server_blacklist:enabled* parameter to be enabled.|
 |server_automatic_blacklist:text_filter_service:enabled|bool|Enables the usage of a text filter for automatic server moderation. NOTE: This requires the `text_classification` module.|
-|server_automatic_blacklist:text_filter_service:model_name|string|Name of the model that will be used for the automatic moderation. NOTE: This model will be provided FREE OF CHARGE when using the automatic moderation, even if the model is not free to use.|
+|server_automatic_blacklist:text_filter_service:model_name|string|Name of the model that will be used for the automatic moderation. Models with the `redirect_to` parameter doesn't work. NOTE: This model will be provided FREE OF CHARGE when using the automatic moderation, even if the model is not free to use.|
 |server_automatic_blacklist:text_filter_service:keyword|string|Not safe keyword to search in the text response of the service.|
 |server_automatic_blacklist:text_filter_service:threshold|float|Threshold until the *server_automatic_blacklist:text_filter_service:keyword* keyword is considered unsafe. Range from 0 to 1.|
 |server_automatic_blacklist:text_filter_service:prompt_parameters|dictionary (string, value)|Prompt parameters for the service.|
@@ -66,3 +66,27 @@ See the `config_server.yaml` configuration file for more details (when created).
 ## Services/Modules configuration
 
 See the `config_[module name].yaml` configuration file for details or documentation (when created).
+
+## Global model parameters
+
+These parameters are global and works in all of the services.
+
+|Parameter name|Type(s)|Required|Default value|Description|
+|--------------|-------|--------|-------------|-----------|
+|service|string|true|-|The module name that the model uses.|
+|max_simul_users|integer|false|1|The number of concurrent users that the model can handle at the same time. WARNING: This parameter may be deprecated soon!|
+|price **(alias: *pricing*)**|dictionary (string: float)|false|...|Pricing for the model.|
+|price:text_input|float|false|0|Price for input text (provided by the user). Measured for each million tokens. Example: value of **5** will charge **5** API tokens for each million embedding tokens.|
+|price:image_input|float|false|0|Price for input image (provided by the user). Measured for each 1024x1024 pixels. Example: value of **5** with a **1024x1024** resolution image will charge **5** API tokens.|
+|price:audio_input|float|false|0|Price for input audio (provided by the user). Measured for each 1 second. Example: value of **5** with a 1 second audio will charge **5** API tokens.|
+|price:video_input_s|float|false|0|Price for input video (provided by the user). Measured for each 1 second. Example: value of **5** with a 1 second video will charge **5** API tokens.|
+|price:video_input_r|float|false|0|Price for input video (provided by the user). Measured for each 1024x1024 pixels. Example: value of **5** with a **1024x1024** resolution video will charge **5** API tokens.|
+|price:other_input|float, dictionary (string, float)|false|0|Price for unknown type data (provided by the user). Measured for each 1048576 bytes. Example: value of **5** with **1048576** bytes data will charge **5** API tokens. When using a dictionary, a *"global"* parameter must be included with the general price, as well as the price for other data types. Example of the dictionary: `{"global": 5, "pdf": 2.5}`.|
+|price:text_output|float|false|0|Same as `price:text_input`, but for output/assistant-generated text.|
+|price:image_output|float|false|0|Same as `price:image_input`, but for output/assistant-generated images.|
+|price:audio_output|float|false|0|Same as `price:audio_input`, but for output/assistant-generated audios.|
+|price:video_output_s|float|false|0|Same as `price:video_input_s`, but for output/assistant-generated videos.|
+|price:video_output_r|float|false|0|Same as `price:video_input_r`, but for output/assistant-generated videos.|
+|price:other_output|float, dictionary (string, float)|false|0|Same as `price:other_input`, but for output/assistant-generated unknown data types.|
+|enable_filter|bool, list (string)|false|true|Enables the filters. These filters check for unwanted data in the conversation and can ban the user if it finds unwanted data. If the type is bool, all filters will be checked. If the type is a list, only the specified data types will be checked. All valid data types are: `text`, `image`, `audio`, `video`.|
+|redirect_to|string|false|-|Sets an alias for the model, redirecting the user to the specified server and model. Uses the following template: `TYPE:IS WSS:SERVER HOST:SERVER PORT:MODEL NAME`. Example: `ws:0:main.tao71.org:8060:chatbot-latest-best`. Keep in mind that **SERVER HOST** is where the client will connect, IPs like `127.0.0.1` will connect the client to it's localhost, not the server's localhost.|

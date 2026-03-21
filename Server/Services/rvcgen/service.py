@@ -154,12 +154,12 @@ def LoadModel(ModelName: str, Configuration: dict[str, Any]) -> None:
         else:
             raise FileNotFoundError("HUBERT model not found for RVC.")
     
-    if ("_private_rmvpe_model_path" in Configuration and os.path.exists(f"{Configuration['_private_rmvpe_model_path']}/rmvpe.pt") and os.path.isfile(f"{Configuration['_private_rmvpe_model_path']}/rmvpe.pt")):
+    if ("_private_rmvpe_model_dir" in Configuration and os.path.exists(f"{Configuration['_private_rmvpe_model_dir']}/rmvpe.pt") and os.path.isfile(f"{Configuration['_private_rmvpe_model_dir']}/rmvpe.pt")):
         # Recommended RMVPE: https://huggingface.co/lj1995/VoiceConversionWebUI/blob/main/rmvpe.pt
-        rmvpe = Configuration["_private_rmvpe_model_path"]
+        rmvpe = Configuration["_private_rmvpe_model_dir"]
     else:
-        if (os.path.exists(f"{ServiceConfiguration['rmvpe_model_path']}/rmvpe.pt") and os.path.isfile(f"{ServiceConfiguration['rmvpe_model_path']}/rmvpe.pt")):
-            rmvpe = ServiceConfiguration["rmvpe_model_path"]
+        if (os.path.exists(f"{ServiceConfiguration['rmvpe_model_dir']}/rmvpe.pt") and os.path.isfile(f"{ServiceConfiguration['rmvpe_model_dir']}/rmvpe.pt")):
+            rmvpe = ServiceConfiguration["rmvpe_model_dir"]
         elif (Configuration["_private_type"] == "rmvpe"):
             raise FileNotFoundError("RMVPE model not found for RVC.")
         else:

@@ -21,6 +21,7 @@ class ClientSocket():
         self.__configuration__ = Configuration
         self.__server_public_key_str__ = None
         self.__server_public_key__ = None
+        self.__current_connection__ = [None, None, None, None]
 
         if (Configuration.Encryption_PublicKey is None or Configuration.Encryption_PrivateKey is None):
             self.__private_key__, self.__public_key__ = encryption.GenerateRSAKeys(Size = Configuration.Encryption_RSASize)
@@ -38,6 +39,8 @@ class ClientSocket():
         return False
 
     async def Connect(self, Host: str, Port: int, Secure: bool = False) -> None:
+        await self.Close()
+
         if (self.__socket_type__ == "websocket"):
             uri = ("wss" if (Secure) else "ws") + f"://{Host}:{Port}"
             self.__socket__ = await WS_Connect(
@@ -50,6 +53,7 @@ class ClientSocket():
             while (self.__socket__.state == WS_State.CONNECTING):
                 await asyncio.sleep(0.1)
         
+        self.__current_connection__ = [self.__socket_type__, Host, Port, Secure]
         await self.__set_server_public_key__()
 
     async def Close(self) -> None:
@@ -142,6 +146,8 @@ class ClientSocket():
         data["content"] = encryption.Encrypt(h, self.__server_public_key__, json.dumps(data["content"]), self.__configuration__.Encryption_Threads)
         await self.Send(json.dumps(data))
 
+        redirectTo = None
+
         while (True):
             recvData = await self.Receive()
             recvData = json.loads(recvData)
@@ -153,10 +159,48 @@ class ClientSocket():
             )
             token = json.loads(recvData)
 
+            if ("redirect_to" in token):
+                redirectTo = token["redirect_to"]
+                break
+
             yield token
 
             if ("ended" in token and token["ended"]):
                 break
+        
+        if (redirectTo is not None):
+            previousConnection = None
+
+            if (token["redirect_to"]["host"] is not None and token["redirect_to"]["port"] is not None):
+                previousConnection = self.__current_connection__.copy()
+                self.__socket_type__ = "websocket" if (token["redirect_to"]["type"] == "ws") else "socket" if (token["redirect_to"]["type"] == "s") else None
+
+                await self.Connect(
+                    Host = token["redirect_to"]["host"],
+                    Port = token["redirect_to"]["port"],
+                    Secure = token["redirect_to"]["secure"]
+                )
+
+            gen = self.AdvancedSendAndReceive(
+                ModelName = token["redirect_to"]["model"],
+                Key = Key,
+                PromptConversation = PromptConversation,
+                PromptParameters = PromptParameters,
+                UserParameters = UserParameters,
+                Service = Service
+            )
+
+            try:
+                async for token in gen:
+                    yield token
+            except Exception as ex:
+                raise ex
+            finally:
+                if (previousConnection is not None):
+                    self.__socket_type__ = previousConnection[0]
+                    await self.Connect(previousConnection[1], previousConnection[2], previousConnection[3])
+
+                return
     
     async def GetAvailableModels(self, **kwargs) -> list[str]:
         models = None

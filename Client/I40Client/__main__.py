@@ -90,6 +90,13 @@ def __main__() -> None:
             await socket.Connect(getattr(conf, "CLIENT_Host"), getattr(conf, "CLIENT_Port"), getattr(conf, "CLIENT_Secure"))
 
             modelInfo = await socket.GetModelInfo(getattr(conf, "CLIENT_ModelName"))
+            modelMaxSimulUsers = modelInfo["max_simul_users"] if ("max_simul_users" in modelInfo) else 1
+            queueData = await socket.GetQueueData(getattr(conf, "CLIENT_ModelName"))
+
+            if (queueData["processing_users"] >= modelMaxSimulUsers):
+                usersBefore = queueData["processing_users"] + queueData["waiting_users"]
+                print(f"{usersBefore} users are using this model. You must wait until the queue of users is less than {modelMaxSimulUsers}.", flush = True)
+
             gen = socket.AdvancedSendAndReceive(
                 getattr(conf, "CLIENT_ModelName"),
                 None,

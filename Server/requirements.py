@@ -29,12 +29,17 @@ PYTORCH_REQUIREMENTS = [
 def InstallRequirements() -> None:
     torchIdx = "https://download.pytorch.org/whl/cpu"
     args = []
+    extraArgs = []
 
     if ("FORCE_UPGRADE" in os.environ and len(os.environ["FORCE_UPGRADE"].strip()) > 0 and bool(os.environ["FORCE_UPGRADE"])):
         args.append("--upgrade")
     
     if ("VERBOSE" in os.environ and len(os.environ["VERBOSE"].strip()) > 0 and bool(os.environ["VERBOSE"])):
         args.append("--verbose")
+        extraArgs.append("--verbose")
+    
+    if ("EXTRA_ARGS" in os.environ):
+        extraArgs += os.environ["EXTRA_ARGS"].split(" ")
 
     if ("BASE_TORCH_CIDX" in os.environ and len(os.environ["BASE_TORCH_CIDX"].strip()) > 0):
         torchIdx = os.environ["BASE_TORCH_CIDX"]
@@ -75,7 +80,7 @@ def InstallRequirements() -> None:
     requirements.InstallPackage(Packages = GENERAL_REQUIREMENTS, PIPOptions = args)
 
     import services_manager as servMgr
-    servMgr.InstallAllRequirements()
+    servMgr.InstallAllRequirements(ExtraArgs = extraArgs)
 
     if (torchIdx is not None):
         requirements.InstallPackage(

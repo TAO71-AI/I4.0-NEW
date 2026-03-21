@@ -6,6 +6,31 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 21-3-2026 (commit `v19.0.0`)
+
+### Server changes
+
+- Implemented the `redirect_to` parameter, which redirects the user to another server and model.
+- Implemented the `EXTRA_ARGS` environment variable for requirements.
+- Fixed a bug where daily API keys would not reset.
+- (chatbot module) Removed some logs.
+- (chatbot module) The KV cache now clears for each inference.
+- (chatbot module) Implemented new chat handlers: **Gemma3**, **Obsidian**, **MiniCPMv4.5**, **GraniteDocling**.
+- (chatbot module) New Ftype: **MXFP4**.
+- (rvcgen module) Replaced `rmvpe_model_path` parameter with `rmvpe_model_dir`.
+
+### Client changes
+
+- (`I40C` command) If the model is busy, the model's queue will be printed.
+- Updated API to implement redirections.
+
+### Other changes
+
+- Updated server documentation.
+- Updated README.
+
+---
+
 ## 28-2-2026 (commit `v18.0.0`)
 
 ### Server changes

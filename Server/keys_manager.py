@@ -9,8 +9,18 @@ import Utilities.logs as logs
 Configuration: dict[str, Any] = {}
 __busy__: list[str] = []
 
+def __get_current_date_dictionary__() -> dict[str, int]:
+    date = datetime.datetime.now()
+    return {
+        "day": date.day,
+        "month": date.month,
+        "year": date.year,
+        "hour": date.hour,
+        "minute": date.minute
+    }
+
 class APIKey():
-    VERSION = 0
+    VERSION = 1
 
     def __init__(
         self,
@@ -61,13 +71,8 @@ class APIKey():
         self.__version__ = self.VERSION
         self.Key = "".join([chars[random.randint(0, len(chars) - 1)] for _ in range(length)])
         self.Tokens = Tokens
-        self.CreationDate = {
-            "day": date.day,
-            "month": date.month,
-            "year": date.year,
-            "hour": date.hour,
-            "minute": date.minute
-        }
+        self.CreationDate = __get_current_date_dictionary__()
+        self.UpdateDate = self.CreationDate.copy()
         self.ExpireDate = {
             "day": ExpireDate.day,
             "month": ExpireDate.month,
@@ -153,7 +158,24 @@ class APIKey():
         for k, v in Dictionary.items():
             setattr(instance, k, v)
         
+        if (instance.__version__ < 1):
+            setattr(instance, "UpdateDate", instance.CreationDate.copy())
+
         if (instance.__version__ != cls.VERSION):
             logs.PrintLog(logs.WARNING, "[keys_manager] API key version is older or newer than the server version. This might cause errors.")
+            instance.__version__ = cls.VERSION
+        
+        if (
+            instance.DailyReset["reset"] and
+            (datetime.datetime.now() - datetime.datetime(
+                year = instance.UpdateDate["year"],
+                month = instance.UpdateDate["month"],
+                day = instance.UpdateDate["day"],
+                hour = instance.UpdateDate["hour"],
+                minute = instance.UpdateDate["minute"]
+            )).total_seconds() >= 86400
+        ):
+            instance.Tokens = instance.DailyReset["tokens"]
+            instance.UpdateDate = __get_current_date_dictionary__()
         
         return instance

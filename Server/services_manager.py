@@ -279,7 +279,7 @@ def IsServiceInstalled(Name: str) -> bool:
         
     return False
 
-def InstallAllRequirements(Services: list[Service] | None = None) -> None:
+def InstallAllRequirements(Services: list[Service] | None = None, ExtraArgs: list[str] = []) -> None:
     if (Services is None):
         Services = GetServices()
     
@@ -292,23 +292,15 @@ def InstallAllRequirements(Services: list[Service] | None = None) -> None:
             with open(service.RequirementsFilePath, "r") as f:
                 reqs = f.read()
             
-            options = []
-
-            if ("FORCE_UPGRADE" in os.environ and len(os.environ["FORCE_UPGRADE"].strip()) > 0 and bool(os.environ["FORCE_UPGRADE"])):
-                options.append("--upgrade")
-    
-            if ("VERBOSE" in os.environ and len(os.environ["VERBOSE"].strip()) > 0 and bool(os.environ["VERBOSE"])):
-                options.append("--verbose")
-            
             logs.PrintLog(logs.INFO, f"[services_manager] Installing requirements for the service `{service.Name}` (using requirements file)...")
-            requirements.InstallPackage(reqs.splitlines(), PIPOptions = options)
+            requirements.InstallPackage(reqs.splitlines(), PIPOptions = ExtraArgs)
             logs.PrintLog(logs.INFO, f"[services_manager] Requirements for the service `{service.Name}` installed!")
         else:
             logs.PrintLog(logs.INFO, f"[services_manager] Installing requirements for the service `{service.Name}` (using module)...")
             service.LoadModules(False, True, False)
 
             if (Service.ModuleContainsFunction(service.RequirementsModule, "Install")):
-                Service.RunModuleFunction(service.RequirementsModule, "Install", [None])
+                Service.RunModuleFunction(service.RequirementsModule, "Install", [None, ExtraArgs])
                 logs.PrintLog(logs.INFO, f"[services_manager] Requirements for the service `{service.Name}` installed!")
             else:
                 logs.PrintLog(
@@ -321,7 +313,7 @@ def LoadModels(Models: dict[str, dict[str, Any]]) -> None:
     __load_modules_and_info__(Models)
     
     for serviceName, service in ServicesModules.items():
-        Service.RunModuleFunction(service.ServiceModule, "SERVICE_LOAD_MODELS", [ServicesModels[serviceName]])
+        Service.RunModuleFunction(service.ServiceModule, "SERVICE_LOAD_MODELS", [{model: conf for model, conf in ServicesModels[serviceName].items() if ("redirect_to" not in conf)}])
 
 def FindServiceForModel(ModelName: str, ReturnServiceName: bool = False) -> Service | str:
     global ServicesModules
@@ -363,8 +355,8 @@ def OffloadModels(Names: list[str]) -> None:
     for serviceName, model in ServicesModels.items():
         modelsToOffload[serviceName] = []
 
-        for modelName in model.keys():
-            if (modelName in Names):
+        for modelName, modelConfig in model.items():
+            if (modelName in Names and "redirect_to" not in modelConfig):
                 modelsToOffload[serviceName].append(modelName)
     
     for serviceName, service in ServicesModules.items():
@@ -447,12 +439,12 @@ def CalculateTokenPrice(ModelNameOrConfig: str | dict[str, Any], GetOutputPricin
                 videoBuffer.close()
                 raise RuntimeError(f"Could not calculate pricing for video. Reason: {ex}")
         elif (isinstance(otherPrice, float) or isinstance(otherPrice, int)):
-            price += len(content[content["type"]]) / 1048576 * otherPrice
+            price += len(str(content[content["type"]])) / 1048576 * otherPrice
         elif (isinstance(otherPrice, dict)):
             if (content["type"] in otherPrice):
-                price += len(content[content["type"]]) / 1048576 * otherPrice[content["type"]]
+                price += len(str(content[content["type"]])) / 1048576 * otherPrice[content["type"]]
             else:
-                price += len(content[content["type"]]) / 1048576 * otherPrice["global"]
+                price += len(str(content[content["type"]])) / 1048576 * otherPrice["global"]
         else:
             raise ValueError("Invalid content type or pricing.")
     
@@ -477,6 +469,12 @@ def ExecuteFilter(
     filterAction = filterConfig["action"]
     filterPP = filterConfig["prompt_parameters"]
     filterUP = filterConfig["user_parameters"]
+
+    try:
+        filterModule = FindServiceForModel(filterModel, False)
+    except Exception as ex:
+        raise RuntimeError(f"Could not find filter service. Details: {ex}")
+
     filterQueue = queue.GetQueueForModel(filterModel)
     filterModelConfig = GetModelConfiguration(filterModel)
 
@@ -494,8 +492,6 @@ def ExecuteFilter(
     yield {"_queue_uid": filterQueueUID}
 
     filterQueue.WaitForProcessing(filterQueueUID)
-
-    filterModule = FindServiceForModel(filterModel, False)
     isSafe = True
 
     for filterToken in filterModule.RunModuleFunction(
@@ -544,6 +540,24 @@ def InferenceModel(
         modelConfiguration = ServicesModels[serviceName][ModelName]
         serviceModule = ServicesModules[serviceName]
 
+        if ("redirect_to" in modelConfiguration):
+            redirectTo = modelConfiguration["redirect_to"].split(":")
+
+            if (len(redirectTo) < 4):
+                raise ValueError("Redirection template not valid.")
+            
+            redirectType = redirectTo[0]
+            redirectSecure = bool(int(redirectTo[1].strip()[0]))
+            redirectHost = redirectTo[2].strip()
+            redirectPort = int(redirectTo[3].strip())
+            redirectModel = "".join(redirectTo[4:])
+
+            if (redirectType != "ws" and redirectType != "s"):
+                raise ValueError("Invalid redirection host type.")
+
+            yield {"redirect_to": {"type": redirectType, "secure": redirectSecure, "host": redirectHost, "port": redirectPort, "model": redirectModel}}
+            return
+
         if ("max_simul_users" in modelConfiguration and modelConfiguration["max_simul_users"] > 0):
             maxSimulUsers = modelConfiguration["max_simul_users"]
         else:
@@ -571,37 +585,38 @@ def InferenceModel(
 
         if (UserParameters["key_info"]["Tokens"] < price):
             raise exceptions.NotEnoughTokensException(price, UserParameters["key_info"]["Tokens"])
-            
+        
         UserParameters["key_info"]["Tokens"] -= price
 
-        if (
-            Configuration["server_automatic_blacklist"]["enabled"] and
-            (
-                "enable_filter" not in modelConfiguration or
-                modelConfiguration["enable_filter"]
-            )
-        ):
+        if (Configuration["server_automatic_blacklist"]["enabled"]):
+            if ("enable_filter" in modelConfiguration and isinstance(modelConfiguration["enable_filter"], list)):
+                filterTypes = modelConfiguration["enable_filter"]
+            elif ("enable_filter" in modelConfiguration and isinstance(modelConfiguration["enable_filter"], bool) and not modelConfiguration["enable_filter"]):
+                filterTypes = []
+            else:
+                filterTypes = ["text", "image", "audio", "video"]
+
+            if ("text" in filterTypes and not Configuration["server_automatic_blacklist"]["text_filter_service"]["enabled"]):
+                filterTypes.remove("text")
+            
+            if ("image" in filterTypes and Configuration["server_automatic_blacklist"]["image_filter_service"]["enabled"]):
+                filterTypes.remove("image")
+
+            if ("audio" in filterTypes and Configuration["server_automatic_blacklist"]["audio_filter_service"]["enabled"]):
+                filterTypes.remove("audio")
+            
+            if ("video" in filterTypes and Configuration["server_automatic_blacklist"]["video_filter_service"]["enabled"]):
+                filterTypes.remove("video")
+        else:
             filterTypes = []
-
-            if (Configuration["server_automatic_blacklist"]["text_filter_service"]["enabled"]):
-                filterTypes.append("text")
-            
-            if (Configuration["server_automatic_blacklist"]["image_filter_service"]["enabled"]):
-                filterTypes.append("image")
-
-            if (Configuration["server_automatic_blacklist"]["audio_filter_service"]["enabled"]):
-                filterTypes.append("audio")
-            
-            if (Configuration["server_automatic_blacklist"]["video_filter_service"]["enabled"]):
-                filterTypes.append("video")
-            
-            for filterType in filterTypes:
-                for filterToken in ExecuteFilter(filterType, conversation):
-                    if ("_queue_uid" in filterToken):
-                        yield {"_queue_uid": [filterToken["_queue_uid"], queueUID]}
-                    
-                    if ("_action" in filterToken):
-                        yield {"_filter_action": filterToken["_action"]}
+        
+        for filterType in filterTypes:
+            for filterToken in ExecuteFilter(filterType, conversation):
+                if ("_queue_uid" in filterToken):
+                    yield {"_queue_uid": [filterToken["_queue_uid"], queueUID]}
+                
+                if ("_action" in filterToken):
+                    yield {"_filter_action": filterToken["_action"]}
 
         firstToken = True
         lastTokenTime = time.time()
