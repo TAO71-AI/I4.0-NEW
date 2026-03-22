@@ -6,6 +6,15 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 22-3-2026 (commit `v19.0.1`)
+
+### Server changes
+
+- (chatbot module) Implemented the `_private_delete_kv_cache` parameter, to toggle KV cache deletion. Enabled by default or if not specified.
+- Fixed a bug when filtering content during inference.
+
+---
+
 ## 21-3-2026 (commit `v19.0.0`)
 
 ### Server changes

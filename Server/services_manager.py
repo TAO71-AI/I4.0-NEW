@@ -599,13 +599,13 @@ def InferenceModel(
             if ("text" in filterTypes and not Configuration["server_automatic_blacklist"]["text_filter_service"]["enabled"]):
                 filterTypes.remove("text")
             
-            if ("image" in filterTypes and Configuration["server_automatic_blacklist"]["image_filter_service"]["enabled"]):
+            if ("image" in filterTypes and not Configuration["server_automatic_blacklist"]["image_filter_service"]["enabled"]):
                 filterTypes.remove("image")
 
-            if ("audio" in filterTypes and Configuration["server_automatic_blacklist"]["audio_filter_service"]["enabled"]):
+            if ("audio" in filterTypes and not Configuration["server_automatic_blacklist"]["audio_filter_service"]["enabled"]):
                 filterTypes.remove("audio")
             
-            if ("video" in filterTypes and Configuration["server_automatic_blacklist"]["video_filter_service"]["enabled"]):
+            if ("video" in filterTypes and not Configuration["server_automatic_blacklist"]["video_filter_service"]["enabled"]):
                 filterTypes.remove("video")
         else:
             filterTypes = []

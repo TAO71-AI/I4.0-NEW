@@ -435,7 +435,8 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
             if (prevChatHandlerTemplateArgs is not None):
                 model.chat_handler.extra_template_arguments = prevChatHandlerTemplateArgs
             
-            utils_llama.ClearLlamaCache(model)
+            if ("_private_delete_kv_cache" not in __models__[Name] or __models__[Name]["_private_delete_kv_cache"]):
+                utils_llama.ClearLlamaCache(model)
 
 def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
     """
