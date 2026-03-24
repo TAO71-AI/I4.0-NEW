@@ -6,6 +6,19 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 24-3-2026 (commit `v19.1.0`)
+
+### Server changes
+
+- (chatbot module) Implemented the `tool_parse_type` parameter for multiple tool parsers (classic JSON, XML). Mostly used by **Qwen3.5** models.
+- Extra parameters when doing inference are now provided in `response > extra`.
+
+### Client changes
+
+- (`I40C` command) Fixed errors when using models that have a `redirect_to` parameter.
+
+---
+
 ## 22-3-2026 (commit `v19.0.1`)
 
 ### Server changes

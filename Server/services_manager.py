@@ -646,8 +646,9 @@ def InferenceModel(
             outputToken = {
                 "response": {
                     "text": token["text"] if ("text" in token) else "",
-                    "files": token["files"] if ("files" in token) else []
-                } | (token["extra"] if ("extra" in token) else {}),
+                    "files": token["files"] if ("files" in token) else [],
+                    "extra": token["extra"] if ("extra" in token) else []
+                },
                 "warnings": token["warnings"] if ("warnings" in token) else [],
                 "errors": token["errors"] if ("errors" in token) else [],
                 "_queue_uid": queueUID

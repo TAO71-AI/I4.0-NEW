@@ -87,9 +87,17 @@ def __main__() -> None:
     
     async def __socket__() -> None:
         async def __send__(AllowTools: bool = True) -> None:
-            await socket.Connect(getattr(conf, "CLIENT_Host"), getattr(conf, "CLIENT_Port"), getattr(conf, "CLIENT_Secure"))
-
+            await socket.Connect(Host = getattr(conf, "CLIENT_Host"), Port = getattr(conf, "CLIENT_Port"), Secure = getattr(conf, "CLIENT_Secure"))
             modelInfo = await socket.GetModelInfo(getattr(conf, "CLIENT_ModelName"))
+
+            if ("redirect_to" in modelInfo):
+                conInfo = modelInfo["redirect_to"].split(":")
+
+                socket.__socket_type__ = "websocket" if (conInfo[0] == "ws") else None
+                await socket.Connect(Host = conInfo[2], Port = int(conInfo[3]), Secure = bool(int(conInfo[1])))
+
+                modelInfo = await socket.GetModelInfo("".join(conInfo[4:]))
+
             modelMaxSimulUsers = modelInfo["max_simul_users"] if ("max_simul_users" in modelInfo) else 1
             queueData = await socket.GetQueueData(getattr(conf, "CLIENT_ModelName"))
 
@@ -140,12 +148,16 @@ def __main__() -> None:
                             
                             print(f"\nFile saved at '{fileName}'.", flush = True)
                     
-                    if ("extra" in token["response"] and "tools" in token["response"]["extra"]):
-                        tools += token["response"]["extra"]["tools"]
-                        token["response"]["extra"].pop(tools)
-                    
-                    if ("extra" in token["response"] and len(token["response"]["extra"]) > 0):
-                        print(f"Received extra data: {token['response']['extra']}", flush = True)
+                    if ("extra" in token["response"]):
+                        if ("tools" in token["response"]["extra"]):
+                            tools += token["response"]["extra"]["tools"]
+                            token["response"]["extra"].pop("tools")
+                        
+                        if ("thinking" in token["response"]["extra"]):
+                            token["response"]["extra"].pop("thinking")
+                        
+                        if (len(token["response"]["extra"]) > 0):
+                            print(f"Received extra data: {token['response']['extra']}", flush = True)
                 
                 if ("warnings" in token):
                     for warning in token["warnings"]:

@@ -4,6 +4,8 @@ from collections.abc import Generator
 import base64
 import json
 import copy
+import re
+import xml.etree.ElementTree as XML_ElementTree
 import Services.chatbot.llama_utils as utils_llama
 import Utilities.logs as logs
 
@@ -426,8 +428,53 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
 
                 if (isThinking and fullAssistantText.strip().endswith(reasoningEndToken)):
                     isThinking = False
-                
-            yield {"extra": {"tools": [json.loads(tool) for tool in tools]}}
+            
+            parsedTools = []
+            toolsType = __models__[Name]["tool_parse_type"] if ("tool_parse_type" in __models__[Name]) else None
+
+            if (toolsType is None):
+                if (isinstance(model.chat_handler, utils_llama.CH_Qwen35)):
+                    toolsType = "xml-1"
+                else:
+                    toolsType = "json-1"
+            
+            if (toolsType == "json" or toolsType == "json-1"):
+                parsedTools = [json.loads(tool) for tool in tools]
+            elif (toolsType == "xml" or toolsType == "xml-1"):
+                for tool in tools:
+                    fixedXML = re.sub(r"<([a-zA-Z0-9_]+)=([a-zA-Z0-9_]+)>", lambda m: f"<{m.group(1)} name=\"{m.group(2)}\">", tool)
+                    root = XML_ElementTree.fromstring(fixedXML)
+                    children = {}
+
+                    for child in root:
+                        for inputTool in Configuration["tools"]:
+                            if (inputTool["function"]["name"] != root.attrib["name"]):
+                                continue
+
+                            childType = inputTool["function"]["parameters"]["properties"][child.attrib["name"]]["type"]
+                            childValue = child.text
+
+                            if (childType == "integer"):
+                                childValue = int(childValue)
+                            elif (childType == "number"):
+                                childValue = float(childValue)
+                            elif (childType == "boolean"):
+                                childValue = childValue.lower() == "true"
+                            elif (childType == "array" or childType == "object"):
+                                childValue = json.loads(childValue)
+                            elif (childType == "null"):
+                                childValue = None
+                            elif (childType != "string"):
+                                raise ValueError(f"Invalid argument type (argument: '{child.attrib['name']}'; type: '{childType}'). Must comply with JSON-schema.")
+                            
+                            children[child.attrib["name"]] = childValue
+
+                    parsedTools.append({"name": root.attrib["name"], "arguments": children})
+                    root.clear()
+            else:
+                raise ValueError("Invalid tools parser.")
+            
+            yield {"extra": {"tools": parsedTools}}
         finally:
             if (prevModelChatTemplateArgs is not None):
                 pass  # TODO

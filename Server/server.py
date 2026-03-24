@@ -556,7 +556,7 @@ with open(config.Configuration["server_data"]["support_file"], "r") as f:
 if (not os.path.exists(config.Configuration["server_data"]["temp_dir"])):
     os.mkdir(config.Configuration["server_data"]["temp_dir"])
 
-SERVER_VERSION: int = 190000
+SERVER_VERSION: int = 190100
 Servers: list[Any] = []
 PrivateKey: Any | None = None
 PublicKey: Any | None = None
