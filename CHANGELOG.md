@@ -6,6 +6,18 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 25-3-2026 (commit `v19.2.0`)
+
+### Server changes
+
+- Model redirections are now done for each service, not only inference.
+
+### Client changes
+
+- (`I40C` command) Removed manual model redirection to avoid connecting to the same server multiple times.
+
+---
+
 ## 24-3-2026 (commit `v19.1.0`)
 
 ### Server changes

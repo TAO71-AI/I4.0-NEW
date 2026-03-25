@@ -1,3 +1,5 @@
+VERSION: int = 190200
+
 from typing import Any, Literal
 from collections.abc import AsyncGenerator
 from websockets import connect as WS_Connect
@@ -7,7 +9,6 @@ import json
 import base64
 import asyncio
 
-VERSION: int = 190100
 TRANSFER_RATE = 8192 * 1024
 
 class ClientSocket():

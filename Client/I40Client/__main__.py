@@ -88,16 +88,8 @@ def __main__() -> None:
     async def __socket__() -> None:
         async def __send__(AllowTools: bool = True) -> None:
             await socket.Connect(Host = getattr(conf, "CLIENT_Host"), Port = getattr(conf, "CLIENT_Port"), Secure = getattr(conf, "CLIENT_Secure"))
+            
             modelInfo = await socket.GetModelInfo(getattr(conf, "CLIENT_ModelName"))
-
-            if ("redirect_to" in modelInfo):
-                conInfo = modelInfo["redirect_to"].split(":")
-
-                socket.__socket_type__ = "websocket" if (conInfo[0] == "ws") else None
-                await socket.Connect(Host = conInfo[2], Port = int(conInfo[3]), Secure = bool(int(conInfo[1])))
-
-                modelInfo = await socket.GetModelInfo("".join(conInfo[4:]))
-
             modelMaxSimulUsers = modelInfo["max_simul_users"] if ("max_simul_users" in modelInfo) else 1
             queueData = await socket.GetQueueData(getattr(conf, "CLIENT_ModelName"))
 

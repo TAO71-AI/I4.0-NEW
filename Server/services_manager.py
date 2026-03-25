@@ -518,6 +518,28 @@ def ExecuteFilter(
     filterQueue.DeleteUID(filterQueueUID)
     yield {"_action": "none" if (isSafe) else filterAction}
 
+def ModelRedirectTo(ModelName: str) -> dict[str, Any] | None:
+    conf = GetModelConfiguration(ModelName = ModelName)
+
+    if ("redirect_to" in conf):
+        redirectTo = conf["redirect_to"].split(":")
+
+        if (len(redirectTo) < 4):
+            raise ValueError("Redirection template not valid.")
+            
+        redirectType = redirectTo[0]
+        redirectSecure = bool(int(redirectTo[1].strip()[0]))
+        redirectHost = redirectTo[2].strip()
+        redirectPort = int(redirectTo[3].strip())
+        redirectModel = "".join(redirectTo[4:])
+
+        if (redirectType != "ws" and redirectType != "s"):
+            raise ValueError("Invalid redirection host type.")
+
+        return {"redirect_to": {"type": redirectType, "secure": redirectSecure, "host": redirectHost, "port": redirectPort, "model": redirectModel}}
+    
+    return None
+
 def InferenceModel(
     ModelName: str,
     Prompt: dict[str, str | list[dict[str, str]] | dict[str, Any]],
@@ -539,24 +561,6 @@ def InferenceModel(
     try:
         modelConfiguration = ServicesModels[serviceName][ModelName]
         serviceModule = ServicesModules[serviceName]
-
-        if ("redirect_to" in modelConfiguration):
-            redirectTo = modelConfiguration["redirect_to"].split(":")
-
-            if (len(redirectTo) < 4):
-                raise ValueError("Redirection template not valid.")
-            
-            redirectType = redirectTo[0]
-            redirectSecure = bool(int(redirectTo[1].strip()[0]))
-            redirectHost = redirectTo[2].strip()
-            redirectPort = int(redirectTo[3].strip())
-            redirectModel = "".join(redirectTo[4:])
-
-            if (redirectType != "ws" and redirectType != "s"):
-                raise ValueError("Invalid redirection host type.")
-
-            yield {"redirect_to": {"type": redirectType, "secure": redirectSecure, "host": redirectHost, "port": redirectPort, "model": redirectModel}}
-            return
 
         if ("max_simul_users" in modelConfiguration and modelConfiguration["max_simul_users"] > 0):
             maxSimulUsers = modelConfiguration["max_simul_users"]

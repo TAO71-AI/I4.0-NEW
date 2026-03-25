@@ -1,3 +1,5 @@
+SERVER_VERSION: int = 190200
+
 try:
     from typing import Any, Literal
     from collections.abc import Generator
@@ -318,6 +320,17 @@ def __process_client__(Message: str, EndPoint: tuple[str, int]) -> Generator[dic
             if (keyInstance.Key != "nokey" and keyInstance.Key in BannedUsers["keys"]):
                 raise Exception("You are banned.")
             
+            modelRedirection = services_manager.ModelRedirectTo(modelName)
+
+            if (modelRedirection is not None):
+                yield modelRedirection | {
+                    "_model": modelName,
+                    "_hash": messageHash,
+                    "_public_key": messagePublicKey,
+                    "_key_instance": keyInstance
+                }
+                return
+            
             if (service == "inference"):
                 gen = services_manager.InferenceModel(
                     ModelName = modelName,
@@ -556,7 +569,6 @@ with open(config.Configuration["server_data"]["support_file"], "r") as f:
 if (not os.path.exists(config.Configuration["server_data"]["temp_dir"])):
     os.mkdir(config.Configuration["server_data"]["temp_dir"])
 
-SERVER_VERSION: int = 190100
 Servers: list[Any] = []
 PrivateKey: Any | None = None
 PublicKey: Any | None = None
