@@ -200,8 +200,8 @@ class ClientSocket():
                 if (previousConnection is not None):
                     self.__socket_type__ = previousConnection[0]
                     await self.Connect(previousConnection[1], previousConnection[2], previousConnection[3])
-
-                return
+            
+            return
     
     async def GetAvailableModels(self, **kwargs) -> list[str]:
         models = None

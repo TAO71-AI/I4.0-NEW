@@ -6,6 +6,14 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 25-3-2026 (commit `v19.2.1`)
+
+### Client changes
+
+- Fixed a bug for newer Python versions.
+
+---
+
 ## 25-3-2026 (commit `v19.2.0`)
 
 ### Server changes
