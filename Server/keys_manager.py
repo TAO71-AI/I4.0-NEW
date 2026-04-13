@@ -1,10 +1,10 @@
+import logging
 from typing import Any, Self
 import os
 import random
 import datetime
 import json
 import time
-import Utilities.logs as logs
 
 Configuration: dict[str, Any] = {}
 __busy__: list[str] = []
@@ -31,33 +31,27 @@ class APIKey():
         PrioritizeModels: list[str] = [],
         Groups: list[str] | None = None
     ):
-        logs.WriteLog(logs.INFO, "[keys_manager] Creating API key.")
-
         if (not isinstance(Configuration["server_api"]["min_length"], int) or Configuration["server_api"]["min_length"] < 16):
             raise ValueError("API key min length must be an integer of at least 16.")
         
-        minLength = Configuration["server_api"]["min_length"]
-        maxLength = Configuration["server_api"]["max_length"]
-
-        if (minLength < 16):
-            logs.WriteLog(logs.WARNING, "[keys_manager] Min length < 16. Setting to 16.")
-            minLength = 16
-
-        if (maxLength is None):
-            maxLength = minLength
-
-        if (maxLength > 128):
-            logs.WriteLog(logs.WARNING, "[keys_manager] Max length > 128. This could cause troubles. Setting to 128.")
-            maxLength = 128
+        if (Configuration["server_api"]["min_length"] < 16):
+            logging.warning("[keys_manager] Min length < 16. Setting to 16.")
+            Configuration["server_api"]["min_length"] = 16
         
-        if (minLength > maxLength):
-            logs.WriteLog(logs.WARNING, f"[keys_manager] Min length ({minLength}) > max length ({maxLength}). Setting to {maxLength}.")
-            minLength = maxLength
+        if (Configuration["server_api"]["max_length"] is None or Configuration["server_api"]["max_length"] < 0):
+            Configuration["server_api"]["max_length"] = Configuration["server_api"]["min_length"]
         
-        if (minLength == maxLength):
-            length = minLength
-        else:
-            length = random.randint(minLength, maxLength)
+        if (Configuration["server_api"]["max_length"] > 128):
+            logging.warning("[keys_manager] Max length > 128. This could cause troubles. Setting to 128.")
+            Configuration["server_api"]["max_length"] = 128
+        
+        if (Configuration["server_api"]["min_length"] > Configuration["server_api"]["max_length"]):
+            logging.warning(f"[keys_manager] Min length ({Configuration['server_api']['min_length']}) > max length ({Configuration['server_api']['max_length']}). Setting to {Configuration['server_api']['min_length']}.")
+            Configuration["server_api"]["min_length"] = Configuration["server_api"]["max_length"]
+        
+        minLength = int(Configuration["server_api"]["min_length"])
+        maxLength = int(Configuration["server_api"]["max_length"])
+        length = minLength if (minLength == maxLength) else random.randint(minLength, maxLength)
 
         date = datetime.datetime.now()
         chars = "abcdefghijplnmopqrstuvwxyz"
@@ -162,7 +156,7 @@ class APIKey():
             setattr(instance, "UpdateDate", instance.CreationDate.copy())
 
         if (instance.__version__ != cls.VERSION):
-            logs.PrintLog(logs.WARNING, "[keys_manager] API key version is older or newer than the server version. This might cause errors.")
+            logging.warning("[keys_manager] API key version is older or newer than the server version. This might cause errors.")
             instance.__version__ = cls.VERSION
         
         if (

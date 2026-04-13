@@ -1,4 +1,5 @@
 # Import libraries
+import logging
 from llama_cpp import (
     # Model
     Llama,
@@ -8,9 +9,7 @@ from llama_cpp import (
     LlamaRAMCache,
 
     # Split modes
-    LLAMA_SPLIT_MODE_LAYER as SPM_LAYER,
-    LLAMA_SPLIT_MODE_ROW as SPM_ROW,
-    LLAMA_SPLIT_MODE_NONE as SPM_NONE,
+    llama_split_mode,
 
     # ROPE scaling types
     llama_rope_scaling_type,
@@ -42,6 +41,7 @@ from llama_cpp import (
     LLAMA_FTYPE_MOSTLY_Q5_0 as FTYPE_Q5_0,
     LLAMA_FTYPE_MOSTLY_Q4_1 as FTYPE_Q4_1,
     LLAMA_FTYPE_MOSTLY_Q4_0 as FTYPE_Q4_0,
+    LLAMA_FTYPE_MOSTLY_Q1_0 as FTYPE_Q1_0,
 
     LLAMA_FTYPE_MOSTLY_IQ1_S as FTYPE_IQ1_S,
     LLAMA_FTYPE_MOSTLY_IQ1_M as FTYPE_IQ1_M,
@@ -60,6 +60,7 @@ from llama_cpp import (
     LLAMA_FTYPE_MOSTLY_IQ4_NL as FTYPE_IQ4_NL,
 
     LLAMA_FTYPE_MOSTLY_MXFP4_MOE as FTYPE_MXFP4,
+    LLAMA_FTYPE_MOSTLY_NVFP4 as FTYPE_NVFP4,
 
     # Other
     llama_get_memory,
@@ -76,13 +77,15 @@ from llama_cpp.llama_chat_format import (
     Qwen3VLChatHandler as CH_Qwen3VL,
     Qwen35ChatHandler as CH_Qwen35,
     Gemma3ChatHandler as CH_Gemma3,
+    Gemma4ChatHandler as CH_Gemma4,
     ObsidianChatHandler as CH_Obsidian,
     MiniCPMv45ChatHandler as CH_MiniCPMv45,
-    GraniteDoclingChatHandler as CH_GraniteDocling
+    GraniteDoclingChatHandler as CH_GraniteDocling,
+    LFM25VLChatHandler as CH_LFM25VL,
+    LFM2VLChatHandler as CH_LFM2VL
 )
 from typing import Any
 import time
-import Utilities.logs as logs
 
 __FTYPES__: dict[str | tuple[str, ...], int] = {
     ("f32", "fp32"): FTYPE_F32,
@@ -103,6 +106,7 @@ __FTYPES__: dict[str | tuple[str, ...], int] = {
     "q5_0": FTYPE_Q5_0,
     "q4_1": FTYPE_Q4_1,
     "q4_0": FTYPE_Q4_0,
+    "q1_0": FTYPE_Q1_0,
 
     "iq1_s": FTYPE_IQ1_S,
     "iq1_m": FTYPE_IQ1_M,
@@ -120,12 +124,14 @@ __FTYPES__: dict[str | tuple[str, ...], int] = {
     "iq4_xs": FTYPE_IQ4_XS,
     "iq4_nl": FTYPE_IQ4_NL,
 
-    ("mxfp4", "mxfp4_moe", "mxfp4moe"): FTYPE_MXFP4
+    ("mxfp4", "mxfp4_moe", "mxfp4moe"): FTYPE_MXFP4,
+    "nvfp4": FTYPE_NVFP4
 }
 __SPLIT_MODES__: dict[str | tuple[str, ...], int] = {
-    "layer": SPM_LAYER,
-    "row": SPM_ROW,
-    "none": SPM_NONE
+    "layer": llama_split_mode.LLAMA_SPLIT_MODE_LAYER,
+    "row": llama_split_mode.LLAMA_SPLIT_MODE_ROW,
+    "tensor": llama_split_mode.LLAMA_SPLIT_MODE_TENSOR,
+    "none": llama_split_mode.LLAMA_SPLIT_MODE_NONE
 }
 __ROPE_SCALING_TYPES__: dict[str | tuple[str, ...], int] = {
     "linear": llama_rope_scaling_type.LLAMA_ROPE_SCALING_TYPE_LINEAR,
@@ -322,34 +328,40 @@ def StringToChatHandler(
         return CH_Llava15(**generalArgs)
     elif (chatHandler == "llava16"):
         return CH_Llava16(**generalArgs)
-    elif (chatHandler == "llama3visionalpha" or chatHandler == "llama-3-vision-alpha" or chatHandler == "llama3-vision-alpha"):
+    elif (chatHandler in ["llama3visionalpha", "llama-3-vision-alpha", "llama3-vision-alpha"]):
         return CH_Llama3VisionAlpha(**generalArgs)
-    elif (chatHandler == "minicpmv2.6" or chatHandler == "mini-cpm-v2.6"):
+    elif (chatHandler in ["minicpmv2.6", "mini-cpm-v2.6"]):
         return CH_MiniCPMv26(**generalArgs)
     elif (chatHandler == "moondream"):
         return CH_Moondream(**generalArgs)
     elif (chatHandler == "nanollava"):
         return CH_NanoLlava(**generalArgs)
-    elif (chatHandler == "qwen2.5vl" or chatHandler == "qwen2.5-vl"):
+    elif (chatHandler in ["qwen2.5vl", "qwen2.5-vl"]):
         return CH_Qwen25VL(**generalArgs)
-    elif (chatHandler == "qwen3vl" or chatHandler == "qwen3-vl"):
+    elif (chatHandler in ["qwen3vl", "qwen3-vl"]):
         if (ImageTokens[0] < 1024):
-            logs.PrintLog(logs.WARNING, "[llama_utils] For Qwen3-VL it's recommended to set `mmproj_min_image_tokens` to 1024.")
+            logging.warning("[llama_utils] For Qwen3-VL it's recommended to set `mmproj_min_image_tokens` to 1024.")
 
         return CH_Qwen3VL(**generalArgs)
-    elif (chatHandler == "qwen35" or chatHandler == "qwen3.5"):
+    elif (chatHandler in ["qwen35", "qwen3.5"]):
         if (ImageTokens[0] < 1024):
-            logs.PrintLog(logs.WARNING, "[llama_utils] For Qwen3.5 it's recommended to set `mmproj_min_image_tokens` to 1024.")
+            logging.warning("[llama_utils] For Qwen3.5 it's recommended to set `mmproj_min_image_tokens` to 1024.")
         
         return CH_Qwen35(**generalArgs)
     elif (chatHandler == "gemma3"):
         return CH_Gemma3(**generalArgs)
     elif (chatHandler == "obsidian"):
         return CH_Obsidian(**generalArgs)
-    elif (chatHandler == "minicpmv4.5" or chatHandler == "minicpmv45" or chatHandler == "minicpm45"):
+    elif (chatHandler in ["minicpmv4.5", "minicpmv45", "minicpm45"]):
         return CH_MiniCPMv45(**generalArgs)
     elif (chatHandler == "granitedocling"):
         return CH_GraniteDocling(**generalArgs)
+    elif (chatHandler in ["lfm25vl", "lfm2.5-vl"]):
+        return CH_LFM25VL(**generalArgs)
+    elif (chatHandler in ["lfm2vl", "lfm2-vl"]):
+        return CH_LFM2VL(**generalArgs)
+    elif (chatHandler in ["gemma4", "gemma-4"]):
+        return CH_Gemma4(**generalArgs)
 
     return None
 
@@ -383,7 +395,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         mmproj = None
         chatHandler = None
 
-        logs.WriteLog(logs.INFO, "[llama_utils] Checking model path.")
+        logging.info("[llama_utils] Checking model path.")
 
         if (isinstance(Configuration["_private_model_path"], dict)):
             if ("llm" in Configuration["_private_model_path"]):
@@ -436,7 +448,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         
         if (mmproj is None and chatHandler is not None):
             chatHandler = None
-            logs.WriteLog(logs.INFO, "[llama_utils] `chat_handler` will not be used because `mmproj` is None.")
+            logging.info("[llama_utils] `chat_handler` will not be used because `mmproj` is None.")
     else:
         raise AttributeError("[llama_utils] `_private_model_path` must be in the configuration of the model.")
     
@@ -464,7 +476,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             raise AttributeError("[llama_utils] Invalid `_private_gpu_layers`.")
     else:
         gpuLayers = -1
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_gpu_layers` not defined. Set to -1.")
+        logging.info("[llama_utils] `_private_gpu_layers` not defined. Set to -1.")
     
     # Get the split_mode
     if ("_private_split_mode" in Configuration):
@@ -476,11 +488,11 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         splitMode = StringToSplitMode(splitMode)
 
         if (splitMode is None):
-            splitMode = SPM_LAYER
-            logs.PrintLog(logs.WARNING, "[llama_utils] `_private_split_mode` not found. Set to `layer`.")
+            splitMode = llama_split_mode.LLAMA_SPLIT_MODE_LAYER
+            logging.warning("[llama_utils] `_private_split_mode` not found. Set to `layer`.")
     else:
-        splitMode = SPM_LAYER
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_split_mode` not defined. Set to `layer`.")
+        splitMode = llama_split_mode.LLAMA_SPLIT_MODE_LAYER
+        logging.info("[llama_utils] `_private_split_mode` not defined. Set to `layer`.")
     
     # Get the main GPU
     if ("_private_main_gpu" in Configuration):
@@ -490,7 +502,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             raise AttributeError("[llama_utils] Invalid `_private_main_gpu`.")
     else:
         mainGPU = 0
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_main_gpu` not defined. Set to 0.")
+        logging.info("[llama_utils] `_private_main_gpu` not defined. Set to 0.")
     
     # Get mmap
     if ("_private_use_mmap" in Configuration):
@@ -500,7 +512,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             raise AttributeError("[llama_utils] Invalid `_private_use_mmap`.")
     else:
         mmap = True
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_use_mmap` not defined. Set to True.")
+        logging.info("[llama_utils] `_private_use_mmap` not defined. Set to True.")
     
     # Get mlock
     if ("_private_use_mlock" in Configuration):
@@ -510,7 +522,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             raise AttributeError("[llama_utils] Invalid `_private_use_mlock`.")
     else:
         mlock = False
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_use_mlock` not defined. Set to False.")
+        logging.info("[llama_utils] `_private_use_mlock` not defined. Set to False.")
     
     # Get ctx
     if ("ctx" in Configuration):
@@ -520,7 +532,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             raise AttributeError("[llama_utils] Invalid `ctx`.")
     else:
         ctx = 2048
-        logs.WriteLog(logs.INFO, "[llama_utils] `ctx` not defined. Set to 2048.")
+        logging.info("[llama_utils] `ctx` not defined. Set to 2048.")
     
     # Get batch
     if ("_private_batch" in Configuration):
@@ -530,7 +542,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             raise AttributeError("[llama_utils] Invalid `_private_batch`.")
     else:
         batch = 512
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_batch` not defined. Set to 512.")
+        logging.info("[llama_utils] `_private_batch` not defined. Set to 512.")
     
     # Get ubatch
     if ("_private_ubatch" in Configuration):
@@ -540,7 +552,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             raise AttributeError("[llama_utils] Invalid `_private_ubatch`.")
     else:
         ubatch = 512
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_ubatch` not defined. Set to 512.")
+        logging.info("[llama_utils] `_private_ubatch` not defined. Set to 512.")
     
     # Get threads
     if ("_private_threads" in Configuration):
@@ -550,7 +562,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             raise AttributeError("[llama_utils] Invalid `_private_threads`.")
     else:
         threads = None
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_threads` not defined. Set to None.")
+        logging.info("[llama_utils] `_private_threads` not defined. Set to None.")
     
     # Get batch_threads
     if ("_private_batch_threads" in Configuration):
@@ -560,7 +572,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             raise AttributeError("[llama_utils] Invalid `_private_batch_threads`.")
     else:
         batchThreads = None
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_batch_threads` not defined. Set to None.")
+        logging.info("[llama_utils] `_private_batch_threads` not defined. Set to None.")
     
     # Get rope_scaling_type
     if ("_private_rope_scaling_type" in Configuration):
@@ -573,10 +585,10 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
 
         if (ropeScalingType is None):
             ropeScalingType = llama_rope_scaling_type.LLAMA_ROPE_SCALING_TYPE_UNSPECIFIED
-            logs.PrintLog(logs.WARNING, "[llama_utils] `_private_rope_scaling_type` not found. Set to `unspecified`.")
+            logging.warning("[llama_utils] `_private_rope_scaling_type` not found. Set to `unspecified`.")
     else:
         ropeScalingType = llama_rope_scaling_type.LLAMA_ROPE_SCALING_TYPE_UNSPECIFIED
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_rope_scaling_type` not defined. Set to `unspecified`.")
+        logging.info("[llama_utils] `_private_rope_scaling_type` not defined. Set to `unspecified`.")
     
     # Get rope_freq_base
     if ("_private_rope_freq_base" in Configuration):
@@ -586,7 +598,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             raise AttributeError("[llama_utils] Invalid `_private_rope_freq_base`.")
     else:
         ropeFreqBase = 0
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_rope_freq_base` not defined. Set to 0.")
+        logging.info("[llama_utils] `_private_rope_freq_base` not defined. Set to 0.")
     
     # Get rope_freq_scale
     if ("_private_rope_freq_scale" in Configuration):
@@ -596,7 +608,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             raise AttributeError("[llama_utils] Invalid `_private_rope_freq_scale`.")
     else:
         ropeFreqScale = 0
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_rope_freq_scale` not defined. Set to 0.")
+        logging.info("[llama_utils] `_private_rope_freq_scale` not defined. Set to 0.")
     
     # Get yarn_ext_factor
     if ("_private_yarn_ext_factor" in Configuration):
@@ -606,7 +618,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             raise AttributeError("[llama_utils] Invalid `_private_yarn_ext_factor`.")
     else:
         yarnExtFactor = -1
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_yarn_ext_factor` not defined. Set to -1.")
+        logging.info("[llama_utils] `_private_yarn_ext_factor` not defined. Set to -1.")
     
     # Get yarn_attn_factor
     if ("_private_yarn_attn_factor" in Configuration):
@@ -616,7 +628,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             raise AttributeError("[llama_utils] Invalid `_private_yarn_attn_factor`.")
     else:
         yarnAttnFactor = 1
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_yarn_attn_factor` not defined. Set to 1.")
+        logging.info("[llama_utils] `_private_yarn_attn_factor` not defined. Set to 1.")
     
     # Get yarn_beta_fast
     if ("_private_yarn_beta_fast" in Configuration):
@@ -626,7 +638,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             raise AttributeError("[llama_utils] Invalid `_private_yarn_beta_fast`.")
     else:
         yarnBetaFast = 32
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_yarn_beta_fast` not defined. Set to 32.")
+        logging.info("[llama_utils] `_private_yarn_beta_fast` not defined. Set to 32.")
     
     # Get yarn_beta_slow
     if ("_private_yarn_beta_slow" in Configuration):
@@ -636,7 +648,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             raise AttributeError("[llama_utils] Invalid `_private_yarn_beta_slow`.")
     else:
         yarnBetaSlow = 1
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_yarn_beta_slow` not defined. Set to 1.")
+        logging.info("[llama_utils] `_private_yarn_beta_slow` not defined. Set to 1.")
     
     # Get yarn_orig_ctx
     if ("_private_yarn_orig_ctx" in Configuration):
@@ -646,7 +658,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             raise AttributeError("[llama_utils] Invalid `_private_yarn_orig_ctx`.")
     else:
         yarnOrigCtx = 0
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_yarn_orig_ctx` not defined. Set to 0.")
+        logging.info("[llama_utils] `_private_yarn_orig_ctx` not defined. Set to 0.")
     
     # Get pooling_type
     if ("_private_pooling_type" in Configuration):
@@ -659,10 +671,10 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
 
         if (poolingType is None):
             poolingType = POOLING_UNSPECIFIED
-            logs.PrintLog(logs.WARNING, "[llama_utils] `_private_pooling_type` not found. Set to `unspecified`.")
+            logging.warning("[llama_utils] `_private_pooling_type` not found. Set to `unspecified`.")
     else:
         poolingType = POOLING_UNSPECIFIED
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_pooling_type` not defined. Set to `unspecified`.")
+        logging.info("[llama_utils] `_private_pooling_type` not defined. Set to `unspecified`.")
     
     # Get offload_kqv
     if ("_private_offload_kqv" in Configuration):
@@ -672,7 +684,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             raise AttributeError("[llama_utils] Invalid `_private_offload_kqv`.")
     else:
         offloadKqv = True
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_offload_kqv` not defined. Set to True.")
+        logging.info("[llama_utils] `_private_offload_kqv` not defined. Set to True.")
     
     # Get offload_op
     if ("_private_offload_op" in Configuration):
@@ -682,7 +694,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             raise AttributeError("[llama_utils] Invalid `_private_offload_op`.")
     else:
         offloadOp = None
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_offload_op` not defined. Set to None.")
+        logging.info("[llama_utils] `_private_offload_op` not defined. Set to None.")
     
     # Get flash_attn
     if ("_private_flash_attn" in Configuration):
@@ -692,7 +704,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             raise AttributeError("[llama_utils] Invalid `_private_flash_attn`.")
     else:
         flashAttn = False
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_flash_attn` not defined. Set to False.")
+        logging.info("[llama_utils] `_private_flash_attn` not defined. Set to False.")
     
     # Get swa_full
     if ("_private_swa_full" in Configuration):
@@ -702,7 +714,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             raise AttributeError("[llama_utils] Invalid `_private_swa_full`.")
     else:
         swaFull = None
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_swa_full` not defined. Set to None.")
+        logging.info("[llama_utils] `_private_swa_full` not defined. Set to None.")
     
     # Set ftype_k
     if ("ftype_k" in Configuration):
@@ -713,18 +725,14 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         
         ftypeK = StringToFtype(ftypeK)
 
-        if (ftypeK is None or (
-            ftypeK != FTYPE_F32 and
-            ftypeK != FTYPE_F16 and
-            ftypeK != FTYPE_Q8_0 and
-            ftypeK != FTYPE_Q5_0 and
-            ftypeK != FTYPE_Q4_0
-        )):
+        if (ftypeK is None or ftypeK not in [
+            FTYPE_F32, FTYPE_F16, FTYPE_BF16, FTYPE_Q8_0, FTYPE_Q4_0, FTYPE_Q4_1, FTYPE_IQ4_NL, FTYPE_Q5_0, FTYPE_Q5_1
+        ]):
             ftypeK = None
-            logs.PrintLog(logs.WARNING, "[llama_utils] `ftype_k` not found or invalid. Set to None.")
+            logging.warning("[llama_utils] `ftype_k` not found or invalid. Set to None.")
     else:
         ftypeK = None
-        logs.WriteLog(logs.INFO, "[llama_utils] `ftype_k` not defined. Set to None.")
+        logging.info("[llama_utils] `ftype_k` not defined. Set to None.")
     
     # Set ftype_v
     if ("ftype_v" in Configuration):
@@ -735,18 +743,14 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         
         ftypeV = StringToFtype(ftypeV)
 
-        if (ftypeV is None or (
-            ftypeV != FTYPE_F32 and
-            ftypeV != FTYPE_F16 and
-            ftypeV != FTYPE_Q8_0 and
-            ftypeV != FTYPE_Q5_0 and
-            ftypeV != FTYPE_Q4_0
-        )):
+        if (ftypeV is None or ftypeV not in [
+            FTYPE_F32, FTYPE_F16, FTYPE_BF16, FTYPE_Q8_0, FTYPE_Q4_0, FTYPE_Q4_1, FTYPE_IQ4_NL, FTYPE_Q5_0, FTYPE_Q5_1
+        ]):
             ftypeV = None
-            logs.PrintLog(logs.WARNING, "[llama_utils] `ftype_v` not found or invalid. Set to None.")
+            logging.warning("[llama_utils] `ftype_v` not found or invalid. Set to None.")
     else:
         ftypeV = None
-        logs.WriteLog(logs.INFO, "[llama_utils] `ftype_v` not defined. Set to None.")
+        logging.info("[llama_utils] `ftype_v` not defined. Set to None.")
     
     # Set spm_infill
     if ("_private_spm_infill" in Configuration):
@@ -756,7 +760,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             raise AttributeError("[llama_utils] Invalid `_private_spm_infill`.")
     else:
         spmInfill = False
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_spm_infill` not defined. Set to False.")
+        logging.info("[llama_utils] `_private_spm_infill` not defined. Set to False.")
     
     # Set cache_type
     if ("_private_cache_type" in Configuration):
@@ -769,10 +773,10 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             cacheType = StringToCacheType(cacheType)
 
             if (cacheType is None):
-                logs.PrintLog(logs.WARNING, "[llama_utils] `_private_cache_type` not found. Set to None.")
+                logging.warning("[llama_utils] `_private_cache_type` not found. Set to None.")
     else:
         cacheType = None
-        logs.WriteLog(logs.INFO, "[llama_utils] `_private_cache_type` not defined. Set to None.")
+        logging.info("[llama_utils] `_private_cache_type` not defined. Set to None.")
     
     # Set multimodal type
     if ("multimodal" in Configuration):
@@ -792,7 +796,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             mul != "video" and
             mul != "audio"
         ):
-            logs.PrintLog(logs.WARNING, f"[llama_utils] Multimodal type '{mul}' not supported.")
+            logging.warning(f"[llama_utils] Multimodal type '{mul}' not supported.")
             continue
     
     # Save the parameters in a dictionary
@@ -838,7 +842,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
     }
 
     # Load the model
-    logs.WriteLog(logs.INFO, "[llama_utils] Loading model...")
+    logging.info("[llama_utils] Loading model...")
     loadingTime = time.time()
 
     model = Llama(**modelParamsLCPP)
@@ -847,7 +851,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
     loadingTime = time.time() - loadingTime
     loadingTime = round(loadingTime, 3)
 
-    logs.WriteLog(logs.INFO, f"[llama_utils] Model loaded in {loadingTime} seconds.")
+    logging.info(f"[llama_utils] Model loaded in {loadingTime} seconds.")
     return {
         "_private_model": model,
         "_private_type": "lcpp"

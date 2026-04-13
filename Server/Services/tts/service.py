@@ -1,8 +1,8 @@
+import logging
 from typing import Any
 from collections.abc import Generator
 import time
 import Services.tts.qwen as qwen
-import Utilities.logs as logs
 import Utilities.model_utils as model_utils
 
 __models__: dict[str, dict[str, Any]] = {}
@@ -27,7 +27,7 @@ def SERVICE_OFFLOAD_MODELS(Names: list[str]) -> None:
         if (__models__[name]["_private_model"] is None):
             continue
         
-        logs.WriteLog(logs.INFO, "[service_tts] Offloading model.")
+        logging.info("[service_tts] Offloading model.")
         __models__[name]["_private_model"] = None
 
 def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dict[str, Any]) -> Generator[dict[str, Any]]:
@@ -90,7 +90,7 @@ def LoadModel(ModelName: str, Configuration: dict[str, Any]) -> None:
         return
     
     loadTime = time.time()
-    logs.WriteLog(logs.INFO, "[service_tts] Loading model...")
+    logging.info("[service_tts] Loading model...")
 
     if ("_private_device" not in Configuration):
         Configuration["_private_device"] = "cpu"
@@ -110,4 +110,4 @@ def LoadModel(ModelName: str, Configuration: dict[str, Any]) -> None:
     }
 
     loadTime = round(time.time() - loadTime, 3)
-    logs.WriteLog(logs.INFO, f"[service_tts] Model loaded in {loadTime} seconds.")
+    logging.info(f"[service_tts] Model loaded in {loadTime} seconds.")

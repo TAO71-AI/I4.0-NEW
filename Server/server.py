@@ -1,6 +1,14 @@
-SERVER_VERSION: int = 190200
+SERVER_VERSION: int = 190300
 
 try:
+    import logging
+    logging.basicConfig(
+        level = logging.DEBUG,
+        format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        filename = "latest.log",
+        filemode = "w"
+    )
+
     from typing import Any, Literal
     from collections.abc import Generator
     import os
@@ -13,7 +21,6 @@ try:
 
     import encryption
     import services_manager
-    import Utilities.logs as logs
     import Utilities.server_utils as server_utils
     import Configuration.config as config
 except Exception as ex:
@@ -26,10 +33,10 @@ except Exception as ex:
 
 def LoadModels() -> None:
     try:
-        logs.PrintLog(logs.INFO, "[server] Loading all modules...")
+        logging.info("[server] Loading all modules...")
         services_manager.LoadModels(config.Configuration["services"])
     except Exception as ex:
-        logs.PrintLog(logs.CRITICAL, f"[server] Could not load models. Error: {ex}")
+        logging.critical(f"[server] Could not load models. Error: {ex}")
         raise RuntimeError(f"Could not load models: {ex}")
 
 def __ban_user__(Type: Literal["key", "ip"], Value: str) -> None:
@@ -94,7 +101,7 @@ def __offload_models_t__() -> None:
         if (len(modelsToOffload) == 0):
             continue
         
-        logs.WriteLog(logs.INFO, f"[server] Offloading models {modelsToOffload}.")
+        logging.info(f"[server] Offloading models {modelsToOffload}.")
         services_manager.OffloadModels(modelsToOffload)
         modelsToOffload.clear()
 
@@ -199,7 +206,7 @@ async def __unhandled_received_message__(Client: server_utils.Client, Message: s
                 except services_manager.exceptions.ConnectionClosedError as ex:
                     raise ex
                 except Exception as ex:
-                    logs.WriteLog(logs.ERROR, f"[server] Error sending to client: {ex}")
+                    logging.error(f"[server] Error sending to client: {ex}")
                     raise ex
             
             async def __send_to_client__(Token: dict[str, Any]) -> None:
@@ -238,7 +245,7 @@ async def __unhandled_received_message__(Client: server_utils.Client, Message: s
             th = threading.Thread(target = __run_in_thread__, daemon = True)
             th.start()
     except Exception as ex:
-        logs.WriteLog(logs.ERROR, f"[server] Error while receiving from client ({ex}). The connection will be closed.")
+        logging.error(f"[server] Error while receiving from client ({ex}). The connection will be closed.")
         await Client.Close()
 
 def __process_client__(Message: str, EndPoint: tuple[str, int]) -> Generator[dict[str, Any]]:
@@ -515,10 +522,10 @@ def StartServer() -> None:
                 # TODO: More servers in the future!
                 raise TypeError("Invalid server type.")
         except Exception as ex:
-            logs.PrintLog(logs.CRITICAL, f"[server] Could not start server {len(Servers)}; ignoring this server. Error: {ex}")
+            logging.critical(f"[server] Could not start server {config.Configuration['server_listen'].index(server)}; ignoring this server. Error: {ex}")
             continue
     
-    logs.PrintLog(logs.INFO, "[server] All servers started!")
+    logging.info("[server] All servers started!")
 
 def CloseServer() -> None:
     global CloseServerReason, Servers
@@ -530,19 +537,19 @@ def CloseServer() -> None:
         asyncio.get_event_loop().run_until_complete(server.Stop())
 
     print("Closing server.", flush = True)
-    logs.WriteLog(logs.INFO, f"[server] Closing server with reason '{CloseServerReason}'.")
+    logging.info(f"[server] Closing server with reason '{CloseServerReason}'.")
 
     services_manager.OffloadModels(list(config.Configuration["services"].keys()))
 
 config.ReadConfiguration(None, True, True)
 
 try:
-    logs.WriteLog(logs.INFO, "[server] Loading configuration...")
+    logging.info("[server] Loading configuration...")
 
     services_manager.Configuration = config.Configuration
     services_manager.keys_manager.Configuration = config.Configuration
 except Exception as ex:
-    logs.PrintLog(logs.CRITICAL, f"[server] Could not copy configuration in all modules! Error: {ex}")
+    logging.critical(f"[server] Could not copy configuration in all modules! Error: {ex}")
     exit(1)
 
 if (not os.path.exists(config.Configuration["server_data"]["tos_file"])):
@@ -574,6 +581,9 @@ PrivateKey: Any | None = None
 PublicKey: Any | None = None
 CloseServerReason: str | None = None
 
+asyncioLogger = logging.getLogger("asyncio")
+asyncioLogger.setLevel(logging.CRITICAL)
+
 if (__name__ == "__main__"):
     LoadModels()
 
@@ -592,7 +602,7 @@ if (__name__ == "__main__"):
                 continue
 
             prompt = input(">$ ")
-            logs.WriteLog(logs.INFO, f"[server] (interactive mode) Wrote prompt '{prompt}'.")
+            logging.info(f"[server] (interactive mode) Wrote prompt '{prompt}'.")
 
             if (prompt == "inference"):
                 infModelName = input("MODEL NAME >$ ")
@@ -752,13 +762,13 @@ if (__name__ == "__main__"):
             elif (prompt == "exit" or prompt == "close"):
                 raise KeyboardInterrupt()
             elif (prompt == "noninteractive" or prompt == "nit"):
-                logs.PrintLog(logs.INFO, "[server] (interactive mode) Closed interactive mode. Changing to default mode.")
+                logging.info("[server] (interactive mode) Closed interactive mode. Changing to default mode.")
                 interactiveMode = False
             elif (prompt == "clear"):
                 ec = os.system("clear")
 
                 if (ec != 0):
-                    logs.PrintLog(logs.ERROR, f"[server] (interactive mode) Could not clear terminal. Exit code {ec}.")
+                    logging.error(f"[server] (interactive mode) Could not clear terminal. Exit code {ec}.")
             elif (prompt.startswith("createkey ") or prompt.startswith("crk ")):
                 args = (prompt[10:] if (prompt.startswith("createkey")) else prompt[4:]).split(";")
                 tokens = 0
@@ -823,7 +833,7 @@ if (__name__ == "__main__"):
 
             break
         except Exception as ex:
-            logs.PrintLog(logs.ERROR, f"[server] Error in the server loop: {ex}")
+            logging.error(f"[server] Error in the server loop: {ex}")
     
     print("", flush = True)
     CloseServer()

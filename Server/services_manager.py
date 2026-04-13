@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Literal
 from collections.abc import Generator
 from io import BytesIO
@@ -15,12 +16,10 @@ import json
 import base64
 import tiktoken
 import av
-import math
 import exceptions
 import keys_manager
 import services_queue as queue
 import Utilities.install_requirements as requirements
-import Utilities.logs as logs
 
 SERVICES_DIR = "./Services/"
 SERVICES_FILE_NAME = [
@@ -71,7 +70,7 @@ class Service():
     
     def LoadModules(self, LoadService: bool = True, LoadRequirements: bool = True, LoadConfiguration: bool = True) -> None:
         if (self.ServiceModule is None and LoadService):
-            logs.WriteLog(logs.INFO, f"[services_manager] Loading service module for `{self.Name}`.")
+            logging.info(f"[services_manager] Loading service module for `{self.Name}`.")
 
             spec = importlib.util.spec_from_file_location(
                 self.ServiceModuleName,
@@ -81,7 +80,7 @@ class Service():
             spec.loader.exec_module(self.ServiceModule)
 
         if (self.RequirementsModule is None and self.RequirementsModuleName is not None and LoadRequirements):
-            logs.WriteLog(logs.INFO, f"[services_manager] Loading requirements module for `{self.Name}`.")
+            logging.info(f"[services_manager] Loading requirements module for `{self.Name}`.")
 
             reqSpec = importlib.util.spec_from_file_location(
                 self.RequirementsModuleName,
@@ -91,7 +90,7 @@ class Service():
             reqSpec.loader.exec_module(self.RequirementsModule)
         
         if (self.Configuration is None and self.DefaultConfigurationFilePath is not None and LoadConfiguration):
-            logs.WriteLog(logs.INFO, f"[services_manager] Loading service configuration for `{self.Name}`.")
+            logging.info(f"[services_manager] Loading service configuration for `{self.Name}`.")
 
             with open(self.DefaultConfigurationFilePath, "r", encoding = "utf-8") as configFile:
                 if (self.DefaultConfigurationFilePath.endswith(".yaml")):
@@ -216,10 +215,10 @@ def GetServices() -> list[Service]:
     services = []
     inputServDir = os.listdir(SERVICES_DIR)
 
-    logs.WriteLog(logs.INFO, f"[services_manager] Fetched services: `{inputServDir}`.")
+    logging.info(f"[services_manager] Fetched services: `{inputServDir}`.")
 
     for servDir in os.listdir(SERVICES_DIR):
-        logs.WriteLog(logs.INFO, f"[services_manager] Getting service information of the directory `{servDir}`.")
+        logging.info(f"[services_manager] Getting service information of the directory `{servDir}`.")
 
         if (" " in servDir):
             raise RuntimeError("Service directory must not contain spaces.")
@@ -234,7 +233,7 @@ def GetServices() -> list[Service]:
         
         for name in SERVICES_FILE_NAME:
             fp = os.path.join(pathDir, name)
-            logs.WriteLog(logs.INFO, f"[services_manager] Got service file at `{fp}`.")
+            logging.info(f"[services_manager] Got service file at `{fp}`.")
 
             if (os.path.exists(fp)):
                 pathServFile = fp
@@ -242,7 +241,7 @@ def GetServices() -> list[Service]:
         
         for name in SERVICES_REQUIREMENTS_FILES:
             fp = os.path.join(pathDir, name)
-            logs.WriteLog(logs.INFO, f"[services_manager] Got requirements file at `{fp}`.")
+            logging.info(f"[services_manager] Got requirements file at `{fp}`.")
 
             if (os.path.exists(fp)):
                 pathReqFile = fp
@@ -250,11 +249,11 @@ def GetServices() -> list[Service]:
         
         if (os.path.exists(f"./config_{servDir}.yaml")):
             pathDefConfig = f"./config_{servDir}.yaml"
-            logs.WriteLog(logs.INFO, f"[services_manager] Got service configuration file at `{fp}`. No need to copy.")
+            logging.info(f"[services_manager] Got service configuration file at `{fp}`. No need to copy.")
         else:
             for name in SERVICES_CONFIG_FILES:
                 fp = os.path.join(pathDir, name)
-                logs.WriteLog(logs.INFO, f"[services_manager] Got service configuration file at `{fp}`. Copying.")
+                logging.info(f"[services_manager] Got service configuration file at `{fp}`. Copying.")
 
                 if (os.path.exists(fp)):
                     shutil.copy2(fp, f"./config_{servDir}.yaml")
@@ -285,28 +284,25 @@ def InstallAllRequirements(Services: list[Service] | None = None, ExtraArgs: lis
     
     for service in Services:
         if (service.RequirementsFilePath is None):
-            logs.PrintLog(logs.INFO, f"[services_manager] No requirements for the service `{service.Name}`. Ignoring.")
+            logging.warning(f"[services_manager] No requirements for the service `{service.Name}`. Ignoring.")
             continue
 
         if (service.RequirementsFilePath is not None and service.RequirementsModuleName is None):
             with open(service.RequirementsFilePath, "r") as f:
                 reqs = f.read()
             
-            logs.PrintLog(logs.INFO, f"[services_manager] Installing requirements for the service `{service.Name}` (using requirements file)...")
+            logging.info(f"[services_manager] Installing requirements for the service `{service.Name}` (using requirements file)...")
             requirements.InstallPackage(reqs.splitlines(), PIPOptions = ExtraArgs)
-            logs.PrintLog(logs.INFO, f"[services_manager] Requirements for the service `{service.Name}` installed!")
+            logging.info(f"[services_manager] Requirements for the service `{service.Name}` installed!")
         else:
-            logs.PrintLog(logs.INFO, f"[services_manager] Installing requirements for the service `{service.Name}` (using module)...")
+            logging.info(f"[services_manager] Installing requirements for the service `{service.Name}` (using module)...")
             service.LoadModules(False, True, False)
 
             if (Service.ModuleContainsFunction(service.RequirementsModule, "Install")):
                 Service.RunModuleFunction(service.RequirementsModule, "Install", [None, ExtraArgs])
-                logs.PrintLog(logs.INFO, f"[services_manager] Requirements for the service `{service.Name}` installed!")
+                logging.info(f"[services_manager] Requirements for the service `{service.Name}` installed!")
             else:
-                logs.PrintLog(
-                    logs.ERROR,
-                    f"[services_manager] Could not install requirements for the service `{service.Name}`. Possibly no `Install` function."
-                )
+                logging.error(f"[services_manager] Could not install requirements for the service `{service.Name}`. Possibly no `Install` function.")
 
 def LoadModels(Models: dict[str, dict[str, Any]]) -> None:
     global ServicesModules, ServicesModels
@@ -378,7 +374,9 @@ def CalculateTokenPrice(ModelNameOrConfig: str | dict[str, Any], GetOutputPricin
     elif ("price" in modelConfiguration):
         modelPricing = modelConfiguration["price"]
     else:
-        logs.WriteLog(logs.WARNING, "[services_manager] Pricing not set. Everything will default to 0 (free of charge).")
+        if (not GetOutputPricing):
+            logging.warning("[services_manager] Pricing not set. Everything will default to 0 (free of charge).")
+
         modelPricing = {}
 
     if (GetOutputPricing):
@@ -481,7 +479,7 @@ def ExecuteFilter(
     if ("max_simul_users" in filterModelConfig and filterModelConfig["max_simul_users"] > 0):
         maxSimulUsers = filterModelConfig["max_simul_users"]
     else:
-        logs.WriteLog(logs.INFO, "[services_manager] Max simultaneously users not set in model configuration. Setting to 1.")
+        logging.info("[services_manager] Max simultaneously users not set in model configuration. Setting to 1.")
         maxSimulUsers = 1
 
     if (filterQueue is None):
@@ -522,18 +520,28 @@ def ModelRedirectTo(ModelName: str) -> dict[str, Any] | None:
     conf = GetModelConfiguration(ModelName = ModelName)
 
     if ("redirect_to" in conf):
-        redirectTo = conf["redirect_to"].split(":")
+        if (isinstance(conf["redirect_to"], str)):
+            redirectTo = conf["redirect_to"].split(":")
 
-        if (len(redirectTo) < 4):
-            raise ValueError("Redirection template not valid.")
+            if (len(redirectTo) < 4):
+                raise ValueError("Redirection template not valid.")
             
-        redirectType = redirectTo[0]
-        redirectSecure = bool(int(redirectTo[1].strip()[0]))
-        redirectHost = redirectTo[2].strip()
-        redirectPort = int(redirectTo[3].strip())
-        redirectModel = "".join(redirectTo[4:])
+            redirectType = redirectTo[0] if (len(redirectTo[0].strip()) > 0) else None
+            redirectSecure = bool(int(redirectTo[1].strip()[0])) if (len(redirectTo[1].strip()) > 0) else None
+            redirectHost = redirectTo[2].strip() if (len(redirectTo[2].strip()) > 0) else None
+            redirectPort = int(redirectTo[3].strip()) if (len(redirectTo[3].strip()) > 0) else None
+            redirectModel = "".join(redirectTo[4:])
+        elif (isinstance(conf["redirect_to"], dict)):
+            redirectTo = conf["redirect_to"]
+            redirectType = redirectTo["type"] if ("type" in redirectTo and isinstance(redirectTo["type"], str)) else None
+            redirectSecure = redirectTo["secure"] if ("secure" in redirectTo and isinstance(redirectTo["secure"], bool)) else None
+            redirectHost = redirectTo["host"] if ("host" in redirectTo and isinstance(redirectTo["host"], str)) else None
+            redirectPort = redirectTo["port"] if ("port" in redirectTo and isinstance(redirectTo["port"], int)) else None
+            redirectModel = redirectTo["model"] if ("model" in redirectTo and isinstance(redirectTo["model"], str)) else None
+        else:
+            raise ValueError("Redirection type not valid.")
 
-        if (redirectType != "ws" and redirectType != "s"):
+        if (redirectType != "ws" and redirectType != "s" and redirectType != None):
             raise ValueError("Invalid redirection host type.")
 
         return {"redirect_to": {"type": redirectType, "secure": redirectSecure, "host": redirectHost, "port": redirectPort, "model": redirectModel}}
@@ -552,6 +560,12 @@ def InferenceModel(
     ):
         raise ValueError("Required user parameters not defined.")
     
+    if ("tokens_budget" in UserParameters and UserParameters["tokens_budget"] <= UserParameters["key_info"]["Tokens"]):
+        initialTokensBudget = UserParameters["tokens_budget"]
+    else:
+        initialTokensBudget = UserParameters["key_info"]["Tokens"]
+    
+    tokensBudget = initialTokensBudget
     tokensProcessingTime = None
     serviceName = FindServiceForModel(ModelName, True)
     
@@ -565,7 +579,7 @@ def InferenceModel(
         if ("max_simul_users" in modelConfiguration and modelConfiguration["max_simul_users"] > 0):
             maxSimulUsers = modelConfiguration["max_simul_users"]
         else:
-            logs.WriteLog(logs.INFO, "[services_manager] Max simultaneously users not set in model configuration. Setting to 1.")
+            logging.info("[services_manager] Max simultaneously users not set in model configuration. Setting to 1.")
             maxSimulUsers = 1
 
         modelQueue = queue.GetQueueForModel(ModelName)
@@ -587,10 +601,10 @@ def InferenceModel(
             
             price += CalculateTokenPrice(modelConfiguration, False, msg["content"])
 
-        if (UserParameters["key_info"]["Tokens"] < price):
-            raise exceptions.NotEnoughTokensException(price, UserParameters["key_info"]["Tokens"])
+        if (tokensBudget < price):
+            raise exceptions.NotEnoughTokensException(price, tokensBudget)
         
-        UserParameters["key_info"]["Tokens"] -= price
+        tokensBudget -= price
 
         if (Configuration["server_automatic_blacklist"]["enabled"]):
             if ("enable_filter" in modelConfiguration and isinstance(modelConfiguration["enable_filter"], list)):
@@ -664,10 +678,10 @@ def InferenceModel(
                 }
             ] + outputToken["response"]["files"])
 
-            if (UserParameters["key_info"]["Tokens"] < tokenPrice):
-                raise exceptions.NotEnoughTokensException(tokenPrice, UserParameters["key_info"]["Tokens"])
+            if (tokensBudget < tokenPrice):
+                raise exceptions.NotEnoughTokensException(tokenPrice, tokensBudget)
             
-            UserParameters["key_info"]["Tokens"] -= tokenPrice
+            tokensBudget -= tokenPrice
             
             if (firstToken):
                 firstTokenSeconds = time.time() - lastTokenTime
@@ -708,5 +722,7 @@ def InferenceModel(
         if (modelQueue is not None):
             modelQueue.DeleteUID(queueUID)
 
+
+        UserParameters["key_info"]["Tokens"] = initialTokensBudget - tokensBudget
         apiKey = keys_manager.APIKey.__from_dict__(UserParameters["key_info"])
         apiKey.SaveToFile()

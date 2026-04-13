@@ -1,4 +1,5 @@
 # Import libraries
+import logging
 from typing import Any
 from collections.abc import Generator
 import base64
@@ -7,7 +8,6 @@ import copy
 import re
 import xml.etree.ElementTree as XML_ElementTree
 import Services.chatbot.llama_utils as utils_llama
-import Utilities.logs as logs
 
 __models__: dict[str, dict[str, Any]] = {}
 ServiceConfiguration: dict[str, Any] | None = None
@@ -54,7 +54,7 @@ def SERVICE_OFFLOAD_MODELS(Names: list[str]) -> None:
         if (__models__[name]["_private_model"] is None):
             continue
         
-        logs.WriteLog(logs.INFO, "[service_chatbot] Offloading model.")
+        logging.info("[service_chatbot] Offloading model.")
 
         # Offload the model
         if (__models__[name]["_private_type"] == "lcpp"):
@@ -209,10 +209,10 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
                 yield {"warnings": [f"Invalid parameter type for {pn}. Parameter ignored."]}
                 continue
 
+    startsThinking = "starts_thinking" in __models__[Name]["reasoning"] and __models__[Name]["reasoning"]["starts_thinking"]
+    generatesStartToken = "generates_start_token" in __models__[Name]["reasoning"] and __models__[Name]["reasoning"]["generates_start_token"]
+
     if ("reasoning_mode" in UserConfig and "reasoning" in __models__[Name] and "levels" in __models__[Name]["reasoning"] and UserConfig["reasoning_mode"] in __models__[Name]["reasoning"]["levels"]):
-        startsThinking = "starts_thinking" in __models__[Name]["reasoning"] and __models__[Name]["reasoning"]["starts_thinking"]
-        generatesStartToken = "generates_start_token" in __models__[Name]["reasoning"] and __models__[Name]["reasoning"]["generates_start_token"]
-        
         if ("_private_model_params" in __models__[Name]["reasoning"] and UserConfig["reasoning_mode"] in __models__[Name]["reasoning"]["_private_model_params"]):
             for pn, pv in __models__[Name]["reasoning"]["_private_model_params"][UserConfig["reasoning_mode"]].items():
                 if (pn == "starts_thinking"):
@@ -248,9 +248,8 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
                     extraHandlerCTParams[pn] = pv["value"]
                 else:
                     raise ValueError("Invalid extra parameter type.")
-    else:
-        startsThinking = False
-        generatesStartToken = False
+    
+    continueGeneration = "continue_generation" in UserConfig and UserConfig["continue_generation"]
     
     generator = InferenceModel(
         Name,
@@ -273,7 +272,8 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
             "extra_template_parameters_model": extraModelCTParams,
             "extra_template_parameters_handler": extraHandlerCTParams,
             "reasoning_starts_thinking": startsThinking,
-            "reasoning_generates_start_token": generatesStartToken
+            "reasoning_generates_start_token": generatesStartToken,
+            "continue_generation": continueGeneration
         }
     )
 
@@ -325,7 +325,12 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
 
                         content["type"] = "image_url"
                         content.pop("image")
-                    # TODO: Add video and audio when supported
+                    elif (content["type"] == "audio"):
+                        content["audio_url"] = {"url": f"data:audio;base64,{content['audio']}"}
+
+                        content["type"] = "audio_url"
+                        content.pop("audio")
+                    # TODO: Add video when supported
             
             if (txt is not None):
                 message["content"] = txt
@@ -391,6 +396,7 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
             frequency_penalty = Configuration["frequency_penalty"],
             repeat_penalty = Configuration["repeat_penalty"],
             stop = Configuration["stop"],
+            assistant_prefill = Configuration["continue_generation"],
             **Configuration["extra_parameters"]
         )
 
@@ -438,9 +444,9 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
                 else:
                     toolsType = "json-1"
             
-            if (toolsType == "json" or toolsType == "json-1"):
+            if (toolsType in ["json", "json-1"]):
                 parsedTools = [json.loads(tool) for tool in tools]
-            elif (toolsType == "xml" or toolsType == "xml-1"):
+            elif (toolsType in ["xml", "xml-1"]):
                 for tool in tools:
                     fixedXML = re.sub(r"<([a-zA-Z0-9_]+)=([a-zA-Z0-9_]+)>", lambda m: f"<{m.group(1)} name=\"{m.group(2)}\">", tool)
                     root = XML_ElementTree.fromstring(fixedXML)
@@ -451,21 +457,10 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
                             if (inputTool["function"]["name"] != root.attrib["name"]):
                                 continue
 
-                            childType = inputTool["function"]["parameters"]["properties"][child.attrib["name"]]["type"]
-                            childValue = child.text
-
-                            if (childType == "integer"):
-                                childValue = int(childValue)
-                            elif (childType == "number"):
-                                childValue = float(childValue)
-                            elif (childType == "boolean"):
-                                childValue = childValue.lower() == "true"
-                            elif (childType == "array" or childType == "object"):
-                                childValue = json.loads(childValue)
-                            elif (childType == "null"):
-                                childValue = None
-                            elif (childType != "string"):
-                                raise ValueError(f"Invalid argument type (argument: '{child.attrib['name']}'; type: '{childType}'). Must comply with JSON-schema.")
+                            try:
+                                childValue = json.loads(child.text)
+                            except json.JSONDecodeError:
+                                childValue = str(child.text)
                             
                             children[child.attrib["name"]] = childValue
 
@@ -506,7 +501,7 @@ def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
     # Check configuration
     __check_service_configuration__()
     
-    logs.WriteLog(logs.INFO, "[service_chatbot] Loading model.")
+    logging.info("[service_chatbot] Loading model.")
 
     # Get the model type
     if ("_private_type" in Configuration):
@@ -539,19 +534,19 @@ def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
 
     # Test the inference
     if ("_private_test_inference" in Configuration and Configuration["_private_test_inference"]):
-        logs.WriteLog(logs.INFO, "[service_chatbot] Testing inference of the model.")
+        logging.info("[service_chatbot] Testing inference of the model.")
         files = []
 
         if ("test_inference_files" in ServiceConfiguration):
             for file in ServiceConfiguration["test_inference_files"]:
                 if (file["type"] != "image" and file["type"] != "video" and file["type"] != "audio"):
-                    logs.WriteLog(logs.WARNING, f"[service_chatbot] Unexpected file type during inference testing. Skipping file: `{file}`.")
+                    logging.warning(f"[service_chatbot] Unexpected file type during inference testing. Skipping file: `{file}`.")
                     continue
 
                 with open(file["data"], "rb") as f:
                     files.append({"type": file["type"], file["type"]: base64.b64encode(f.read()).decode("utf-8")})
         else:
-            logs.WriteLog(logs.INFO, "[service_chatbot] Inference test files not specified.")
+            logging.info("[service_chatbot] Inference test files not specified.")
 
         response = SERVICE_INFERENCE(
             Name,
@@ -564,4 +559,4 @@ def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
             if ("text" in token):
                 testInferenceResponse += token["text"]
         
-        logs.WriteLog(logs.INFO, f"[service_chatbot] Test inference response for model `{Name}`:\n```markdown\n{testInferenceResponse}\n```")
+        logging.info(f"[service_chatbot] Test inference response for model `{Name}`:\n```markdown\n{testInferenceResponse}\n```")

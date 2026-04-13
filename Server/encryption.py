@@ -1,3 +1,4 @@
+import logging
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import hashes, serialization
@@ -6,7 +7,6 @@ from concurrent.futures import ThreadPoolExecutor
 import base64
 import os
 import hashlib
-import Utilities.logs as logs
 
 def ParseHash(HashName: str) -> hashes.HashAlgorithm | None:
     if (HashName == "sha224"):
@@ -25,10 +25,10 @@ def ParseHash(HashName: str) -> hashes.HashAlgorithm | None:
     raise ValueError("Invalid hash name.")
 
 def GenerateRSAKeys(Size: int = 8192) -> tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey]:
-    logs.WriteLog(logs.INFO, "[encryption] Generating public-private key pair.")
+    logging.info("[encryption] Generating public-private key pair.")
 
     if (Size < 2048):
-        logs.PrintLog(logs.WARNING, "[encryption] Keys size is less than 2048. Errors are expected.")
+        logging.warning("[encryption] Keys size is less than 2048. Errors are expected.")
 
     privateKey = rsa.generate_private_key(65537, Size)
     publicKey = privateKey.public_key()
@@ -42,10 +42,10 @@ def SaveKeys(
     PublicKey: rsa.RSAPublicKey | None,
     PublicFile: str | None
 ) -> tuple[bytes | None, bytes | None]:
-    logs.WriteLog(logs.INFO, "[encryption] Saving public-private key pair to disk (or getting values).")
+    logging.info("[encryption] Saving public-private key pair to disk (or getting values).")
 
     if (len(PrivatePassword.strip()) == 0 and PrivateKey is not None):
-        logs.WriteLog(logs.WARNING, "[encryption] Private password is not secure or empty.")
+        logging.warning("[encryption] Private password is not secure or empty.")
 
     privatePem = PrivateKey.private_bytes(
         encoding = serialization.Encoding.PEM,
@@ -75,7 +75,7 @@ def LoadKeysFromFile(
     PrivatePassword: str,
     PublicFile: str
 ) -> tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey]:
-    logs.WriteLog(logs.INFO, "[encryption] Loading public-private key pair from disk.")
+    logging.info("[encryption] Loading public-private key pair from disk.")
 
     with open(PrivateFile, "rb") as f:
         privatePem = f.read()

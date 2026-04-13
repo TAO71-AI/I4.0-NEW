@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Awaitable, Callable
 from websockets.asyncio.server import ServerConnection as WS_ServerConnection
 from websockets.protocol import State as WS_State
@@ -6,7 +7,6 @@ import ssl
 import threading
 import asyncio
 import exceptions
-import Utilities.logs as logs
 
 TRANSFER_RATE = 8192 * 1024
 
@@ -20,7 +20,7 @@ class Client():
         self.__endpoint__ = EndPoint
 
         self.__validate_connection_type__()
-        logs.WriteLog(logs.INFO, "[server_utils] Connection created.")
+        logging.info("[server_utils] Connection created.")
     
     def __validate_connection_type__(self) -> None:
         if (not self.IsConnected()):
@@ -81,7 +81,7 @@ class Client():
             self.__socket__ = None
             self.__endpoint__ = None
 
-            logs.WriteLog(logs.INFO, "[server_utils] Connection closed.")
+            logging.info("[server_utils] Connection closed.")
     
     def GetEndPoint(self) -> tuple[str, int]:
         return self.__endpoint__
@@ -121,7 +121,7 @@ class WebSocketsServer():
         self.__started__ = False
         self.__connected_clients__ = []
 
-        logs.WriteLog(logs.INFO, "[server_utils] New WebSockets server created.")
+        logging.info("[server_utils] New WebSockets server created.")
 
     def IsStarted(self) -> bool:
         return self.__started__
@@ -152,7 +152,7 @@ class WebSocketsServer():
                 if (self.ReceiveCallback is not None):
                     await self.ReceiveCallback(c, msg)
         except Exception as ex:
-            logs.WriteLog(logs.ERROR, f"[server_utils] Error while receiving from client ({ex}). The connection will be closed.")
+            logging.error(f"[server_utils] Error while receiving from client ({ex}). The connection will be closed.")
         finally:
             try:
                 await c.Close()
@@ -161,11 +161,11 @@ class WebSocketsServer():
                 if (self.DisconnectedCallback is not None):
                     await self.DisconnectedCallback(c)
             except Exception as ex:
-                logs.WriteLog(logs.WARNING, f"[server_utils] Could not close connection from client ({ex}). Ignoring.")
+                logging.warning(f"[server_utils] Could not close connection from client ({ex}). Ignoring.")
     
     async def __start_server__(self) -> None:
         if (self.IsStarted()):
-            logs.WriteLog(logs.INFO, "[server_utils] Server already started! Restarting.")
+            logging.info("[server_utils] Server already started! Restarting.")
             self.Stop()
 
         try:
@@ -184,7 +184,7 @@ class WebSocketsServer():
             )
             self.__started__ = True
             
-            logs.PrintLog(logs.INFO, f"[server_utils] (websockets) Server listening at `{self.__endpoint__[0]}:{self.__endpoint__[1]}`.")
+            logging.info(f"[server_utils] (websockets) Server listening at `{self.__endpoint__[0]}:{self.__endpoint__[1]}`.")
             
             try:
                 while (self.IsStarted()):
@@ -192,7 +192,7 @@ class WebSocketsServer():
             finally:
                 await self.Stop()
         except Exception as ex:
-            logs.PrintLog(logs.ERROR, f"[server_utils] Could not start WebSockets server at `{self.__endpoint__[0]}:{self.__endpoint__[1]}`: {ex}")
+            logging.error(f"[server_utils] Could not start WebSockets server at `{self.__endpoint__[0]}:{self.__endpoint__[1]}`: {ex}")
     
     def __start_server_new_thread__(self) -> None:
         loop = asyncio.new_event_loop()
@@ -218,12 +218,15 @@ class WebSocketsServer():
                     try:
                         client.Close()
                     except:
-                        logs.WriteLog(logs.WARNING, "[server_utils] Could not disconnect client.")
+                        logging.warning("[server_utils] Could not disconnect client.")
 
             if (self.__socket__ is not None):
                 self.__socket__.close(True)
                 await self.__socket__.wait_closed()
         except Exception as ex:
-            logs.PrintLog(logs.ERROR, f"[server_utils] Could not fully close WebSockets server: {ex}")
+            logging.error(f"[server_utils] Could not fully close WebSockets server: {ex}")
         finally:
             self.__started__ = False
+
+wsLogger = logging.getLogger("websockets.server")
+wsLogger.setLevel(logging.CRITICAL)

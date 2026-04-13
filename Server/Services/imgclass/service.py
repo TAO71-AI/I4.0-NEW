@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 from collections.abc import Generator
 from io import BytesIO
@@ -7,7 +8,6 @@ import json
 import base64
 import Services.imgclass.hf as hf
 import Utilities.model_utils as model_utils
-import Utilities.logs as logs
 
 __models__: dict[str, dict[str, Any]] = {}
 ServiceConfiguration: dict[str, Any] | None = None
@@ -31,7 +31,7 @@ def SERVICE_OFFLOAD_MODELS(Names: list[str]) -> None:
         if (__models__[name]["_private_model"] is None):
             continue
         
-        logs.WriteLog(logs.INFO, "[service_imgclass] Offloading model.")
+        logging.info("[service_imgclass] Offloading model.")
         __models__[name]["_private_model"] = None
 
 def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dict[str, Any]) -> Generator[dict[str, Any]]:
@@ -75,7 +75,7 @@ def LoadModel(ModelName: str, Configuration: dict[str, Any]) -> None:
         return
     
     loadTime = time.time()
-    logs.WriteLog(logs.INFO, "[service_imgclass] Loading model...")
+    logging.info("[service_imgclass] Loading model...")
 
     if ("_private_device" not in Configuration):
         Configuration["_private_device"] = "cpu"
@@ -95,10 +95,10 @@ def LoadModel(ModelName: str, Configuration: dict[str, Any]) -> None:
     }
 
     loadTime = round(time.time() - loadTime, 3)
-    logs.WriteLog(logs.INFO, f"[service_imgclass] Model loaded in {loadTime} seconds.")
+    logging.info(f"[service_imgclass] Model loaded in {loadTime} seconds.")
 
     if ("_private_test_inference" in Configuration and Configuration["_private_test_inference"]):
-        logs.WriteLog(logs.INFO, "[service_imgclass] Testing inference of the model.")
+        logging.info("[service_imgclass] Testing inference of the model.")
         files = []
 
         if ("test_inference_images" in ServiceConfiguration):
@@ -106,7 +106,7 @@ def LoadModel(ModelName: str, Configuration: dict[str, Any]) -> None:
                 with open(file, "rb") as f:
                     files.append(base64.b64encode(f.read()).decode("utf-8"))
         else:
-            logs.WriteLog(logs.INFO, "[service_imgclass] Inference test files not specified.")
+            logging.info("[service_imgclass] Inference test files not specified.")
         
         response = SERVICE_INFERENCE(
             ModelName,
@@ -124,4 +124,4 @@ def LoadModel(ModelName: str, Configuration: dict[str, Any]) -> None:
             testInferenceResponse = testInferenceResponse[:-2]
 
         testInferenceResponse += "]"
-        logs.WriteLog(logs.INFO, f"[service_imgclass] Test inference response for model `{ModelName}`:\n```json\n{testInferenceResponse}\n```")
+        logging.info(f"[service_imgclass] Test inference response for model `{ModelName}`:\n```json\n{testInferenceResponse}\n```")

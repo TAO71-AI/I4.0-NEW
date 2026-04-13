@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 from collections.abc import Generator
 from io import BytesIO
@@ -6,9 +7,7 @@ import os
 import base64
 import time
 import psutil
-import logging
 import soundfile as sf
-import Utilities.logs as logs
 import Utilities.model_utils as model_utils
 
 __models__: dict[str, dict[str, Any]] = {}
@@ -33,7 +32,7 @@ def SERVICE_OFFLOAD_MODELS(Names: list[str]) -> None:
         if (__models__[name]["_private_model"] is None):
             continue
         
-        logs.WriteLog(logs.INFO, "[service_rvcgen] Offloading model.")
+        logging.info("[service_rvcgen] Offloading model.")
         __models__[name]["_private_model"] = None
 
 def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dict[str, Any]) -> Generator[dict[str, Any]]:
@@ -94,8 +93,8 @@ def LoadModel(ModelName: str, Configuration: dict[str, Any]) -> None:
         return
     
     loadTime = time.time()
-    logs.WriteLog(logs.INFO, "[service_rvcgen] Loading model...")
-    logs.PrintLog(logs.WARNING, "[service_rvcgen] Keep in mind that Retrieval-based Voice Conversion (RVC) does not receive updates often. The library is old and may be deprecated, newer dependencies versions or hardware may break it. This module does not work out of the box, you need to modify Python scripts to be able to get it work properly.")
+    logging.info("[service_rvcgen] Loading model...")
+    logging.warning("[service_rvcgen] Keep in mind that Retrieval-based Voice Conversion (RVC) does not receive updates often. The library is old and may be deprecated, newer dependencies versions or hardware may break it. This module does not work out of the box, you need to modify Python scripts to be able to get it work properly.")
 
     if ("index_root" not in os.environ):
         os.environ["index_root"] = ""
@@ -179,6 +178,4 @@ def LoadModel(ModelName: str, Configuration: dict[str, Any]) -> None:
     }
 
     loadTime = round(time.time() - loadTime, 3)
-    logs.WriteLog(logs.INFO, f"[service_rvcgen] Model loaded in {loadTime} seconds.")
-
-logging.disable(logging.CRITICAL)
+    logging.info(f"[service_rvcgen] Model loaded in {loadTime} seconds.")

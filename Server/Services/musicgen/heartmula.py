@@ -2,6 +2,7 @@
 > [!WARNING]
 > THIS SCRIPT MIGHT NOT WORK WITH NEWER PYTORCH VERSIONS. THIS SCRIPT STILL NEEDS TO BE TESTED.
 """
+import logging
 from typing import Any
 from collections.abc import Generator
 from io import BytesIO
@@ -10,10 +11,9 @@ import json
 import base64
 import torch
 import Utilities.model_utils as model_utils
-import Utilities.logs as logs
 
 def LoadModel(Configuration: dict[str, Any]) -> HeartMuLaGenPipeline:
-    logs.PrintLog(logs.WARNING, "[heartmula] If you're having errors when loading or inferencing a HeartMuLa model, downgrade PyTorch to 2.4.0 and try again.")
+    logging.warning("[heartmula] If you're having errors when loading or inferencing a HeartMuLa model, downgrade PyTorch to 2.4.0 and try again.")
 
     if (isinstance(Configuration["_private_device"], dict) and (
         "mula" in Configuration["_private_device"] and "codec" in Configuration["_private_device"]

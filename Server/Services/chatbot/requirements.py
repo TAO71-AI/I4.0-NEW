@@ -1,9 +1,9 @@
+import logging
 from typing import Any
 import os
 import copy
 import Utilities.install_requirements as req
 import Utilities.gpu_utils as gpu
-import Utilities.logs as logs
 
 def Install(Env: dict[str, Any] | None = None, Args: list[str] = []) -> None:
     if (Env is None):
@@ -24,20 +24,17 @@ def Install(Env: dict[str, Any] | None = None, Args: list[str] = []) -> None:
     forceMMQ = "CHATBOT_FORCE_MMQ" in Env and bool(Env["CHATBOT_FORCE_MMQ"]) if (gpuType == gpu.GPUType.NVIDIA) else None
     faAllQuants = not ("CHATBOT_NO_FA_ALL_QUANTS" in Env and bool(Env["CHATBOT_NO_FA_ALL_QUANTS"]))
 
-    logs.PrintLog(
-        logs.INFO,
-        (
-            "[service_chatbot] Install parameters:\n"
-            f"- GPU: {gpuType.name}\n"
-            f"- Vulkan: {vulkanAvailable}\n"
-            f"- F16: {f16}\n"
-            f"- Unified memory: {unifiedMemory}\n"
-            f"- Force CUBLAS: {'No NVIDIA GPU' if (forceCublas is None) else forceCublas}\n"
-            f"- Force MMQ: {'No NVIDIA GPU' if (forceMMQ is None) else forceMMQ}\n"
-            f"- FA all quants: {faAllQuants}"
-        )
-    )
-    logs.PrintLog(logs.INFO, f"[service_chatbot] Installing for {gpuType.name}!")
+    logging.info((
+        "[service_chatbot] Install parameters:\n"
+        f"- GPU: {gpuType.name}\n"
+        f"- Vulkan: {vulkanAvailable}\n"
+        f"- F16: {f16}\n"
+        f"- Unified memory: {unifiedMemory}\n"
+        f"- Force CUBLAS: {'No NVIDIA GPU' if (forceCublas is None) else forceCublas}\n"
+        f"- Force MMQ: {'No NVIDIA GPU' if (forceMMQ is None) else forceMMQ}\n"
+        f"- FA all quants: {faAllQuants}"
+    ))
+    logging.info(f"[service_chatbot] Installing for {gpuType.name}!")
     
     if (gpuType == gpu.GPUType.NVIDIA):
         lcppCmake = (

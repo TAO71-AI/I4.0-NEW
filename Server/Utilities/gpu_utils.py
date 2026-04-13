@@ -1,6 +1,6 @@
+import logging
 from enum import Enum
 import subprocess
-import Utilities.logs as logs
 
 class GPUType(Enum):
     NVIDIA = 0
@@ -15,7 +15,7 @@ def DetectGPU() -> GPUType:
     Returns:
         GPUType
     """
-    logs.WriteLog(logs.INFO, "[gpu_utils] Detecting GPU...")
+    logging.info("[gpu_utils] Detecting GPU...")
 
     try:
         result = subprocess.run(["lspci"], capture_output = True, text = True)
@@ -40,7 +40,7 @@ def GPUHasVulkan() -> bool:
     Returns:
         bool
     """
-    logs.WriteLog(logs.INFO, "[gpu_utils] Detecting Vulkan...")
+    logging.info("[gpu_utils] Detecting Vulkan...")
 
     try:
         result = subprocess.run(["vulkaninfo"], capture_output = True, text = True, timeout = 5)
