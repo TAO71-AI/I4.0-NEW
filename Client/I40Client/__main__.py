@@ -86,7 +86,7 @@ def __main__() -> None:
     print(f"Got {len(conversation['conv'])} messages from the conversation.", flush = True)
     
     async def __socket__() -> None:
-        async def __send__(AllowTools: bool = True) -> None:
+        async def __send__(AllowTools: bool = True, Service: str = "inference") -> None:
             await socket.Connect(Host = getattr(conf, "CLIENT_Host"), Port = getattr(conf, "CLIENT_Port"), Secure = getattr(conf, "CLIENT_Secure"))
             
             modelInfo = await socket.GetModelInfo(getattr(conf, "CLIENT_ModelName"))
@@ -98,12 +98,12 @@ def __main__() -> None:
                 print(f"{usersBefore} users are using this model. You must wait until the queue of users is less than {modelMaxSimulUsers}.", flush = True)
 
             gen = socket.AdvancedSendAndReceive(
-                getattr(conf, "CLIENT_ModelName"),
-                None,
-                conversation["conv"],
-                conversation["params_prompt"],
-                conversation["params_user"],
-                "inference"
+                ModelName = getattr(conf, "CLIENT_ModelName"),
+                Key = None,
+                PromptConversation = conversation["conv"],
+                PromptParameters = conversation["params_prompt"],
+                UserParameters = conversation["params_user"],
+                Service = Service
             )
             errors = 0
             tools = []
@@ -184,7 +184,7 @@ def __main__() -> None:
                         "role": "tool",
                         "content": toolsResponse
                     })
-                    await __send__(False)
+                    await __send__(False, Service)
 
                     return
             
@@ -209,7 +209,7 @@ def __main__() -> None:
 
         while (True):
             try:
-                mode = input("Mode ['e', 'scc', 'cc', 'pp', 'up', 'sc', 'cls', 'h', 'c'*]: ").lower()
+                mode = input("Mode ['e', 'scc', 'cc', 'pp', 'up', 'sc', 'cls', 'cs', 'h', 'c'*]: ").lower()
 
                 if (mode == "e"):
                     break
@@ -250,6 +250,7 @@ def __main__() -> None:
                         "'sc' - Show Conversation - Show the current conversation.\n"
                         "'cls' - Clear screen.\n"
                         "'h' - Help - Show this help message.\n"
+                        "'cs' - Custom Service - Run different services.\n"
                         "'c' - Continue - Continue with inference.\n\n"
                         "* - Default option."
                     ), flush = True)
@@ -361,10 +362,14 @@ def __main__() -> None:
                         f.write(json.dumps(conversation, indent = 4))
 
                     continue
+                elif (mode == "cs"):
+                    service = input("Service: ")
                 elif (len(mode) > 0 and mode != "c"):
                     print("Invalid mode. Try again.")
                     continue
-
+                else:
+                    service = "inference"
+                
                 if (len(conversation["conv"]) > 0 and conversation["conv"][-1]["role"] == "user"):
                     confirm = input((
                         "The last message in the saved conversation is a user message.\n"
@@ -373,7 +378,7 @@ def __main__() -> None:
                     )).strip().lower() != "n"
 
                     if (confirm):
-                        await __send__()
+                        await __send__(Service = service)
                         continue
 
                 while (True):
@@ -420,7 +425,7 @@ def __main__() -> None:
                     
                     conversation["conv"].append({"role": msgRole, "content": msgContent})
 
-                await __send__()
+                await __send__(Service = service)
 
                 with open(conversationFile, "w") as f:
                     f.write(json.dumps(conversation, indent = 4))

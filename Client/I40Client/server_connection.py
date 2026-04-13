@@ -1,4 +1,4 @@
-VERSION: int = 190200
+VERSION: int = 190300
 
 from typing import Any, Literal
 from collections.abc import AsyncGenerator

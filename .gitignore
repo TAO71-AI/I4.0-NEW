@@ -10,6 +10,7 @@ Server/support.json
 Server/Temp/
 Server/API_Keys/
 Server/Logs/
+Server/latest.log
 Client/build/
 Client/dist/
 Client/build.sh

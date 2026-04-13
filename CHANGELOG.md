@@ -6,6 +6,35 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 14-4-2026 (commit `v19.3.0`)
+
+### Server changes
+
+- Updated to use the `logging` library.
+- Model redirections now support dictionaries/JSON.
+- Added `tokens_budget`, set a maximum budget for inference even if the API key has more tokens.
+- Fixed API key creation bugs related with the length.
+- (chatbot module) Added support for more ftypes for `ftype_k` and `ftype_v`.
+- (chatbot module) Implemented `LFM2.5-VL`, `LFM2-VL`, and `Gemma4` support.
+- (chatbot module) Implemented `NVFP4` and `Q1_0` ftypes.
+- (chatbot module) Fixed a bug when reasoning without setting `reasoning_mode`.
+- (chatbot module) Implemented `continue_generation` parameter. This will continue the assistant generation when true.
+- (chatbot module) Implemented audio support for multimodal models (not tested).
+- (chatbot module) XML tool calling now parses the values using JSON, instead of checking the value type.
+- (chatbot module) Implemented `tensor` split mode.
+
+### Client changes
+
+- (`I40C` command) Implemented new `cs` (Custom Service) option.
+
+### Other changes
+
+- Updated documentation.
+- Updated `README.md`.
+- Updated `.gitignore`.
+
+---
+
 ## 25-3-2026 (commit `v19.2.1`)
 
 ### Client changes
