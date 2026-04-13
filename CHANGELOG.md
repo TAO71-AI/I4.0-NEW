@@ -6,6 +6,14 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 14-4-2026 (commit `v19.3.1`)
+
+### Server changes
+
+- EMERGENCY PATCH! API key tokens were not being set correctly due to the tokens budget. Fixed.
+
+---
+
 ## 14-4-2026 (commit `v19.3.0`)
 
 ### Server changes

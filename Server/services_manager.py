@@ -722,7 +722,6 @@ def InferenceModel(
         if (modelQueue is not None):
             modelQueue.DeleteUID(queueUID)
 
-
-        UserParameters["key_info"]["Tokens"] = initialTokensBudget - tokensBudget
+        UserParameters["key_info"]["Tokens"] -= initialTokensBudget - tokensBudget
         apiKey = keys_manager.APIKey.__from_dict__(UserParameters["key_info"])
         apiKey.SaveToFile()
