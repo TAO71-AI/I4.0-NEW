@@ -7,6 +7,9 @@ top_p:
 top_k:
   default: 40
   modified_by_user: true
+top_n_sigma:
+  default: -1
+  modified_by_user: true
 min_p:
   default: 0.05
   modified_by_user: true
@@ -24,6 +27,9 @@ frequency_penalty:
   modified_by_user: true
 repeat_penalty:
   default: 1
+  modified_by_user: true
+penalty_last_n:
+  default: 64
   modified_by_user: true
 tools:
   modified_by_user: true

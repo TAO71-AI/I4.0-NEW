@@ -46,7 +46,7 @@ class APIKey():
             Configuration["server_api"]["max_length"] = 128
         
         if (Configuration["server_api"]["min_length"] > Configuration["server_api"]["max_length"]):
-            logging.warning(f"[keys_manager] Min length ({Configuration['server_api']['min_length']}) > max length ({Configuration['server_api']['max_length']}). Setting to {Configuration['server_api']['min_length']}.")
+            logging.warning(f"[keys_manager] Min length ({Configuration['server_api']['min_length']}) > max length ({Configuration['server_api']['max_length']}). Setting to {Configuration['server_api']['max_length']}.")
             Configuration["server_api"]["min_length"] = Configuration["server_api"]["max_length"]
         
         minLength = int(Configuration["server_api"]["min_length"])

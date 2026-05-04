@@ -1,4 +1,4 @@
-SERVER_VERSION: int = 190300
+SERVER_VERSION: int = 200000
 
 try:
     import logging
@@ -545,9 +545,7 @@ config.ReadConfiguration(None, True, True)
 
 try:
     logging.info("[server] Loading configuration...")
-
-    services_manager.Configuration = config.Configuration
-    services_manager.keys_manager.Configuration = config.Configuration
+    services_manager.Init(config.Configuration)
 except Exception as ex:
     logging.critical(f"[server] Could not copy configuration in all modules! Error: {ex}")
     exit(1)

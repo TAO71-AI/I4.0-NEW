@@ -37,7 +37,7 @@ SERVICES_CONFIG_FILES = [
     #"default_config.json"
 ]
 Configuration: dict[str, Any] = {}
-TextEncoder = tiktoken.get_encoding("o200k_base")
+TextEncoder: tiktoken.Encoding | None = None
 
 class Service():
     def __init__(
@@ -271,6 +271,15 @@ def GetServices() -> list[Service]:
     
     return services
 
+def Init(Conf: dict[str, Any]) -> None:
+    global Configuration, TextEncoder
+
+    Configuration = Conf
+    keys_manager.Configuration = Configuration
+
+    if (TextEncoder is None):
+        TextEncoder = tiktoken.get_encoding("o200k_base")
+
 def IsServiceInstalled(Name: str) -> bool:
     for service in GetServices():
         if (service.Name == Name):
@@ -360,7 +369,9 @@ def OffloadModels(Names: list[str]) -> None:
     
     gc.collect()
 
-def CalculateTokenPrice(ModelNameOrConfig: str | dict[str, Any], GetOutputPricing: bool, MessageContent: list[dict[str, str]]) -> float:
+def CalculateTokenPrice(ModelNameOrConfig: str | dict[str, Any], GetOutputPricing: bool, MessageContent: list[dict[str, str]]) -> tuple[float, int]:
+    global TextEncoder
+
     if (isinstance(ModelNameOrConfig, str)):
         serviceName = FindServiceForModel(ModelNameOrConfig, True)
         modelConfiguration = ServicesModels[serviceName][ModelNameOrConfig]
@@ -368,6 +379,7 @@ def CalculateTokenPrice(ModelNameOrConfig: str | dict[str, Any], GetOutputPricin
         modelConfiguration = ModelNameOrConfig
     
     price = 0
+    totalTokens = 0
 
     if ("pricing" in modelConfiguration):
         modelPricing = modelConfiguration["pricing"]
@@ -399,7 +411,10 @@ def CalculateTokenPrice(ModelNameOrConfig: str | dict[str, Any], GetOutputPricin
             continue
 
         if (content["type"] == "text"):
-            price += len(TextEncoder.encode(content["text"])) * textPrice / 1000000.0
+            txtTokens = TextEncoder.encode(content["text"], allowed_special = "all")
+
+            price += len(txtTokens) * textPrice / 1000000.0
+            totalTokens += len(txtTokens)
         elif (content["type"] == "image"):
             imgBuffer = BytesIO(base64.b64decode(content["image"]))
             img = PILImage.open(imgBuffer)
@@ -414,6 +429,8 @@ def CalculateTokenPrice(ModelNameOrConfig: str | dict[str, Any], GetOutputPricin
             durationInSeconds = len(audio) / 1000
 
             price += durationInSeconds * audioPrice
+            totalTokens += 1
+
             audioBuffer.close()
         elif (content["type"] == "video"):
             videoBuffer = BytesIO(base64.b64decode(content["video"]))
@@ -430,6 +447,7 @@ def CalculateTokenPrice(ModelNameOrConfig: str | dict[str, Any], GetOutputPricin
                 height = stream.height
 
                 price += (durationInSeconds * videoPriceS) + ((width / 1024) * (height / 1024) * videoPriceR)
+                totalTokens += 1
 
                 reader.close()
                 videoBuffer.close()
@@ -438,15 +456,18 @@ def CalculateTokenPrice(ModelNameOrConfig: str | dict[str, Any], GetOutputPricin
                 raise RuntimeError(f"Could not calculate pricing for video. Reason: {ex}")
         elif (isinstance(otherPrice, float) or isinstance(otherPrice, int)):
             price += len(str(content[content["type"]])) / 1048576 * otherPrice
+            totalTokens += 1
         elif (isinstance(otherPrice, dict)):
             if (content["type"] in otherPrice):
                 price += len(str(content[content["type"]])) / 1048576 * otherPrice[content["type"]]
             else:
                 price += len(str(content[content["type"]])) / 1048576 * otherPrice["global"]
+            
+            totalTokens += 1
         else:
             raise ValueError("Invalid content type or pricing.")
     
-    return price
+    return (price, totalTokens)
 
 def ExecuteFilter(
     Type: Literal["text", "image", "audio", "video"],
@@ -553,7 +574,7 @@ def InferenceModel(
     Prompt: dict[str, str | list[dict[str, str]] | dict[str, Any]],
     UserParameters: dict[str, Any]
 ) -> Generator[dict[str, Any]]:
-    global ServicesModules, ServicesModels, TextEncoder
+    global ServicesModules, ServicesModels
 
     if (
         "key_info" not in UserParameters
@@ -594,12 +615,17 @@ def InferenceModel(
         conversation = Prompt["conversation"] if ("conversation" in Prompt) else []
         userConfig = Prompt["parameters"] if ("parameters" in Prompt) else {}
         price = 0
+        inputTokens = 0
+        outputTokens = 0
 
         for msg in conversation:
             if (isinstance(msg["content"], str)):
                 msg["content"] = [{"type": "text", "text": msg["content"]}]
             
-            price += CalculateTokenPrice(modelConfiguration, False, msg["content"])
+            tokensPriceData = CalculateTokenPrice(modelConfiguration, False, msg["content"])
+
+            price += tokensPriceData[0]
+            inputTokens += tokensPriceData[1]
 
         if (tokensBudget < price):
             raise exceptions.NotEnoughTokensException(price, tokensBudget)
@@ -671,17 +697,18 @@ def InferenceModel(
                 "errors": token["errors"] if ("errors" in token) else [],
                 "_queue_uid": queueUID
             }
-            tokenPrice = CalculateTokenPrice(modelConfiguration, True, [
+            tokenPriceData = CalculateTokenPrice(modelConfiguration, True, [
                 {
                     "type": "text",
                     "text": outputToken["response"]["text"]
                 }
             ] + outputToken["response"]["files"])
+            outputTokens += tokenPriceData[1]
 
-            if (tokensBudget < tokenPrice):
-                raise exceptions.NotEnoughTokensException(tokenPrice, tokensBudget)
+            if (tokensBudget < tokenPriceData[0]):
+                raise exceptions.NotEnoughTokensException(tokenPriceData[0], tokensBudget)
             
-            tokensBudget -= tokenPrice
+            tokensBudget -= tokenPriceData[0]
             
             if (firstToken):
                 firstTokenSeconds = time.time() - lastTokenTime
@@ -708,6 +735,11 @@ def InferenceModel(
 
         yield {
             "conversation_result": conversation,
+            "usage_tokens": {
+                "input": inputTokens,
+                "output": outputTokens,
+                "total": inputTokens + outputTokens
+            },
             "_queue_uid": queueUID
         }
     except StopIteration:

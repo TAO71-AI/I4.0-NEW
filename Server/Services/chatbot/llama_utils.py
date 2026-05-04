@@ -444,7 +444,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             )
         
         if (mmproj is not None and chatHandler is None):
-            raise AttributeError("[llama_utils] `mmproj` requires a valid `chat_handler`.")
+            logging.info("[llama_utils] Using automatic/generic chat handler.")
         
         if (mmproj is None and chatHandler is not None):
             chatHandler = None
@@ -789,6 +789,10 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
     else:
         multimodal = ["text"]
     
+    # Set cpu_moe
+    cpuMoE = Configuration["_private_cpu_moe"] if ("_private_cpu_moe" in Configuration) else False
+    nCPUMoE = Configuration["_private_n_cpu_moe"] if ("_private_n_cpu_moe" in Configuration and not cpuMoE) else 0
+    
     for mul in multimodal:
         if (
             mul != "text" and
@@ -802,7 +806,10 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
     # Save the parameters in a dictionary
     modelParamsLCPP = {
         "model_path": modelPath,
+        "clip_model_path": mmproj if (chatHandler is None) else None,
         "n_gpu_layers": gpuLayers,
+        "cpu_moe": cpuMoE,
+        "n_cpu_moe": nCPUMoE,
         "split_mode": splitMode,
         "main_gpu": mainGPU,
         "vocab_only": False,

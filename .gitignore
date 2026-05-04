@@ -1,6 +1,11 @@
+*.pem
+update.sh
 __pycache__/
 env/
 .env/
+.vscode/
+
+# Server
 Server/config.yaml
 Server/config_*.yaml
 Server/Database/
@@ -11,9 +16,21 @@ Server/Temp/
 Server/API_Keys/
 Server/Logs/
 Server/latest.log
-Client/build/
-Client/dist/
+
+# Client
 Client/build.sh
-Client/I4_0_Client_PY.egg-info/
-*.pem
-update.sh
+
+## Core
+Client/Client/build/
+Client/Client/dist/
+Client/Client/I4_0_Client_PY.egg-info/
+
+## Utils
+Client/Utils/build/
+Client/Utils/dist/
+Client/Utils/I4_0_Client_Utils.egg-info/
+
+## CLI
+Client/CLI/build/
+Client/CLI/dist/
+Client/CLI/I4_0_Client_CLI.egg-info/

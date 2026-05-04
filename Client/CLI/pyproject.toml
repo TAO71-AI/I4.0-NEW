@@ -3,20 +3,15 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "I4_0-Client-PY"
-version = "19.3.0"
-description = "Python bindings for I4.0, Client-side."
+name = "I4_0-Client-CLI"
+version = "20.0.0"
+description = "Client-side CLI for I4.0."
 authors = [{name = "TAO71-AI"}]
 license = {text = "TAO71 I4.0 License (version 2)"}
 requires-python = ">=3.11"
 dependencies = [
-    "websockets>=15.0.0,<16.0.0",
-    "asyncio",
-    "cryptography",
-    "html2text",
-    "requests",
-    "beautifulsoup4",
-    "ddgs"
+    "I4_0-Client-PY>=20.0.0",
+    "I4_0-Client-Utils>=20.0.0"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -26,11 +21,11 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://github.com/TAO71-AI/I4.0-NEW"
-Source = "https://github.com/TAO71-AI/I4.0-NEW/tree/master/Client"
+Source = "https://github.com/TAO71-AI/I4.0-NEW/tree/master/Client/CLI"
 License = "https://github.com/TAO71-AI/I4.0-NEW/blob/master/LICENSE.md"
 
 [project.scripts]
-I40C = "I40Client.__main__:__main__"
+I40C = "I40ClientCLI.main:main"
 
 [tool.setuptools.packages.find]
-include = ["I40Client", "I40Client.*"]
+include = ["I40ClientCLI", "I40ClientCLI.*"]

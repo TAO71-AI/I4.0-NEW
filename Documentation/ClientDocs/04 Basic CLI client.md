@@ -4,6 +4,9 @@ The client API includes a basic CLI client.
 
 You can start this CLI client by using the command `I40C` in your terminal. Keep in mind that this CLI client have only been tested in **Arch Linux**, but it is expected to work fine in other GNU/Linux distributions and OSs like Windows.
 
+> [!NOTE]
+> The CLI client is not included anymore in the core API package. To install it, please install the `I4_0-Client-CLI` package.
+
 ## Files and directories
 
 This CLI client will create some files and directories in your system.
@@ -41,6 +44,7 @@ When you open the CLI client, you will see a message similar to `Mode ['e', 'scc
 - `sc`: *Show Conversation*.
 - `cls`: *Clear* the terminal screen.
 - `h`: Print *Help* message. See this for more information.
+- `cs`: *Custom Service*.
 - `c`: *Continue*.
 - Asterisk: Default option.
 

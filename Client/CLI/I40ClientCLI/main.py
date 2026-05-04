@@ -1,6 +1,6 @@
-from . import configuration as config
-from . import server_connection as server
-from .Utilities import chatbot_tools
+from I40Client import configuration as config
+from I40Client import server_connection as server
+from I40ClientUtils import chatbot_tools
 import os
 import sys
 import json
@@ -8,7 +8,7 @@ import base64
 import traceback
 import asyncio
 
-def __main__() -> None:
+def main() -> None:
     system = sys.platform
     configFile = None
     conversation = {"conv": [], "params_user": {}, "params_prompt": {
@@ -452,4 +452,4 @@ def __main__() -> None:
     asyncio.get_event_loop().close()
 
 if (__name__ == "__main__"):
-    __main__()
+    main()

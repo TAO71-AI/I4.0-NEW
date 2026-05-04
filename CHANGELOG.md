@@ -6,6 +6,27 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 4-5-2025
+
+### Server changes
+
+- (chatbot module) Implemented `top_n_sigma`, `penalty_last_n`.
+- (chatbot module) Implemented automatic chat handler (NOTE: Not implemented in **llama-cpp-python** yet). Will default to automatic if not specified/incorrect.
+- (chatbot module) Implemented `cpu_moe` and `n_cpu_moe`. This allows offloading of MoE experts to CPU, while keeping the attention and router weights on the GPU.
+- (chatbot module) Changed `continue_generation` to be automatic if not set or set to `null`.
+- Refactorized server logic to make it easier for the future to implement more servers (e.g. OpenAI-compatible, Sockets, etc.).
+- Added `usage_tokens` in the inference response (when finished). This tells the user how much tokens (input, output, and both) has been processed.
+
+### Client changes
+
+- Separated the client in three areas: **Core** (*Client/Client* directory, *I4_0-Client-PY* package), **Utilities** (*Client/Utils* directory, *I4_0-Client-Utils* package), **CLI Client** (*Client/CLI* directory, *I4_0-Client-CLI* package).
+
+### Other changes
+
+- Updated documentation.
+
+---
+
 ## 14-4-2026 (commit `v19.3.1`)
 
 ### Server changes

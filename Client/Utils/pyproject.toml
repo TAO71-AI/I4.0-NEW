@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "I4_0-Client-Utils"
+version = "20.0.0"
+description = "Client-side utilities for I4.0."
+authors = [{name = "TAO71-AI"}]
+license = {text = "TAO71 I4.0 License (version 2)"}
+requires-python = ">=3.11"
+dependencies = [
+    "html2text",
+    "requests",
+    "beautifulsoup4",
+    "ddgs"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: Other/Proprietary License",
+    "Operating System :: OS Independent"
+]
+
+[project.urls]
+Homepage = "https://github.com/TAO71-AI/I4.0-NEW"
+Source = "https://github.com/TAO71-AI/I4.0-NEW/tree/master/Client/Utils"
+License = "https://github.com/TAO71-AI/I4.0-NEW/blob/master/LICENSE.md"
+
+[tool.setuptools.packages.find]
+include = ["I40ClientUtils", "I40ClientUtils.*"]

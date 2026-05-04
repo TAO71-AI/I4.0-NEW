@@ -94,35 +94,35 @@ class Client():
 
         return isConnected
 
-class WebSocketsServer():
+class BaseServer():
     def __init__(
         self,
         ListenIP: str,
         ListenPort: int,
         ConnectedCallback: Callable[[Client], Awaitable[None]] | None = None,
         DisconenctedCallback: Callable[[Client], Awaitable[None]] | None = None,
-        ReceiveCallback: Callable[[Client, str], Awaitable[None]] | None = None,
+        ReceiveCallback: Callable[[Client, str], Awaitable[bool | None]] | None = None,
+        StartServerCallback: Callable[[], Awaitable[None]] | None = None,
+        StopServerCallback: Callable[[], Awaitable[None]] | None = None,
         NewThread: bool = True,
-        IgnoreBasicCommands: bool = False,
-        SSLCertFile: str | None = None,
-        SSLKeyFile: str | None = None,
-        SSLPassword: str | None = None,
         BannedIPs: list[str] = []
     ) -> None:
         self.ConnectedCallback = ConnectedCallback
         self.DisconnectedCallback = DisconenctedCallback
         self.ReceiveCallback = ReceiveCallback
-        self.IgnoreBasicCommands = IgnoreBasicCommands
         self.BannedIPs = BannedIPs
         self.__new_thread__ = NewThread
         self.__endpoint__ = (ListenIP, ListenPort)
-        self.__socket__ = None
-        self.__ssl__ = None if (SSLCertFile is None or SSLKeyFile is None) else (SSLCertFile, SSLKeyFile, SSLPassword)
         self.__started__ = False
-        self.__connected_clients__ = []
+        self.__connected_clients__: list[Client] = []
+        self.__start_server_callback__ = StartServerCallback
+        self.__stop_server_callback__ = StopServerCallback
 
-        logging.info("[server_utils] New WebSockets server created.")
+        if (self.__start_server_callback__ == None or self.__stop_server_callback__ == None):
+            raise ValueError("Start server callback and stop server callback MUST NOT be null.")
 
+        logging.info("[server_utils] New base server created.")
+    
     def IsStarted(self) -> bool:
         return self.__started__
 
@@ -141,16 +141,12 @@ class WebSocketsServer():
 
             while (self.__started__ and c.IsConnected()):
                 msg = await c.Receive()
-
-                if (not self.IgnoreBasicCommands):
-                    if (msg == "ping"):
-                        await c.Send("pong")
-                        continue
-                    elif (msg == "close" or len(msg) == 0):
-                        break
                 
                 if (self.ReceiveCallback is not None):
-                    await self.ReceiveCallback(c, msg)
+                    result = await self.ReceiveCallback(c, msg)
+
+                    if (result):
+                        break
         except Exception as ex:
             logging.error(f"[server_utils] Error while receiving from client ({ex}). The connection will be closed.")
         finally:
@@ -167,32 +163,12 @@ class WebSocketsServer():
         if (self.IsStarted()):
             logging.info("[server_utils] Server already started! Restarting.")
             self.Stop()
-
+        
         try:
-            if (self.__ssl__ is None):
-                sslCtx = None
-            else:
-                sslCtx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-                sslCtx.load_cert_chain(self.__ssl__[0], self.__ssl__[1], self.__ssl__[2])
-
-            self.__socket__ = await websockets.serve(
-                handler = self.__on_client_connected__,
-                host = self.__endpoint__[0],
-                port = self.__endpoint__[1],
-                max_size = TRANSFER_RATE,
-                ssl = sslCtx
-            )
             self.__started__ = True
-            
-            logging.info(f"[server_utils] (websockets) Server listening at `{self.__endpoint__[0]}:{self.__endpoint__[1]}`.")
-            
-            try:
-                while (self.IsStarted()):
-                    await asyncio.sleep(0.1)
-            finally:
-                await self.Stop()
+            await self.__start_server_callback__()
         except Exception as ex:
-            logging.error(f"[server_utils] Could not start WebSockets server at `{self.__endpoint__[0]}:{self.__endpoint__[1]}`: {ex}")
+            logging.error(f"[server_utils] Could not start base server: {ex}")
     
     def __start_server_new_thread__(self) -> None:
         loop = asyncio.new_event_loop()
@@ -203,11 +179,11 @@ class WebSocketsServer():
 
     async def Start(self) -> None:
         if (self.__new_thread__):
-            thread = threading.Thread(target = self.__start_server_new_thread__, args = ())
+            thread = threading.Thread(target = self.__start_server_new_thread__)
             thread.start()
         else:
             await self.__start_server__()
-
+    
     async def Stop(self) -> None:
         if (not self.IsStarted()):
             return
@@ -216,17 +192,89 @@ class WebSocketsServer():
             if (len(self.__connected_clients__) > 0):
                 for client in self.__connected_clients__:
                     try:
-                        client.Close()
+                        await client.Close()
                     except:
                         logging.warning("[server_utils] Could not disconnect client.")
 
-            if (self.__socket__ is not None):
-                self.__socket__.close(True)
-                await self.__socket__.wait_closed()
+            self.__started__ = False 
+            await self.__stop_server_callback__()
         except Exception as ex:
-            logging.error(f"[server_utils] Could not fully close WebSockets server: {ex}")
+            logging.error(f"Could not fully close base server: {ex}")
         finally:
             self.__started__ = False
+            logging.info("Closed base server.")
+
+class WebSocketsServer(BaseServer):
+    def __init__(
+        self,
+        ListenIP: str,
+        ListenPort: int,
+        ConnectedCallback: Callable[[Client], Awaitable[None]] | None = None,
+        DisconenctedCallback: Callable[[Client], Awaitable[None]] | None = None,
+        ReceiveCallback: Callable[[Client, str], Awaitable[bool | None]] | None = None,
+        NewThread: bool = True,
+        BannedIPs: list[str] = [],
+        IgnoreBasicCommands: bool = False,
+        SSLCertFile: str | None = None,
+        SSLKeyFile: str | None = None,
+        SSLPassword: str | None = None
+    ) -> None:
+        super().__init__(
+            ListenIP = ListenIP,
+            ListenPort = ListenPort,
+            ConnectedCallback = ConnectedCallback,
+            DisconenctedCallback = DisconenctedCallback,
+            ReceiveCallback = self.__receive_client__,
+            StartServerCallback = self.__start_server_call__,
+            StopServerCallback = self.__stop_server_call__,
+            NewThread = NewThread,
+            BannedIPs = BannedIPs
+        )
+
+        self.IgnoreBasicCommands = IgnoreBasicCommands
+        self.__receive_callback__ = ReceiveCallback
+        self.__socket__ = None
+        self.__ssl__ = None if (SSLCertFile is None or SSLKeyFile is None) else (SSLCertFile, SSLKeyFile, SSLPassword)
+    
+    async def __receive_client__(self, Client: Client, Message: str) -> bool:
+        if (not self.IgnoreBasicCommands):
+            if (Message == "ping"):
+                await Client.Send("pong")
+                return False
+            elif (Message == "close" or len(Message) == 0):
+                await Client.Close()
+                return True
+        
+        result = await self.__receive_callback__(Client, Message)
+        return result
+    
+    async def __start_server_call__(self) -> None:
+        if (self.__ssl__ is None):
+            sslCtx = None
+        else:
+            sslCtx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            sslCtx.load_cert_chain(self.__ssl__[0], self.__ssl__[1], self.__ssl__[2])
+
+        self.__socket__ = await websockets.serve(
+            handler = self.__on_client_connected__,
+            host = self.__endpoint__[0],
+            port = self.__endpoint__[1],
+            max_size = TRANSFER_RATE,
+            ssl = sslCtx
+        )
+        
+        logging.info(f"[server_utils] (websockets) Server listening at `{self.__endpoint__[0]}:{self.__endpoint__[1]}`.")
+        
+        try:
+            while (self.IsStarted()):
+                await asyncio.sleep(0.1)
+        finally:
+            await self.Stop()
+
+    async def __stop_server_call__(self) -> None:
+        if (self.__socket__ is not None):
+            self.__socket__.close(True)
+            await self.__socket__.wait_closed()
 
 wsLogger = logging.getLogger("websockets.server")
 wsLogger.setLevel(logging.CRITICAL)

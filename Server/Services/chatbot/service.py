@@ -78,98 +78,26 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
     __check_service_configuration__()
     conversation = UserParameters["conversation"]
 
-    if ("temperature" in UserConfig and ServiceConfiguration["temperature"]["modified_by_user"]):
-        temperature = UserConfig["temperature"]
-    elif ("temperature" in __models__[Name]):
-        temperature = __models__[Name]["temperature"]
-    else:
-        temperature = ServiceConfiguration["temperature"]["default"]
-    
-    if ("top_p" in UserConfig and ServiceConfiguration["top_p"]["modified_by_user"]):
-        topP = UserConfig["top_p"]
-    elif ("top_p" in __models__[Name]):
-        topP = __models__[Name]["top_p"]
-    else:
-        topP = ServiceConfiguration["top_p"]["default"]
-    
-    if ("top_k" in UserConfig and ServiceConfiguration["top_k"]["modified_by_user"]):
-        topK = UserConfig["top_k"]
-    elif ("top_k" in __models__[Name]):
-        topK = __models__[Name]["top_k"]
-    else:
-        topK = ServiceConfiguration["top_k"]["default"]
-    
-    if ("min_p" in UserConfig and ServiceConfiguration["min_p"]["modified_by_user"]):
-        minP = UserConfig["min_p"]
-    elif ("min_p" in __models__[Name]):
-        minP = __models__[Name]["min_p"]
-    else:
-        minP = ServiceConfiguration["min_p"]["default"]
-    
-    if ("typical_p" in UserConfig and ServiceConfiguration["typical_p"]["modified_by_user"]):
-        typicalP = UserConfig["typical_p"]
-    elif ("typical_p" in __models__[Name]):
-        typicalP = __models__[Name]["typical_p"]
-    else:
-        typicalP = ServiceConfiguration["typical_p"]["default"]
-    
-    if ("seed" in UserConfig and ServiceConfiguration["seed"]["modified_by_user"]):
-        seed = UserConfig["seed"]
-    elif ("seed" in __models__[Name]):
-        seed = __models__[Name]["seed"]
-    else:
-        seed = ServiceConfiguration["seed"]["default"]
-    
-    if ("presence_penalty" in UserConfig and ServiceConfiguration["presence_penalty"]["modified_by_user"]):
-        presencePenalty = UserConfig["presence_penalty"]
-    elif ("presence_penalty" in __models__[Name]):
-        presencePenalty = __models__[Name]["presence_penalty"]
-    else:
-        presencePenalty = ServiceConfiguration["presence_penalty"]["default"]
-    
-    if ("frequency_penalty" in UserConfig and ServiceConfiguration["frequency_penalty"]["modified_by_user"]):
-        frequencyPenalty = UserConfig["frequency_penalty"]
-    elif ("frequency_penalty" in __models__[Name]):
-        frequencyPenalty = __models__[Name]["frequency_penalty"]
-    else:
-        frequencyPenalty = ServiceConfiguration["frequency_penalty"]["default"]
-    
-    if ("repeat_penalty" in UserConfig and ServiceConfiguration["repeat_penalty"]["modified_by_user"]):
-        repeatPenalty = UserConfig["repeat_penalty"]
-    elif ("repeat_penalty" in __models__[Name]):
-        repeatPenalty = __models__[Name]["repeat_penalty"]
-    else:
-        repeatPenalty = ServiceConfiguration["repeat_penalty"]["default"]
-
-    if ("tools" in UserConfig and ServiceConfiguration["tools"]["modified_by_user"]):
-        tools = UserConfig["tools"]
-    else:
-        tools = []
-    
-    if ("tool_choice" in UserConfig and ServiceConfiguration["tool_choice"]["modified_by_user"]):
-        toolChoice = UserConfig["tool_choice"]
-    else:
-        toolChoice = "auto"
-    
-    if ("max_length" in UserConfig and ServiceConfiguration["max_length"]["modified_by_user"]):
-        maxLength = UserConfig["max_length"]
-    elif ("max_length" in __models__[Name]):
-        maxLength = __models__[Name]["max_length"]
-    else:
-        maxLength = ServiceConfiguration["max_length"]["default"]
+    temperature = UserConfig["temperature"] if ("temperature" in UserConfig and ServiceConfiguration["temperature"]["modified_by_user"]) else __models__[Name]["temperature"] if ("temperature" in __models__[Name]) else ServiceConfiguration["temperature"]["default"]
+    topP = UserConfig["top_p"] if ("top_p" in UserConfig and ServiceConfiguration["top_p"]["modified_by_user"]) else __models__[Name]["top_p"] if ("top_p" in __models__[Name]) else ServiceConfiguration["top_p"]["default"]
+    topK = UserConfig["top_k"] if ("top_k" in UserConfig and ServiceConfiguration["top_k"]["modified_by_user"]) else __models__[Name]["top_k"] if ("top_k" in __models__[Name]) else ServiceConfiguration["top_k"]["default"]
+    topNSigma = UserConfig["top_n_sigma"] if ("top_n_sigma" in UserConfig and ServiceConfiguration["top_n_sigma"]["modified_by_user"]) else __models__[Name]["top_n_sigma"] if ("top_n_sigma" in __models__[Name]) else ServiceConfiguration["top_n_sigma"]["default"]
+    minP = UserConfig["min_p"] if ("min_p" in UserConfig and ServiceConfiguration["min_p"]["modified_by_user"]) else __models__[Name]["min_p"] if ("min_p" in __models__[Name]) else ServiceConfiguration["min_p"]["default"]
+    typicalP = UserConfig["typical_p"] if ("typical_p" in UserConfig and ServiceConfiguration["typical_p"]["modified_by_user"]) else __models__[Name]["typical_p"] if ("typical_p" in __models__[Name]) else ServiceConfiguration["typical_p"]["default"]
+    seed = UserConfig["seed"] if ("seed" in UserConfig and ServiceConfiguration["seed"]["modified_by_user"]) else __models__[Name]["seed"] if ("seed" in __models__[Name]) else ServiceConfiguration["seed"]["default"]
+    presencePenalty = UserConfig["presence_penalty"] if ("presence_penalty" in UserConfig and ServiceConfiguration["presence_penalty"]["modified_by_user"]) else __models__[Name]["presence_penalty"] if ("presence_penalty" in __models__[Name]) else ServiceConfiguration["presence_penalty"]["default"]
+    frequencyPenalty = UserConfig["frequency_penalty"] if ("frequency_penalty" in UserConfig and ServiceConfiguration["frequency_penalty"]["modified_by_user"]) else __models__[Name]["frequency_penalty"] if ("frequency_penalty" in __models__[Name]) else ServiceConfiguration["frequency_penalty"]["default"]
+    repeatPenalty = UserConfig["repeat_penalty"] if ("repeat_penalty" in UserConfig and ServiceConfiguration["repeat_penalty"]["modified_by_user"]) else __models__[Name]["repeat_penalty"] if ("repeat_penalty" in __models__[Name]) else ServiceConfiguration["repeat_penalty"]["default"]
+    penaltyLastN = UserConfig["penalty_last_n"] if ("penalty_last_n" in UserConfig and ServiceConfiguration["penalty_last_n"]["modified_by_user"]) else __models__[Name]["penalty_last_n"] if ("penalty_last_n" in __models__[Name]) else ServiceConfiguration["penalty_last_n"]["default"]
+    tools = UserConfig["tools"] if ("tools" in UserConfig and ServiceConfiguration["tools"]["modified_by_user"]) else []
+    toolChoice = UserConfig["tool_choice"] if ("tool_choice" in UserConfig and ServiceConfiguration["tool_choice"]["modified_by_user"]) else "auto" if (len(tools) > 0) else "none"
+    maxLength = UserConfig["max_length"] if ("max_length" in UserConfig and ServiceConfiguration["max_length"]["modified_by_user"]) else __models__[Name]["max_length"] if ("max_length" in __models__[Name]) else ServiceConfiguration["max_length"]["default"]
+    stopTokens = UserConfig["stop_tokens"] if ("stop_tokens" in UserConfig) else UserConfig["stop"] if ("stop" in UserConfig) else []
+    stopTokens = [str(s) for s in stopTokens] if (isinstance(stopTokens, list)) else [str(stopTokens)]
+    extraParameters = __models__[Name]["_private_extra_parameters"] if ("_private_extra_parameters" in __models__[Name]) else {}
     
     if (maxLength > ServiceConfiguration["max_length"]["default"] and not ServiceConfiguration["max_length"]["allow_greater_than_default"]):
         maxLength = ServiceConfiguration["max_length"]["default"]
-    
-    if ("stop_tokens" in UserConfig):
-        stopTokens = UserConfig["stop_tokens"] if (isinstance(UserConfig["stop_tokens"], list)) else [str(UserConfig["stop_tokens"])]
-    else:
-        stopTokens = []
-    
-    if ("_private_extra_parameters" in __models__[Name]):
-        extraParameters = __models__[Name]["_private_extra_parameters"]
-    else:
-        extraParameters = {}
     
     extraModelCTParams = {}
     extraHandlerCTParams = {}
@@ -249,7 +177,10 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
                 else:
                     raise ValueError("Invalid extra parameter type.")
     
-    continueGeneration = "continue_generation" in UserConfig and UserConfig["continue_generation"]
+    continueGeneration = UserConfig["continue_generation"] if ("continue_generation" in UserConfig) else None
+
+    if (continueGeneration is None):
+        continueGeneration = conversation[-1]["role"] == "assistant"
     
     generator = InferenceModel(
         Name,
@@ -258,12 +189,14 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
             "temperature": temperature,
             "top_p": topP,
             "top_k": topK,
+            "top_n_sigma": topNSigma,
             "min_p": minP,
             "typical_p": typicalP,
             "seed": seed,
             "presence_penalty": presencePenalty,
             "frequency_penalty": frequencyPenalty,
             "repeat_penalty": repeatPenalty,
+            "penalty_last_n": penaltyLastN,
             "tools": tools,
             "tool_choice": toolChoice,
             "max_length": maxLength,
@@ -387,6 +320,7 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
             temperature = Configuration["temperature"],
             top_p = Configuration["top_p"],
             top_k = Configuration["top_k"],
+            top_n_sigma = Configuration["top_n_sigma"],
             min_p = Configuration["min_p"],
             typical_p = Configuration["typical_p"],
             stream = True,
@@ -395,6 +329,7 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
             present_penalty = Configuration["presence_penalty"],
             frequency_penalty = Configuration["frequency_penalty"],
             repeat_penalty = Configuration["repeat_penalty"],
+            penalty_last_n = Configuration["penalty_last_n"],
             stop = Configuration["stop"],
             assistant_prefill = Configuration["continue_generation"],
             **Configuration["extra_parameters"]

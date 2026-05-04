@@ -35,7 +35,9 @@ In some Operating Systems, this command may change.
 
 # Client installation
 
-You can use Python PIP to install the client:
+You can use Python PIP to install the client (core):
 ```bash
-pip install "I4_0-Client-PY>=17.0.0"
+pip install "I4_0-Client-PY>=20.0.0"
 ```
+
+For other utilities, please install `I4_0-Client-Utils` and `I4_0-Client-CLI`.
