@@ -374,7 +374,7 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
             toolsType = __models__[Name]["tool_parse_type"] if ("tool_parse_type" in __models__[Name]) else None
 
             if (toolsType is None):
-                if (isinstance(model.chat_handler, utils_llama.CH_Qwen35)):
+                if (model.metadata["general.architecture"] in ["qwen35moe", "qwen35"]):
                     toolsType = "xml-1"
                 else:
                     toolsType = "json-1"

@@ -6,6 +6,14 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 5-5-2026 (commit `v20.0.1`)
+
+### Server changes
+
+- (chatbot module) Tools parse type now check the model's architecture instead of the chat handler.
+
+---
+
 ## 5-5-2026 (commit `v20.0.0`)
 
 ### Server changes
