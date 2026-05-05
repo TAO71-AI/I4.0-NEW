@@ -6,6 +6,14 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 5-5-2026 (commit `v20.0.2`)
+
+### Server changes
+
+- (chatbot module) Implemented `chat_handler_kwargs` from **llama-cpp-python**.
+
+---
+
 ## 5-5-2026 (commit `v20.0.1`)
 
 ### Server changes

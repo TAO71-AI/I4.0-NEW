@@ -293,7 +293,6 @@ def StringToCacheType(CacheType: str, CapacityInBytes: int = 2 ^ 30) -> LlamaDis
 def StringToChatHandler(
     ChatHandler: str,
     Mmproj: str,
-    UseGPU: bool,
     ImageTokens: tuple[int, int],
     Verbose: bool,
     **ExtraArgs: dict[str, Any]
@@ -314,7 +313,6 @@ def StringToChatHandler(
     chatHandler = ChatHandler.lower()
     generalArgs = {
         "clip_model_path": Mmproj,
-        "use_gpu": UseGPU,
         "image_min_tokens": ImageTokens[0],
         "image_max_tokens": ImageTokens[1],
         "verbose": Verbose
@@ -434,19 +432,23 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         if (not isinstance(maxImageTokens, int)):
             raise AttributeError("[llama_utils] Invalid `mmproj_max_image_tokens`.")
         
+        chatHandlerKwargs = {
+            "use_gpu": mmprojGPU
+        }
+        
         if (mmproj is not None and chatHandler is not None):
             chatHandler = StringToChatHandler(
                 chatHandler,
                 mmproj,
-                mmprojGPU,
                 (minImageTokens, maxImageTokens),
                 mmprojVerbose
+                **chatHandlerKwargs
             )
-        
-        if (mmproj is not None and chatHandler is None):
+        elif (mmproj is not None and chatHandler is None):
             logging.info("[llama_utils] Using automatic/generic chat handler.")
-        
-        if (mmproj is None and chatHandler is not None):
+            chatHandlerKwargs["image_min_tokens"] = minImageTokens
+            chatHandlerKwargs["image_max_tokens"] = maxImageTokens
+        elif (mmproj is None and chatHandler is not None):
             chatHandler = None
             logging.info("[llama_utils] `chat_handler` will not be used because `mmproj` is None.")
     else:
@@ -807,6 +809,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
     modelParamsLCPP = {
         "model_path": modelPath,
         "clip_model_path": mmproj if (chatHandler is None) else None,
+        "chat_handler_kwargs": chatHandlerKwargs,
         "n_gpu_layers": gpuLayers,
         "cpu_moe": cpuMoE,
         "n_cpu_moe": nCPUMoE,
