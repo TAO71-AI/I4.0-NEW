@@ -15,6 +15,7 @@
 services: {}
 
 # Server configuration
+server_encoder: "openai-community/gpt2"
 server_api:
   min_length: 64  # Min key length: 16
   max_length: 128  # Replace with `null` to make this the same as min_length

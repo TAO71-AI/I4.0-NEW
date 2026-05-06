@@ -5,7 +5,6 @@ import Utilities.gpu_utils as gpu_utils
 GENERAL_REQUIREMENTS = [
     "PyYAML",
     "requests",
-    "tiktoken",
     "pydub",
     "websockets>=15.0.0,<16.0.0",
     "asyncio",

@@ -4,6 +4,7 @@ from collections.abc import Generator
 from io import BytesIO
 from pydub import AudioSegment
 from PIL import Image as PILImage
+from transformers import AutoTokenizer
 import os
 import gc
 import copy
@@ -14,7 +15,6 @@ import importlib.util
 import yaml
 import json
 import base64
-import tiktoken
 import av
 import exceptions
 import keys_manager
@@ -37,7 +37,7 @@ SERVICES_CONFIG_FILES = [
     #"default_config.json"
 ]
 Configuration: dict[str, Any] = {}
-TextEncoder: tiktoken.Encoding | None = None
+TextEncoder: AutoTokenizer | None = None
 
 class Service():
     def __init__(
@@ -278,7 +278,7 @@ def Init(Conf: dict[str, Any]) -> None:
     keys_manager.Configuration = Configuration
 
     if (TextEncoder is None):
-        TextEncoder = tiktoken.get_encoding("o200k_base")
+        TextEncoder = AutoTokenizer.from_pretrained(Configuration["server_tokenizer"])
 
 def IsServiceInstalled(Name: str) -> bool:
     for service in GetServices():
@@ -411,10 +411,10 @@ def CalculateTokenPrice(ModelNameOrConfig: str | dict[str, Any], GetOutputPricin
             continue
 
         if (content["type"] == "text"):
-            txtTokens = TextEncoder.encode(content["text"], allowed_special = "all")
+            txtTokens = len(TextEncoder.encode(content["text"]))
 
-            price += len(txtTokens) * textPrice / 1000000.0
-            totalTokens += len(txtTokens)
+            price += txtTokens * textPrice / 1000000.0
+            totalTokens += txtTokens
         elif (content["type"] == "image"):
             imgBuffer = BytesIO(base64.b64decode(content["image"]))
             img = PILImage.open(imgBuffer)
