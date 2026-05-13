@@ -8,13 +8,6 @@ import Utilities.gpu_utils as gpu
 def Install(Env: dict[str, Any] | None = None, Args: list[str] = []) -> None:
     if (Env is None):
         Env = copy.deepcopy(os.environ)
-
-    if ("CHATBOT_NO_GPU" in Env and bool(Env["CHATBOT_NO_GPU"])):
-        gpuType = gpu.GPUType.NO_GPU
-        vulkanAvailable = False
-    else:
-        gpuType = gpu.DetectGPU()
-        vulkanAvailable = gpu.GPUHasVulkan()
     
     f16 = not ("CHATBOT_NO_F16" in Env and bool(Env["CHATBOT_NO_F16"]))
     gpuType = gpu.GPUType.NO_GPU if ("CHATBOT_NO_GPU" in Env and bool(Env["CHATBOT_NO_GPU"])) else gpu.DetectGPU()

@@ -538,34 +538,37 @@ def ExecuteFilter(
     yield {"_action": "none" if (isSafe) else filterAction}
 
 def ModelRedirectTo(ModelName: str) -> dict[str, Any] | None:
-    conf = GetModelConfiguration(ModelName = ModelName)
+    try:
+        conf = GetModelConfiguration(ModelName = ModelName)
 
-    if ("redirect_to" in conf):
-        if (isinstance(conf["redirect_to"], str)):
-            redirectTo = conf["redirect_to"].split(":")
+        if ("redirect_to" in conf):
+            if (isinstance(conf["redirect_to"], str)):
+                redirectTo = conf["redirect_to"].split(":")
 
-            if (len(redirectTo) < 4):
-                raise ValueError("Redirection template not valid.")
-            
-            redirectType = redirectTo[0] if (len(redirectTo[0].strip()) > 0) else None
-            redirectSecure = bool(int(redirectTo[1].strip()[0])) if (len(redirectTo[1].strip()) > 0) else None
-            redirectHost = redirectTo[2].strip() if (len(redirectTo[2].strip()) > 0) else None
-            redirectPort = int(redirectTo[3].strip()) if (len(redirectTo[3].strip()) > 0) else None
-            redirectModel = "".join(redirectTo[4:])
-        elif (isinstance(conf["redirect_to"], dict)):
-            redirectTo = conf["redirect_to"]
-            redirectType = redirectTo["type"] if ("type" in redirectTo and isinstance(redirectTo["type"], str)) else None
-            redirectSecure = redirectTo["secure"] if ("secure" in redirectTo and isinstance(redirectTo["secure"], bool)) else None
-            redirectHost = redirectTo["host"] if ("host" in redirectTo and isinstance(redirectTo["host"], str)) else None
-            redirectPort = redirectTo["port"] if ("port" in redirectTo and isinstance(redirectTo["port"], int)) else None
-            redirectModel = redirectTo["model"] if ("model" in redirectTo and isinstance(redirectTo["model"], str)) else None
-        else:
-            raise ValueError("Redirection type not valid.")
+                if (len(redirectTo) < 4):
+                    raise ValueError("Redirection template not valid.")
 
-        if (redirectType != "ws" and redirectType != "s" and redirectType != None):
-            raise ValueError("Invalid redirection host type.")
+                redirectType = redirectTo[0] if (len(redirectTo[0].strip()) > 0) else None
+                redirectSecure = bool(int(redirectTo[1].strip()[0])) if (len(redirectTo[1].strip()) > 0) else None
+                redirectHost = redirectTo[2].strip() if (len(redirectTo[2].strip()) > 0) else None
+                redirectPort = int(redirectTo[3].strip()) if (len(redirectTo[3].strip()) > 0) else None
+                redirectModel = "".join(redirectTo[4:])
+            elif (isinstance(conf["redirect_to"], dict)):
+                redirectTo = conf["redirect_to"]
+                redirectType = redirectTo["type"] if ("type" in redirectTo and isinstance(redirectTo["type"], str)) else None
+                redirectSecure = redirectTo["secure"] if ("secure" in redirectTo and isinstance(redirectTo["secure"], bool)) else None
+                redirectHost = redirectTo["host"] if ("host" in redirectTo and isinstance(redirectTo["host"], str)) else None
+                redirectPort = redirectTo["port"] if ("port" in redirectTo and isinstance(redirectTo["port"], int)) else None
+                redirectModel = redirectTo["model"] if ("model" in redirectTo and isinstance(redirectTo["model"], str)) else None
+            else:
+                raise ValueError("Redirection type not valid.")
 
-        return {"redirect_to": {"type": redirectType, "secure": redirectSecure, "host": redirectHost, "port": redirectPort, "model": redirectModel}}
+            if (redirectType != "ws" and redirectType != "s" and redirectType != None):
+                raise ValueError("Invalid redirection host type.")
+
+            return {"redirect_to": {"type": redirectType, "secure": redirectSecure, "host": redirectHost, "port": redirectPort, "model": redirectModel}}
+    except:
+        pass
     
     return None
 

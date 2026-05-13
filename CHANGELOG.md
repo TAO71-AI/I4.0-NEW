@@ -6,6 +6,23 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 14-5-2026 (development)
+
+### Server changes
+
+- Fixed a bug that returned a "model not found" error when a model is not specified in some services.
+- Started creating `imggen` (Image Generation) module.
+
+---
+
+## 6-5-2026 (development)
+
+### Server changes
+
+- Replaced `tiktoken` with `AutoTokenizer`.
+
+---
+
 ## 5-5-2026 (commit `v20.0.2`)
 
 ### Server changes

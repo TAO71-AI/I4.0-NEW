@@ -58,8 +58,8 @@ def SERVICE_OFFLOAD_MODELS(Names: list[str]) -> None:
 
         # Offload the model
         if (__models__[name]["_private_type"] == "lcpp"):
-            if (isinstance(__models__[name]["_private_model"].chat_handler, utils_llama.CH_Llava15)):
-                __models__[name]["_private_model"].chat_handler._mtmd_cpp.mtmd_free(__models__[name]["_private_model"].chat_handler.mtmd_ctx)
+            if (isinstance(__models__[name]["_private_model"].chat_handler, utils_llama.CH_MTMDChatHandler)):
+                __models__[name]["_private_model"].chat_handler.close()
                 __models__[name]["_private_model"].chat_handler = None
             
             __models__[name]["_private_model"].close()
