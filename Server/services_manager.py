@@ -278,7 +278,7 @@ def Init(Conf: dict[str, Any]) -> None:
     keys_manager.Configuration = Configuration
 
     if (TextEncoder is None):
-        TextEncoder = AutoTokenizer.from_pretrained(Configuration["server_tokenizer"])
+        TextEncoder = AutoTokenizer.from_pretrained(Configuration["server_encoder"])
 
 def IsServiceInstalled(Name: str) -> bool:
     for service in GetServices():

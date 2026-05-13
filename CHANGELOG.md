@@ -12,6 +12,7 @@ Keep in mind that these are only the more relevant changes.
 
 - Fixed a bug that returned a "model not found" error when a model is not specified in some services.
 - Started creating `imggen` (Image Generation) module.
+- Fixed a small bug with the configuration.
 
 ---
 
