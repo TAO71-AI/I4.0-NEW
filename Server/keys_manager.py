@@ -209,8 +209,6 @@ class APIKey():
 
         for k, v in Dictionary.items():
             setattr(instance, k, v)
-
-        print(f"VERSION: {instance.__version__}")
         
         if (instance.__version__ < 1):
             setattr(instance, "UpdateDate", instance.CreationDate.copy())
