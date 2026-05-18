@@ -1,5 +1,7 @@
 SERVER_VERSION: int = 200000
 
+import traceback
+
 try:
     import logging
     logging.basicConfig(
@@ -24,8 +26,6 @@ try:
     import Utilities.server_utils as server_utils
     import Configuration.config as config
 except Exception as ex:
-    import traceback
-
     print(f"Could not load server modules. Error: {ex}\nPlease make sure all of the requirements are installed.", flush = True)
     traceback.print_exception(ex)
 
@@ -435,8 +435,12 @@ def __process_client__(Message: str, EndPoint: tuple[str, int]) -> Generator[dic
                 
                 if (deleteKeyInstance is not None):
                     deleteKeyInstance.RemoveFile()
-            elif (service == "get_key_data" and keyInstance.IsAdmin()):
+            elif (service == "get_key_data"):
                 keyData = prompt["parameters"]["key"]
+
+                if (keyData != keyInstance.Key):
+                    raise PermissionError("You do not have access to this API key.")
+                
                 keyData = services_manager.keys_manager.APIKey.LoadFromFile(keyData)
 
                 yield {
@@ -540,6 +544,7 @@ def CloseServer() -> None:
     logging.info(f"[server] Closing server with reason '{CloseServerReason}'.")
 
     services_manager.OffloadModels(list(config.Configuration["services"].keys()))
+    services_manager.Close()
 
 config.ReadConfiguration(None, True, True)
 
@@ -547,7 +552,9 @@ try:
     logging.info("[server] Loading configuration...")
     services_manager.Init(config.Configuration)
 except Exception as ex:
-    logging.critical(f"[server] Could not copy configuration in all modules! Error: {ex}")
+    logging.critical(f"[server] Could not copy configuration in all modules!")
+    traceback.print_exception(ex)
+
     exit(1)
 
 if (not os.path.exists(config.Configuration["server_data"]["tos_file"])):

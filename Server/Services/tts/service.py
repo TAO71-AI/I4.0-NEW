@@ -15,6 +15,8 @@ def __check_service_configuration__() -> None:
     
     if (ServerConfiguration is None):
         raise ValueError("Server configuration is not defined.")
+    
+    qwen.ServiceConfiguration = ServiceConfiguration
 
 def SERVICE_LOAD_MODELS(Models: dict[str, dict[str, Any]]) -> None:
     for modelName, modelConfiguration in Models.items():

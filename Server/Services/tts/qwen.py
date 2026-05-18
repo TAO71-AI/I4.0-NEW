@@ -1,11 +1,14 @@
 from typing import Any, Literal
 from collections.abc import Generator
 from io import BytesIO
-from qwen_tts import Qwen3TTSModel
+from qwen_tts import Qwen3TTSModel, VoiceClonePromptItem
 import json
 import base64
 import soundfile as sf
 import Utilities.model_utils as model_utils
+
+SavedVoices: dict[dict[str, Any], VoiceClonePromptItem] = {}
+ServiceConfiguration: dict[str, Any] | None = None
 
 def LoadModel(Configuration: dict[str, Any]) -> Qwen3TTSModel:
     model = Qwen3TTSModel.from_pretrained(
@@ -27,6 +30,9 @@ def InferenceModel(
     RepetitionPenalty: float,
     MaxLength: int
 ) -> Generator[dict[str, Any]]:
+    if (len(SavedVoices) > ServiceConfiguration["max_saved_voices"]):
+        SavedVoices.clear()
+
     latestInstruction = ""
     latestAudio = None
     latestTxt = None
@@ -81,11 +87,20 @@ def InferenceModel(
     elif (Type == "voice_clone"):
         if (latestAudio is None):
             raise ValueError("No reference audio for TTS voice cloning.")
+        
+        voiceClonePrompt = {"ref_audio": latestAudio, "ref_text": ttsReferenceText, "mode": Type}
+
+        if (voiceClonePrompt not in SavedVoices):
+            SavedVoices[voiceClonePrompt] = Model.create_voice_clone_prompt(
+                ref_audio = latestAudio,
+                ref_text = ttsReferenceText,
+                x_vector_only_mode = ttsReferenceText is None
+            )
+        
+        voiceClonePrompt = SavedVoices[voiceClonePrompt]
 
         wavs, sr = Model.generate_voice_clone(
-            ref_audio = latestAudio,
-            ref_text = ttsReferenceText,
-            x_vector_only_mode = ttsReferenceText is None,
+            voice_clone_prompt = voiceClonePrompt,
             **globalModelArgs
         )
     else:

@@ -6,21 +6,17 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
-## 14-5-2026 (development)
+## Development
 
 ### Server changes
 
 - Fixed a bug that returned a "model not found" error when a model is not specified in some services.
-- Started creating `imggen` (Image Generation) module.
+- Started creating `imggen` (Image Generation) module (still a WIP).
 - Fixed a small bug with the configuration.
-
----
-
-## 6-5-2026 (development)
-
-### Server changes
-
-- Replaced `tiktoken` with `AutoTokenizer`.
+- Replaced `tiktoken` with `AutoTokenizer` (HuggingFace Transformers).
+- Users can now fetch information about their API key.
+- Overhauled API keys manager. Older API keys should be converted automatically. However, it is recommended to create a copy.
+- (chatbot module) Fixed bugs.
 
 ---
 

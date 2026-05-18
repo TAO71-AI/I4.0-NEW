@@ -58,7 +58,7 @@ def SERVICE_OFFLOAD_MODELS(Names: list[str]) -> None:
 
         # Offload the model
         if (__models__[name]["_private_type"] == "lcpp"):
-            if (isinstance(__models__[name]["_private_model"].chat_handler, utils_llama.CH_MTMDChatHandler)):
+            if (__models__[name]["_private_model"].chat_handler is not None):
                 __models__[name]["_private_model"].chat_handler.close()
                 __models__[name]["_private_model"].chat_handler = None
             
@@ -456,32 +456,21 @@ def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
 
     __models__[Name] = Configuration | model
 
-    testInferenceConversation = ServiceConfiguration["test_inference_conversation"]
-
-    for message in testInferenceConversation:
-        if (isinstance(message["content"], str)):
-            message["content"] = [{"type": "text", "text": message["content"]}]
-
-        for content in message["content"]:
-            if (content["type"] != "text"):
-                with open(content[content["type"]], "rb") as f:
-                    content[content["type"]] = base64.b64encode(f.read()).decode("utf-8")
-
     # Test the inference
     if ("_private_test_inference" in Configuration and Configuration["_private_test_inference"]):
         logging.info("[service_chatbot] Testing inference of the model.")
-        files = []
+        testInferenceConversation = copy.deepcopy(ServiceConfiguration["test_inference_conversation"])
 
-        if ("test_inference_files" in ServiceConfiguration):
-            for file in ServiceConfiguration["test_inference_files"]:
-                if (file["type"] != "image" and file["type"] != "video" and file["type"] != "audio"):
-                    logging.warning(f"[service_chatbot] Unexpected file type during inference testing. Skipping file: `{file}`.")
+        for message in testInferenceConversation:
+            if (isinstance(message["content"], str)):
+                message["content"] = [{"type": "text", "text": message["content"]}]
+            
+            for content in message["content"]:
+                if (content["type"] == "text"):
                     continue
 
-                with open(file["data"], "rb") as f:
-                    files.append({"type": file["type"], file["type"]: base64.b64encode(f.read()).decode("utf-8")})
-        else:
-            logging.info("[service_chatbot] Inference test files not specified.")
+                with open(content[content["type"]], "rb") as f:  # Content type is not `text`, so it MUST be a file path
+                    content[content["type"]] = base64.b64encode(f.read()).decode("utf-8")
 
         response = SERVICE_INFERENCE(
             Name,

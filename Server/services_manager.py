@@ -276,9 +276,13 @@ def Init(Conf: dict[str, Any]) -> None:
 
     Configuration = Conf
     keys_manager.Configuration = Configuration
+    keys_manager.Init()
 
     if (TextEncoder is None):
         TextEncoder = AutoTokenizer.from_pretrained(Configuration["server_encoder"])
+
+def Close() -> None:
+    keys_manager.Close()
 
 def IsServiceInstalled(Name: str) -> bool:
     for service in GetServices():
@@ -406,7 +410,9 @@ def CalculateTokenPrice(ModelNameOrConfig: str | dict[str, Any], GetOutputPricin
         videoPriceR = modelPricing["video_input_r"] if ("video_input_r" in modelPricing) else 0
         otherPrice = modelPricing["other_input"] if ("other_input" in modelPricing) else 0
     
-    for content in MessageContent:
+    msgContent = copy.deepcopy(MessageContent)
+    
+    for content in msgContent:
         if (len(content[content["type"]]) == 0):
             continue
 
@@ -467,6 +473,7 @@ def CalculateTokenPrice(ModelNameOrConfig: str | dict[str, Any], GetOutputPricin
         else:
             raise ValueError("Invalid content type or pricing.")
     
+    msgContent = None
     return (price, totalTokens)
 
 def ExecuteFilter(
@@ -520,7 +527,7 @@ def ExecuteFilter(
             filterModel,
             filterPP,
             filterUP | {
-                "conversation": Conversation
+                "conversation": copy.deepcopy(Conversation)
             }
         ]
     ):

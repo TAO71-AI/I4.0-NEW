@@ -294,7 +294,6 @@ def StringToChatHandler(
     ChatHandler: str,
     Mmproj: str,
     ImageTokens: tuple[int, int],
-    Verbose: bool,
     **ExtraArgs: dict[str, Any]
 ) -> CH_Llava15 | None:
     """
@@ -314,8 +313,7 @@ def StringToChatHandler(
     generalArgs = {
         "clip_model_path": Mmproj,
         "image_min_tokens": ImageTokens[0],
-        "image_max_tokens": ImageTokens[1],
-        "verbose": Verbose
+        "image_max_tokens": ImageTokens[1]
     } | ExtraArgs
 
     if (ImageTokens[1] < ImageTokens[0] and ImageTokens[1] > -1):
@@ -341,7 +339,7 @@ def StringToChatHandler(
             logging.warning("[llama_utils] For Qwen3-VL it's recommended to set `mmproj_min_image_tokens` to 1024.")
 
         return CH_Qwen3VL(**generalArgs)
-    elif (chatHandler in ["qwen35", "qwen3.5"]):
+    elif (chatHandler in ["qwen35", "qwen3.5", "qwen3.6"]):
         if (ImageTokens[0] < 1024):
             logging.warning("[llama_utils] For Qwen3.5 it's recommended to set `mmproj_min_image_tokens` to 1024.")
         
@@ -391,7 +389,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
     if ("_private_model_path" in Configuration):
         modelPath = None
         mmproj = None
-        chatHandler = None
+        chatHandlerKwargs = {}
 
         logging.info("[llama_utils] Checking model path.")
 
@@ -403,9 +401,6 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
             
             if ("mmproj" in Configuration["_private_model_path"]):
                 mmproj = Configuration["_private_model_path"]["mmproj"]
-            
-            if ("chat_handler" in Configuration["_private_model_path"]):
-                chatHandler = Configuration["_private_model_path"]["chat_handler"]
         elif (isinstance(Configuration["_private_model_path"], str)):
             modelPath = Configuration["_private_model_path"]
         
@@ -414,9 +409,6 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         
         if (not isinstance(mmproj, str) and mmproj is not None):
             raise AttributeError("[llama_utils] Invalid `mmproj`.")
-
-        if (not isinstance(chatHandler, str) and chatHandler is not None):
-            raise AttributeError("[llama_utils] Invalid `chat_handler`.")
         
         mmprojGPU = Configuration["_private_mmproj_use_gpu"] if ("_private_mmproj_use_gpu" in Configuration) else True
 
@@ -432,25 +424,13 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         if (not isinstance(maxImageTokens, int)):
             raise AttributeError("[llama_utils] Invalid `mmproj_max_image_tokens`.")
         
-        chatHandlerKwargs = {
-            "use_gpu": mmprojGPU
-        }
-        
-        if (mmproj is not None and chatHandler is not None):
-            chatHandler = StringToChatHandler(
-                chatHandler,
-                mmproj,
-                (minImageTokens, maxImageTokens),
-                mmprojVerbose
-                **chatHandlerKwargs
-            )
-        elif (mmproj is not None and chatHandler is None):
+        if (mmproj is not None):
             logging.info("[llama_utils] Using automatic/generic chat handler.")
-            chatHandlerKwargs["image_min_tokens"] = minImageTokens
-            chatHandlerKwargs["image_max_tokens"] = maxImageTokens
-        elif (mmproj is None and chatHandler is not None):
-            chatHandler = None
-            logging.info("[llama_utils] `chat_handler` will not be used because `mmproj` is None.")
+            chatHandlerKwargs = {
+                "use_gpu": mmprojGPU,
+                "image_min_tokens": minImageTokens,
+                "image_max_tokens": maxImageTokens
+            }
     else:
         raise AttributeError("[llama_utils] `_private_model_path` must be in the configuration of the model.")
     
@@ -808,7 +788,7 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
     # Save the parameters in a dictionary
     modelParamsLCPP = {
         "model_path": modelPath,
-        "clip_model_path": mmproj if (chatHandler is None) else None,
+        "clip_model_path": mmproj,
         "chat_handler_kwargs": chatHandlerKwargs,
         "n_gpu_layers": gpuLayers,
         "cpu_moe": cpuMoE,
@@ -847,7 +827,6 @@ def LoadLlamaModel(Configuration: dict[str, Any]) -> dict[str, Llama | Any]:
         "lora_path": loraPath,
         "lora_base": loraBase,
         "lora_scale": loraScale,
-        "chat_handler": chatHandler,
         "verbose": verbose
     }
 
