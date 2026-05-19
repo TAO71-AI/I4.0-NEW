@@ -12,17 +12,25 @@ I4.0-NEW is a new, rewritten version of [I4.0](https://github.com/TAO71-AI/I4.0)
 - 🔧 **Easy to modify**: Everyone can modify this software and make it better.
 - ⚙️ **Easy to implement**: Even though it's not an OpenAI-like API, it's still easy to implement.
 
-## To do
-
-- [ ] GUI Chat (client-side)
-- [ ] Gaming module (client-side)
-    - [ ] VRChat
-    - [ ] Minecraft
-    - [ ] HoloCure
-    - [ ] Half-Life
-
 ## Documentation
 
 [💻 Client documentation](https://github.com/TAO71-AI/I4.0-NEW/tree/master/Documentation/ClientDocs)
 
 [📡 Server documentation](https://github.com/TAO71-AI/I4.0-NEW/tree/master/Documentation/ServerDocs)
+
+## To do
+
+- Gaming modules (client-side)
+    - [ ] VRChat
+    - [ ] Minecraft
+    - [ ] HoloCure
+    - [ ] Half-Life
+- [ ] OpenAI-like API support
+- [ ] Images search (client-side)
+- Document support (client-side)
+    - [ ] PPTX file support (reading)
+        - [ ] PPTX file creation
+    - [ ] DOCX/ODT file support (reading)
+        - [ ] DOCX/ODT file creation
+    - [ ] PDF file support (reading)
+        - [ ] PDF file creation

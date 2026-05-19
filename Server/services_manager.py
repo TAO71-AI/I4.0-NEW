@@ -41,13 +41,13 @@ TextEncoder: AutoTokenizer | None = None
 
 class Service():
     def __init__(
-            self,
-            Name: str,
-            LoadOnStart: bool | tuple[bool, bool, bool] | list[bool],
-            ServFilePath: str,
-            ReqFilePath: str | None = None,
-            ConfFilePath: str | None = None
-        ) -> None:
+        self,
+        Name: str,
+        LoadOnStart: bool | tuple[bool, bool, bool] | list[bool],
+        ServFilePath: str,
+        ReqFilePath: str | None = None,
+        ConfFilePath: str | None = None
+    ) -> None:
         self.Name: str = Name
 
         self.ServiceFilePath: str = ServFilePath

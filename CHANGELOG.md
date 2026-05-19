@@ -17,6 +17,8 @@ Keep in mind that these are only the more relevant changes.
 - Users can now fetch information about their API key.
 - Overhauled API keys manager. Older API keys should be converted automatically. However, it is recommended to create a copy.
 - (chatbot module) Fixed bugs.
+- (chatbot module) Removed chat handlers. It now uses a global/generic chat handler.
+- (tts module) Cloned voices can now be saved in RAM to accelerate future generations.
 
 ---
 

@@ -7,7 +7,7 @@ import base64
 import soundfile as sf
 import Utilities.model_utils as model_utils
 
-SavedVoices: dict[dict[str, Any], VoiceClonePromptItem] = {}
+SavedVoices: list[dict[str, str | VoiceClonePromptItem]] = []
 ServiceConfiguration: dict[str, Any] | None = None
 
 def LoadModel(Configuration: dict[str, Any]) -> Qwen3TTSModel:
@@ -17,7 +17,6 @@ def LoadModel(Configuration: dict[str, Any]) -> Qwen3TTSModel:
         dtype = model_utils.StringToDType(Configuration["dtype"]),
         attn_implementation = model_utils.GetAttnImpl(Configuration)
     )
-
     return model
 
 def InferenceModel(
@@ -88,19 +87,23 @@ def InferenceModel(
         if (latestAudio is None):
             raise ValueError("No reference audio for TTS voice cloning.")
         
-        voiceClonePrompt = {"ref_audio": latestAudio, "ref_text": ttsReferenceText, "mode": Type}
+        voiceClonePrompt = {"ref_audio": latestAudio, "ref_text": ttsReferenceText, "mode": Type, "data": None}
 
-        if (voiceClonePrompt not in SavedVoices):
-            SavedVoices[voiceClonePrompt] = Model.create_voice_clone_prompt(
+        for voiceData in SavedVoices:
+            if (voiceData["ref_audio"] == latestAudio and voiceData["ref_text"] == ttsReferenceText and voiceData["mode"] == Type):
+                voiceClonePrompt["data"] = voiceData["data"]
+                break
+
+        if (voiceClonePrompt["data"] is None):
+            voiceClonePrompt["data"] = Model.create_voice_clone_prompt(
                 ref_audio = latestAudio,
                 ref_text = ttsReferenceText,
                 x_vector_only_mode = ttsReferenceText is None
             )
-        
-        voiceClonePrompt = SavedVoices[voiceClonePrompt]
+            SavedVoices.append(voiceClonePrompt)
 
         wavs, sr = Model.generate_voice_clone(
-            voice_clone_prompt = voiceClonePrompt,
+            voice_clone_prompt = voiceClonePrompt["data"],
             **globalModelArgs
         )
     else:
