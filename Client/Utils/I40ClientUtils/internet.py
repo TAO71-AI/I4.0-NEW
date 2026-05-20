@@ -57,6 +57,35 @@ def SearchText(
     )
     return [r["href"] for r in results]
 
+def SearchImages(
+    Keywords: str,
+    Region: str = "auto",
+    UseSafeSearch: bool = True,
+    MaxResults: int = 5,
+    Backend: Literal["bing", "duckduckgo", "auto"] = "auto"
+) -> list[dict[str, str]]:
+    results = __DDGS__.images(
+        query = Keywords,
+        region = Region,
+        safesearch = "moderate" if (UseSafeSearch) else "off",
+        max_results = MaxResults,
+        backend = Backend
+    )
+    imgs = []
+
+    for result in results:
+        try:
+            imgs.append({
+                "image": DownloadContent(URL = result["image"], ReturnAsBase64 = True, ReturnAsString = True),
+                "width": result["width"],
+                "height": result["height"],
+                "title": result["title"] if ("title" in result and len(result["title"]) > 0) else "No title"
+            })
+        except:
+            pass
+    
+    return imgs
+
 def GetBaseURL(URL: str) -> str:
     if ("/" in URL):
         url = URL[:URL.rfind("/")]

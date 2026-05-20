@@ -10,8 +10,8 @@ authors = [{name = "TAO71-AI"}]
 license = {text = "TAO71 I4.0 License (version 2)"}
 requires-python = ">=3.11"
 dependencies = [
-    "I4_0-Client-PY>=20.0.0",
-    "I4_0-Client-Utils>=20.0.0"
+    "I4_0-Client-PY>=21.0.0",
+    "I4_0-Client-Utils>=21.0.0"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",

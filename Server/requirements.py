@@ -13,7 +13,8 @@ GENERAL_REQUIREMENTS = [
     "Pillow",
     "numpy",
     "accelerate",
-    "transformers>=4.57.3"
+    "transformers>=4.57.3",
+    "lxml"
 ]
 OPTIONAL_REQUIREMENTS = [
     "bitsandbytes",

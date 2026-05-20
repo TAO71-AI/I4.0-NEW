@@ -13,7 +13,9 @@ dependencies = [
     "html2text",
     "requests",
     "beautifulsoup4",
-    "ddgs"
+    "ddgs",
+    "weasyprint",
+    "pdf2docx"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",

@@ -20,6 +20,15 @@ Keep in mind that these are only the more relevant changes.
 - (chatbot module) Removed chat handlers. It now uses a global/generic chat handler.
 - (tts module) Cloned voices can now be saved in RAM to accelerate future generations.
 - (chatbot module) `assistant_prefill` can cause crashes in some models and hardware. It can now be disabled in the service configuration.
+- (chatbot module) Implemented a HTML-proof tools parser for `xml-1`.
+
+### Client changes
+
+- New tools:
+  - `search_images` searches for images on the internet. When using the CLI client, the images will be stored in the CWD.
+  - `create_document` creates a DOCX, PDF, or HTML document.
+- Format conversion **from HTML to PDF** and **from PDF to DOCX**.
+- Implemented images search.
 
 ---
 

@@ -253,12 +253,12 @@ def GetServices() -> list[Service]:
         else:
             for name in SERVICES_CONFIG_FILES:
                 fp = os.path.join(pathDir, name)
-                logging.info(f"[services_manager] Got service configuration file at `{fp}`. Copying.")
 
                 if (os.path.exists(fp)):
+                    logging.info(f"[services_manager] Got service configuration file at `{fp}`. Copying.")
                     shutil.copy2(fp, f"./config_{servDir}.yaml")
-                    pathDefConfig = f"./config_{servDir}.yaml"
 
+                    pathDefConfig = f"./config_{servDir}.yaml"
                     break
         
         services.append(Service(

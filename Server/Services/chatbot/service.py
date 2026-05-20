@@ -6,7 +6,7 @@ import base64
 import json
 import copy
 import re
-import xml.etree.ElementTree as XML_ElementTree
+import lxml.etree
 import Services.chatbot.llama_utils as utils_llama
 
 __models__: dict[str, dict[str, Any]] = {}
@@ -384,7 +384,7 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
             elif (toolsType in ["xml", "xml-1"]):
                 for tool in tools:
                     fixedXML = re.sub(r"<([a-zA-Z0-9_]+)=([a-zA-Z0-9_]+)>", lambda m: f"<{m.group(1)} name=\"{m.group(2)}\">", tool)
-                    root = XML_ElementTree.fromstring(fixedXML)
+                    root = lxml.etree.fromstring(fixedXML, parser = lxml.etree.XMLParser(recover = True))
                     children = {}
 
                     for child in root:
@@ -394,12 +394,12 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
 
                             try:
                                 childValue = json.loads(child.text)
-                            except json.JSONDecodeError:
-                                childValue = str(child.text)
+                            except (json.JSONDecodeError, TypeError):
+                                childValue = str(child.text or "")
                             
-                            children[child.attrib["name"]] = childValue
+                            children[child.attrib.get("name", "")] = childValue
 
-                    parsedTools.append({"name": root.attrib["name"], "arguments": children})
+                    parsedTools.append({"name": root.attrib.get("name", ""), "arguments": children})
                     root.clear()
             else:
                 raise ValueError("Invalid tools parser.")

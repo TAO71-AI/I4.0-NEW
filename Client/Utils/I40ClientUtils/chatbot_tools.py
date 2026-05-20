@@ -6,6 +6,7 @@ These tools are provided to make it more easy to do certain things with I4.0.
 
 from typing import Any
 from . import internet
+from . import format_conversion as fmtc
 
 def GetDefaultTools() -> list[dict[str, Any]]:
     return [
@@ -47,13 +48,67 @@ def GetDefaultTools() -> list[dict[str, Any]]:
                         "backend": {
                             "type": "string",
                             "description": (
-                                "Backend search engine to use. The available backends are: "
-                                "bing, brave, duckduckgo, google, grokipedia, mojeek, yandex, wikipedia, auto"
+                                "Backend search engine to use"
                             ),
+                            "enum": ["bing", "brave", "duckduckgo", "google", "grokipedia", "moojek", "yandex", "wikipedia", "auto"],
                             "default": "auto"
                         }
                     },
                     "required": ["keywords"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "search_images",
+                "description": (
+                    "Searches the internet for images using keywords"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "keywords": {
+                            "type": "string",
+                            "description": "Keywords to search, space separated, allows search operators"
+                        },
+                        "backend": {
+                            "type": "string",
+                            "description": (
+                                "Backend search engine to use."
+                            ),
+                            "enum": ["bing", "duckduckgo", "auto"],
+                            "default": "auto"
+                        }
+                    },
+                    "required": ["keywords"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "create_document",
+                "description": (
+                    "Creates a text document"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "html": {
+                            "type": "string",
+                            "description": "HTML and CSS code with the content of the document"
+                        },
+                        "format": {
+                            "type": "string",
+                            "description": (
+                                "Format to save the document"
+                            ),
+                            "enum": ["html", "pdf", "docx"],
+                            "default": "pdf"
+                        }
+                    },
+                    "required": ["html"]
                 }
             }
         }
@@ -62,7 +117,7 @@ def GetDefaultTools() -> list[dict[str, Any]]:
 def ToolExists(ToolName: str) -> bool:
     return ToolName in [t["function"]["name"] for t in GetDefaultTools()]
 
-def ExecuteTool(ToolName: str, ToolArgs: dict[str, Any], MaxLength: int | None = None, Multimodal: str = "") -> dict[str, list[dict[str, str]]] | None:
+def ExecuteTool(ToolName: str, ToolArgs: dict[str, Any], MaxLength: int | None = None, Multimodal: str = "") -> list[dict[str, str]] | None:
     if (not ToolExists(ToolName)):
         raise ValueError("Tool does not exist in the default tool list.")
     
@@ -168,3 +223,40 @@ def ExecuteTool(ToolName: str, ToolArgs: dict[str, Any], MaxLength: int | None =
             inputText = inputText[:MaxLength - 1]
 
         return inputMedia + [{"type": "text", "text": inputText}]
+    elif (ToolName == "search_images"):
+        keywords = ToolArgs["keywords"]
+        backend = ToolArgs["backend"] if ("backend" in ToolArgs) else "auto"
+        content = "# Results from the images search\n\n"
+        results = []
+
+        try:
+            results = internet.SearchImages(keywords, Backend = backend)
+            content += "\n\n".join([
+                f"## Image {results.index(result) + 1}\n\nTitle: {result['title']}\nWidth: {result['width']}\nHeight: {result['height']}"
+                for result in results
+            ])
+        except Exception as ex:
+            print(f"ERROR: {ex}")
+            results = []
+        
+        if (len(results) == 0):
+            content += "No images found."
+        
+        return [
+            {"type": "image", "image": result["image"]}
+            for result in results
+        ] + [{"type": "text", "text": content}]
+    elif (ToolName == "create_document"):
+        documentCode = ToolArgs["html"]
+        documentFormat = ToolArgs["format"] if ("format" in ToolArgs) else "pdf"
+
+        if (documentFormat == "pdf"):
+            outputDocument = fmtc.HTML_To_PDF(documentCode, True)
+        elif (documentFormat == "docx"):
+            outputDocument = fmtc.PDF_To_DOCX(fmtc.HTML_To_PDF(documentCode, False), True)
+        elif (documentFormat == "html"):
+            outputDocument = documentCode
+        else:
+            raise ValueError("Invalid document format.")
+        
+        return [{"type": "document", "document_type": documentFormat, "document": outputDocument}]

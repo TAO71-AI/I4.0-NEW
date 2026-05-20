@@ -172,7 +172,44 @@ def main() -> None:
                         toolR = chatbot_tools.ExecuteTool(toolName, toolArgs, modelInfo["ctx"], "")
 
                         if (toolR is not None):
-                            toolsResponse += toolR
+                            if (toolName == "search_images"):
+                                toolsResponse += [content for content in toolR if (content["type"] == "text")]
+
+                                for content in toolR:
+                                    if (content["type"] != "image"):
+                                        continue
+
+                                    fileID = 1
+                                    fileName = f"search_result_{fileID}.png"
+
+                                    while (os.path.exists(fileName)):
+                                        fileID += 1
+                                        fileName = f"search_result_{fileID}.png"
+                                    
+                                    with open(fileName, "wb") as f:
+                                        f.write(base64.b64decode(content["image"]))
+                                    
+                                    toolsResponse[-1]["text"] += f"Image {fileID - 1} saved as: \"{fileName}\"\n"
+                            elif (toolName == "create_document"):
+                                toolsResponse.append({"type": "text", "text": ""})
+
+                                for content in toolR:
+                                    if (content != "document"):
+                                        continue
+
+                                    fileID = 1
+                                    fileName = f"document_{fileID}.{content['document_type']}"
+
+                                    while (os.path.exists(fileName)):
+                                        fileID += 1
+                                        fileName = f"search_result_{fileID}.png"
+                                    
+                                    with open(fileName, "w" if (content["document_type"] == "html") else "wb") as f:
+                                        f.write(content["document"] if (content["document_type"] == "html") else base64.b64decode(content["document"]))
+                                    
+                                    toolsResponse[-1]["text"] += f"Document saved as: \"{fileName}\"\n"
+                            else:
+                                toolsResponse += toolR
                     except Exception as ex:
                         print(f"\nERROR: Error processing tool ({type(ex)}): {ex}", flush = True)
                         errors += 1
