@@ -63,3 +63,4 @@ test_inference_conversation:
         text: "Hey! How are you?"
 test_inference_configuration:
   max_length: 1024
+allow_assistant_prefill: false

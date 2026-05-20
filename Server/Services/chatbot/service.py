@@ -331,7 +331,7 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
             repeat_penalty = Configuration["repeat_penalty"],
             penalty_last_n = Configuration["penalty_last_n"],
             stop = Configuration["stop"],
-            assistant_prefill = Configuration["continue_generation"],
+            assistant_prefill = Configuration["continue_generation"] and ServiceConfiguration["allow_assistant_prefill"],
             **Configuration["extra_parameters"]
         )
 
