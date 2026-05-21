@@ -31,6 +31,13 @@ I4.0-NEW is a new, rewritten version of [I4.0](https://github.com/TAO71-AI/I4.0)
     - [ ] PPTX file support (reading)
         - [ ] PPTX file creation
     - [ ] DOCX/ODT file support (reading)
-        - [ ] DOCX/ODT file creation
+        - [X] DOCX/ODT file creation
     - [ ] PDF file support (reading)
-        - [ ] PDF file creation
+        - [X] PDF file creation
+    - [ ] Other documents support (reading)
+        - Other documents creation
+            - [X] HTML
+            - [ ] CSS
+            - [ ] Javascript
+            - [ ] CSV
+            - [ ] Python

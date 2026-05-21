@@ -254,9 +254,9 @@ def ExecuteTool(ToolName: str, ToolArgs: dict[str, Any], MaxLength: int | None =
         if (documentFormat == "pdf"):
             outputDocument = fmtc.HTML_To_PDF(documentCode, True)
         elif (documentFormat == "docx"):
-            outputDocument = fmtc.PDF_To_DOCX(fmtc.HTML_To_PDF(documentCode, False), True)
-        elif (documentFormat == "html"):
-            outputDocument = base64.b64encode(documentCode).decode("utf-8")
+            outputDocument = fmtc.PDF_To_DOCX(fmtc.HTML_To_PDF(documentCode, True), True)
+        elif (documentFormat in ["html"]):
+            outputDocument = base64.b64encode(documentCode.encode("utf-8"))
         else:
             raise ValueError("Invalid document format.")
         
