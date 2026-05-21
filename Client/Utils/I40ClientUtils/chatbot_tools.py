@@ -7,6 +7,7 @@ These tools are provided to make it more easy to do certain things with I4.0.
 from typing import Any
 from . import internet
 from . import format_conversion as fmtc
+import base64
 
 def GetDefaultTools() -> list[dict[str, Any]]:
     return [
@@ -255,7 +256,7 @@ def ExecuteTool(ToolName: str, ToolArgs: dict[str, Any], MaxLength: int | None =
         elif (documentFormat == "docx"):
             outputDocument = fmtc.PDF_To_DOCX(fmtc.HTML_To_PDF(documentCode, False), True)
         elif (documentFormat == "html"):
-            outputDocument = documentCode
+            outputDocument = base64.b64encode(documentCode).decode("utf-8")
         else:
             raise ValueError("Invalid document format.")
         

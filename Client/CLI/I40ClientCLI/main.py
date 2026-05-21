@@ -194,7 +194,7 @@ def main() -> None:
                                 toolsResponse.append({"type": "text", "text": ""})
 
                                 for content in toolR:
-                                    if (content != "document"):
+                                    if (content["type"] != "document"):
                                         continue
 
                                     fileID = 1
@@ -202,10 +202,10 @@ def main() -> None:
 
                                     while (os.path.exists(fileName)):
                                         fileID += 1
-                                        fileName = f"search_result_{fileID}.png"
+                                        fileName = f"document_{fileID}.{content['document_type']}"
                                     
-                                    with open(fileName, "w" if (content["document_type"] == "html") else "wb") as f:
-                                        f.write(content["document"] if (content["document_type"] == "html") else base64.b64decode(content["document"]))
+                                    with open(fileName, "wb") as f:
+                                        f.write(base64.b64decode(content["document"]))
                                     
                                     toolsResponse[-1]["text"] += f"Document saved as: \"{fileName}\"\n"
                             else:

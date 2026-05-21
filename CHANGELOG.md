@@ -20,7 +20,7 @@ Keep in mind that these are only the more relevant changes.
 - (chatbot module) Removed chat handlers. It now uses a global/generic chat handler.
 - (tts module) Cloned voices can now be saved in RAM to accelerate future generations.
 - (chatbot module) `assistant_prefill` can cause crashes in some models and hardware. It can now be disabled in the service configuration.
-- (chatbot module) Implemented a HTML-proof tools parser for `xml-1`.
+- (chatbot module) Implemented an HTML-proof tools parser for `xml-1`.
 
 ### Client changes
 

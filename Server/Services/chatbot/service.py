@@ -5,8 +5,6 @@ from collections.abc import Generator
 import base64
 import json
 import copy
-import re
-import lxml.etree
 import Services.chatbot.llama_utils as utils_llama
 
 __models__: dict[str, dict[str, Any]] = {}
@@ -381,26 +379,51 @@ def InferenceModel(Name: str, Conversation: list[dict[str, str | list[dict[str, 
             
             if (toolsType in ["json", "json-1"]):
                 parsedTools = [json.loads(tool) for tool in tools]
-            elif (toolsType in ["xml", "xml-1"]):
+            elif (toolsType in ["xml", "xml-1", "qwen3.5"]):
                 for tool in tools:
-                    fixedXML = re.sub(r"<([a-zA-Z0-9_]+)=([a-zA-Z0-9_]+)>", lambda m: f"<{m.group(1)} name=\"{m.group(2)}\">", tool)
-                    root = lxml.etree.fromstring(fixedXML, parser = lxml.etree.XMLParser(recover = True))
-                    children = {}
+                    toolName = tool.strip()
+                    toolName = toolName[toolName.index("<function"):]
+                    toolName = toolName[toolName.index("=") + 1:].strip()
 
-                    for child in root:
-                        for inputTool in Configuration["tools"]:
-                            if (inputTool["function"]["name"] != root.attrib["name"]):
-                                continue
+                    if (toolName.startswith("\"")):
+                        toolName = toolName[1:toolName.index("\"")]
+                    elif (toolName.startswith("\'")):
+                        toolName = toolName[1:toolName.index("\'")]
+                    else: 
+                        toolName = toolName[:toolName.index(">")]
 
-                            try:
-                                childValue = json.loads(child.text)
-                            except (json.JSONDecodeError, TypeError):
-                                childValue = str(child.text or "")
-                            
-                            children[child.attrib.get("name", "")] = childValue
+                    toolName = toolName.strip()
 
-                    parsedTools.append({"name": root.attrib.get("name", ""), "arguments": children})
-                    root.clear()
+                    toolParams = tool[tool.index(toolName) + len(toolName):].strip()
+                    toolParams = toolParams[toolParams.index(">") + 1:toolParams.index("</function>")].strip()
+                    toolParams = toolParams.split("<parameter")[1:] if ("<parameter" in toolParams) else []
+
+                    paramsParsed = {}
+
+                    for param in toolParams:
+                        paramName = param.strip()
+                        paramName = paramName[paramName.index("=") + 1:].strip()
+
+                        if (paramName.startswith("\"")):
+                            paramName = paramName[1:paramName.index("\"")]
+                        elif (paramName.startswith("\'")):
+                            paramName = paramName[1:paramName.index("\'")]
+                        else:
+                            paramName = paramName[:paramName.index(">")]
+
+                        paramName = paramName.strip()
+
+                        paramValue = param[param.index(paramName) + len(paramName):].strip()
+                        paramValue = paramValue[paramValue.index(">") + 1:paramValue.index("</parameter>")].strip()
+
+                        try:
+                            paramValue = json.loads(paramValue)
+                        except json.JSONDecodeError:
+                            paramValue = str(paramValue)
+
+                        paramsParsed[paramName] = paramValue
+
+                    parsedTools.append({"name": toolName, "arguments": paramsParsed})
             else:
                 raise ValueError("Invalid tools parser.")
             
