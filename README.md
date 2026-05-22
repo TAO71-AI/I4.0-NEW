@@ -26,7 +26,7 @@ I4.0-NEW is a new, rewritten version of [I4.0](https://github.com/TAO71-AI/I4.0)
     - [ ] HoloCure
     - [ ] Half-Life
 - [ ] OpenAI-like API support
-- [ ] Images search (client-side)
+- [X] Images search (client-side)
 - Document/Code support (client-side)
     - [ ] PPTX file support (reading)
         - [ ] PPTX file creation
