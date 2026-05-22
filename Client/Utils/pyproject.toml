@@ -15,7 +15,8 @@ dependencies = [
     "beautifulsoup4",
     "ddgs",
     "weasyprint",
-    "pdf2docx"
+    "pdf2docx",
+    "pypdf"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",

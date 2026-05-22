@@ -8,6 +8,7 @@ from typing import Any
 from . import internet
 from . import format_conversion as fmtc
 import base64
+import json
 
 def GetDefaultTools() -> list[dict[str, Any]]:
     return [
@@ -105,11 +106,34 @@ def GetDefaultTools() -> list[dict[str, Any]]:
                             "description": (
                                 "Format to save the document"
                             ),
-                            "enum": ["html", "pdf", "docx"],
+                            "enum": ["html", "pdf", "docx", "plaintext", "markdown"],
                             "default": "pdf"
                         }
                     },
                     "required": ["html"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "create_script",
+                "description": (
+                    "Creates a script or text"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "content": {
+                            "type": "string",
+                            "description": "Text content of the script"
+                        },
+                        "type": {
+                            "type": "string",
+                            "description": "Document type. Examples: 'python' for Python, 'gdscript' for GDScript, and more"
+                        }
+                    },
+                    "required": ["content", "type"]
                 }
             }
         }
@@ -249,15 +273,47 @@ def ExecuteTool(ToolName: str, ToolArgs: dict[str, Any], MaxLength: int | None =
         ] + [{"type": "text", "text": content}]
     elif (ToolName == "create_document"):
         documentCode = ToolArgs["html"]
-        documentFormat = ToolArgs["format"] if ("format" in ToolArgs) else "pdf"
+        documentFormat = ToolArgs["format"].lower() if ("format" in ToolArgs) else "pdf"
 
         if (documentFormat == "pdf"):
             outputDocument = fmtc.HTML_To_PDF(documentCode, True)
         elif (documentFormat == "docx"):
             outputDocument = fmtc.PDF_To_DOCX(fmtc.HTML_To_PDF(documentCode, True), True)
-        elif (documentFormat in ["html"]):
+        elif (documentFormat in ["html", "plaintext", "markdown"]):
             outputDocument = base64.b64encode(documentCode.encode("utf-8"))
         else:
             raise ValueError("Invalid document format.")
         
         return [{"type": "document", "document_type": documentFormat, "document": outputDocument}]
+    elif (ToolName == "create_script"):
+        DOC_TYPES = {
+            "python": "py",
+            "javascript": "js",
+            "gdscript": "gd",
+            "csharp": "cs",
+            "c#": "cs",
+            "c++": "cpp",
+            "h++": "hpp",
+            "text": "txt",
+            "plaintext": "txt",
+            "markdown": "md",
+            "ruby": "rb",
+            "assembly": "asm",
+            "cobol": "cob",
+            "cuda": "cu",
+            "cython": "pyx",
+            "fsharp": "fs",
+            "f#": "fs",
+            "jinja2": "jinja",
+            "kotlin": "kt",
+            "llvm": "ll",
+            "opencl": "cl",
+            "powershell": "ps1",
+            "rust": "rs",
+            "shell": "sh"
+        }
+        documentContent = ToolArgs["content"]
+        documentType = ToolArgs["type"].lower()
+        documentExtension = DOC_TYPES[documentType] if (documentType in DOC_TYPES) else documentType
+
+        return [{"type": "document", "document_type": documentType, "document": json.dumps({"extension": documentExtension, "content": documentContent})}]

@@ -26,9 +26,11 @@ Keep in mind that these are only the more relevant changes.
 
 - New tools:
   - `search_images` searches for images on the internet. When using the CLI client, the images will be stored in the CWD.
-  - `create_document` creates a DOCX, PDF, or HTML document.
-- Format conversion **from HTML to PDF** and **from PDF to DOCX**.
+  - `create_document` creates a DOCX, PDF, HTML, MarkDown, PlainText document.
+  - `create_script` creates a script in any programming language.
+- Format conversion **from HTML to PDF**, **from PDF to DOCX**, **from PDF to MarkDown/Text**.
 - Implemented images search.
+- Implemented `rt` mode in the CLI client. This new mode resets all of the tools in the conversation to the default.
 
 ---
 

@@ -208,6 +208,25 @@ def main() -> None:
                                         f.write(base64.b64decode(content["document"]))
                                     
                                     toolsResponse[-1]["text"] += f"Document saved as: \"{fileName}\"\n"
+                            elif (toolName == "create_script"):
+                                toolsResponse.append({"type": "text", "text": ""})
+
+                                for content in toolR:
+                                    if (content["type"] != "document"):
+                                        continue
+
+                                    docData = json.loads(content["document"])
+                                    fileID = 1
+                                    fileName = f"code_{fileID}.{docData['extension']}"
+
+                                    while (os.path.exists(fileName)):
+                                        fileID += 1
+                                        fileName = f"code_{fileID}.{docData['extension']}"
+                                    
+                                    with open(fileName, "w") as f:
+                                        f.write(docData["content"])
+                                    
+                                    toolsResponse[-1]["text"] += f"Document saved as: \"{fileName}\"\n"
                             else:
                                 toolsResponse += toolR
                     except Exception as ex:
@@ -246,7 +265,7 @@ def main() -> None:
 
         while (True):
             try:
-                mode = input("Mode ['e', 'scc', 'cc', 'pp', 'up', 'sc', 'cls', 'cs', 'h', 'c'*]: ").lower()
+                mode = input("Mode ['e', 'scc', 'cc', 'pp', 'up', 'sc', 'cls', 'cs', 'rt', 'h', 'c'*]: ").lower()
 
                 if (mode == "e"):
                     break
@@ -257,6 +276,8 @@ def main() -> None:
                         for content in msg["content"]:
                             if (content["type"] == "text"):
                                 msgContent += content["text"]
+                            elif (content["type"] == "document"):
+                                msgContent += f"Document: {content['document']} ({content['document_type']})"
                             else:
                                 msgContent += "--FILE DATA--"
                         
@@ -288,6 +309,7 @@ def main() -> None:
                         "'cls' - Clear screen.\n"
                         "'h' - Help - Show this help message.\n"
                         "'cs' - Custom Service - Run different services.\n"
+                        "'rt' - Reset Tools - Reset all the tools to it's default state.\n"
                         "'c' - Continue - Continue with inference.\n\n"
                         "* - Default option."
                     ), flush = True)
@@ -401,6 +423,13 @@ def main() -> None:
                     continue
                 elif (mode == "cs"):
                     service = input("Service: ")
+                elif (mode == "rt"):
+                    conversation["params_prompt"]["tools"] = chatbot_tools.GetDefaultTools()
+
+                    with open(conversationFile, "w") as f:
+                        f.write(json.dumps(conversation, indent = 4))
+
+                    continue
                 elif (len(mode) > 0 and mode != "c"):
                     print("Invalid mode. Try again.")
                     continue
@@ -448,6 +477,34 @@ def main() -> None:
                                 break
 
                             content[content["type"]] = contTxt
+                        elif (content["type"] == "document"):
+                            docType = input("DOCUMENT TYPE (pdf, docx, ...) > ")
+                            fp = input("FILE PATH > ")
+
+                            if (not os.path.exists(fp)):
+                                print("File does not exist. Try again.", flush = True)
+                                continue
+
+                            try:
+                                if (docType in ["pdf", "docx"]):
+                                    with open(fp, "rb") as f:
+                                        docData = base64.b64encode(f.read()).decode("utf-8")
+                                
+                                    if (docType == "pdf"):
+                                        pw = input("DOCUMENT PASSWORD (empty = none) > ")
+                                        pw = None if (len(pw.strip()) == 0) else pw
+                                        docData = chatbot_tools.fmtc.PDF_To_Markdown(Data = docData, Password = pw, AddPages = True)
+                                    else:
+                                        raise ValueError("Not implemented yet.")
+                                else:
+                                    with open(fp, "r") as f:
+                                        docData = f.read()
+                                
+                                content["document_type"] = docType
+                                content[content["type"]] = docData
+                            except Exception as ex:
+                                print(f"The document could not be attached. Error: {ex}", flush = True)
+                                continue
                         else:
                             fp = input("FILE PATH > ")
 
