@@ -27,17 +27,17 @@ I4.0-NEW is a new, rewritten version of [I4.0](https://github.com/TAO71-AI/I4.0)
     - [ ] Half-Life
 - [ ] OpenAI-like API support
 - [ ] Images search (client-side)
-- Document support (client-side)
+- Document/Code support (client-side)
     - [ ] PPTX file support (reading)
         - [ ] PPTX file creation
-    - [ ] DOCX/ODT file support (reading)
-        - [X] DOCX/ODT file creation
-    - [ ] PDF file support (reading)
+    - [ ] DOCX file support (reading)
+        - [X] DOCX file creation
+    - [X] PDF file support (reading)
         - [X] PDF file creation
-    - [ ] Other documents support (reading)
-        - Other documents creation
+    - [X] Other documents/code support (reading)
+        - Other documents/code creation
             - [X] HTML
-            - [ ] CSS
-            - [ ] Javascript
-            - [ ] CSV
-            - [ ] Python
+            - [X] CSS
+            - [X] Javascript
+            - [X] CSV
+            - [X] Python
