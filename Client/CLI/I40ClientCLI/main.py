@@ -5,6 +5,7 @@ import os
 import sys
 import json
 import base64
+import copy
 import traceback
 import asyncio
 
@@ -97,10 +98,26 @@ def main() -> None:
                 usersBefore = queueData["processing_users"] + queueData["waiting_users"]
                 print(f"{usersBefore} users are using this model. You must wait until the queue of users is less than {modelMaxSimulUsers}.", flush = True)
 
+            conv = copy.deepcopy(conversation["conv"])
+
+            for msg in conv:
+                if (isinstance(msg["content"], str)):
+                    continue
+
+                for cont in msg["content"].copy():
+                    if (cont["type"] == "document"):
+                        for c in msg["content"]:
+                            if (c["type"] != "text"):
+                                continue
+
+                            c[c["type"]] = f"Attached document tpye: {cont['document_type'] if ('document_type' in cont) else 'unknown'}\nAttached document content:\n```\n{cont[cont['type']]}\n```\n\n{c[c['type']]}"
+                        
+                        msg["content"].remove(cont)
+
             gen = socket.AdvancedSendAndReceive(
                 ModelName = getattr(conf, "CLIENT_ModelName"),
                 Key = None,
-                PromptConversation = conversation["conv"],
+                PromptConversation = conv,
                 PromptParameters = conversation["params_prompt"],
                 UserParameters = conversation["params_user"],
                 Service = Service
@@ -486,7 +503,7 @@ def main() -> None:
                                 continue
 
                             try:
-                                if (docType in ["pdf", "docx"]):
+                                if (docType in ["pdf"]):
                                     with open(fp, "rb") as f:
                                         docData = base64.b64encode(f.read()).decode("utf-8")
                                 
