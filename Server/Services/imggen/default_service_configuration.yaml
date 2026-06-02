@@ -1,0 +1,39 @@
+width:
+  min: 256
+  max: 2048
+  default: 512
+height:
+  min: 256
+  max: 2048
+  default: 512
+cfg_scale:
+  min: 0
+  max: 10
+  default: 7
+img_cfg_scale:
+  min: 0
+  max: 10
+  default: null
+slg_scale:
+  min: 0
+  max: 10
+  default: 0
+guidance:
+  min: 0
+  max: 10
+  default: 3.5
+steps:
+  max: 50
+  default: 20
+eta:
+  max: 10
+  default: 0
+timestep_shift:
+  min: 0
+  max: 10
+  default: 0
+seed: -1
+strength: 0.75
+upscale_factor:
+  max: 10
+  default: 1

@@ -5,6 +5,7 @@ from collections.abc import Generator
 import base64
 import json
 import copy
+import Services.imggen.sdcpp_utils as sdcpp_utils
 
 __models__: dict[str, dict[str, Any]] = {}
 ServiceConfiguration: dict[str, Any] | None = None
@@ -37,15 +38,153 @@ def SERVICE_OFFLOAD_MODELS(Names: list[str]) -> None:
 
         # Offload the model
         if (__models__[name]["_private_type"] == "sdcpp"):
-            pass  # TODO
+            __models__[name]["_private_model"].close()
         
         __models__[name]["_private_model"] = None
 
 def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dict[str, Any]) -> Generator[dict[str, Any]]:
     __check_service_configuration__()
-    conversation = UserParameters["conversation"]
 
-    pass  # TODO
+    conversation = UserParameters["conversation"]
+    prompt = None
+    nPrompt = ""
+    imgs = []
+
+    for msg in conversation:
+        if (msg["role"] != "user"):
+            continue
+
+        for content in msg["content"]:
+            if (content["type"] == "text" and prompt is None):
+                prompt = content["text"]
+            elif (content["type"] == "text"):
+                nPrompt = content["text"]
+            elif (content["type"] == "image"):
+                imgs.append(base64.b64decode(content["image"]))
+    
+    if (prompt is None or len(prompt.strip()) == 0):
+        raise ValueError("Invalid or empty prompt.")
+    
+    # Set width and height
+    width = int(UserConfig["width"]) if ("width" in UserConfig and UserConfig["width"] is not None) else ServiceConfiguration["width"]["default"]
+    height = int(UserConfig["height"]) if ("height" in UserConfig and UserConfig["height"] is not None) else ServiceConfiguration["height"]["default"]
+
+    if (width < ServiceConfiguration["width"]["min"]):
+        width = ServiceConfiguration["width"]["min"]
+    elif (width > ServiceConfiguration["width"]["max"]):
+        width = ServiceConfiguration["width"]["max"]
+    
+    if (height < ServiceConfiguration["height"]["min"]):
+        height = ServiceConfiguration["height"]["min"]
+    elif (height > ServiceConfiguration["height"]["max"]):
+        height = ServiceConfiguration["height"]["max"]
+    
+    # Set CFG scale
+    cfgScale = float(UserConfig["cfg_scale"]) if ("cfg_scale" in UserConfig and UserConfig["cfg_scale"] is not None) else ServiceConfiguration["cfg_scale"]["default"]
+    imgCfgScale = UserConfig["img_cfg_scale"] if ("img_cfg_scale" in UserConfig) else ServiceConfiguration["img_cfg_scale"]["default"]
+
+    if (cfgScale < ServiceConfiguration["cfg_scale"]["min"]):
+        cfgScale = ServiceConfiguration["cfg_scale"]["min"]
+    elif (cfgScale > ServiceConfiguration["cfg_scale"]["max"]):
+        cfgScale = ServiceConfiguration["cfg_scale"]["max"]
+    
+    if (imgCfgScale is not None):
+        imgCfgScale = float(imgCfgScale)
+
+        if (imgCfgScale < ServiceConfiguration["img_cfg_scale"]["min"]):
+            imgCfgScale = ServiceConfiguration["img_cfg_scale"]["min"]
+        elif (imgCfgScale > ServiceConfiguration["img_cfg_scale"]["max"]):
+            imgCfgScale = ServiceConfiguration["img_cfg_scale"]["max"]
+    
+    # Set SLG scale
+    slgScale = float(UserConfig["slg_scale"]) if ("slg_scale" in UserConfig) else ServiceConfiguration["slg_scale"]["default"]
+
+    if (slgScale < ServiceConfiguration["slg_scale"]["min"]):
+        slgScale = ServiceConfiguration["slg_scale"]["min"]
+    elif (slgScale > ServiceConfiguration["slg_scale"]["max"]):
+        slgScale = ServiceConfiguration["slg_scale"]["max"]
+
+    # Set guidance
+    guidance = float(UserConfig["guidance"]) if ("guidance" in UserConfig) else ServiceConfiguration["guidance"]["default"]
+
+    if (guidance < ServiceConfiguration["guidance"]["min"]):
+        guidance = ServiceConfiguration["guidance"]["min"]
+    elif (guidance > ServiceConfiguration["guidance"]["max"]):
+        guidance = ServiceConfiguration["guidance"]["max"]
+    
+    # Set steps
+    steps = int(UserConfig["steps"]) if ("steps" in UserConfig) else None
+
+    if (steps is None or steps <= 0):
+        steps = __models__[Name]["steps"]["default"] if ("steps" in __models__[Name] and "default" in __models__[Name]["steps"]) else ServiceConfiguration["steps"]["default"]
+    
+    if ("steps" in __models__[Name] and "max" in __models__[Name]["steps"] and steps > __models__[Name]["steps"]["max"]):
+        steps = __models__[Name]["steps"]["max"]
+    elif (steps > ServiceConfiguration["steps"]["max"]):
+        steps = ServiceConfiguration["steps"]["max"]
+    
+    # Set ETA
+    eta = float(UserConfig["eta"]) if ("eta" in UserConfig) else ServiceConfiguration["eta"]["default"]
+
+    if (eta < 0):
+        eta = 0
+    elif (eta > ServiceConfiguration["eta"]["max"]):
+        eta = ServiceConfiguration["eta"]["max"]
+    
+    # Set timestep shift
+    timestepShift = int(UserConfig["timestep_shift"]) if ("timestep_shift" in UserConfig) else ServiceConfiguration["timestep_shift"]["default"]
+
+    if (timestepShift < ServiceConfiguration["timestep_shift"]["min"]):
+        timestepShift = ServiceConfiguration["timestep_shift"]["min"]
+    elif (timestepShift > ServiceConfiguration["timestep_shift"]["max"]):
+        timestepShift = ServiceConfiguration["timestep_shift"]["max"]
+
+    # Set seed
+    seed = int(UserConfig["seed"]) if ("seed" in UserConfig) else __models__[Name]["seed"] if ("seed" in __models__[Name]) else ServiceConfiguration["seed"]
+
+    # Set upscale factor
+    upscaleFactor = int(UserConfig["upscale_factor"]) if ("upscale_factor" in UserConfig) else __models__[Name]["upscale_factor"] if ("upscale_factor" in __models__[Name]) else ServiceConfiguration["upscale_factor"]["default"]
+
+    if (upscaleFactor < 1):
+        upscaleFactor = 1
+    elif (upscaleFactor > ServiceConfiguration["upscale_factor"]["max"]):
+        upscaleFactor = ServiceConfiguration["upscale_factor"]["max"]
+
+    # Set strength
+    strength = float(UserConfig["strength"]) if ("strength" in UserConfig) else ServiceConfiguration["strength"]
+
+    if (strength < 0.1):
+        strength = 0.1
+    elif (strength > 1):
+        strength = 1
+    
+    # Set canny
+    canny = bool(UserConfig["canny"]) if ("canny" in UserConfig) else False
+
+    # Inference model
+    if (__models__[Name]["_private_type"] == "sdcpp"):
+        result = sdcpp_utils.Inference(
+            Model = __models__[Name]["_private_model"],
+            Type = "image",
+            Prompt = prompt,
+            NegativePrompt = nPrompt,
+            RefImages = imgs,
+            Width = width,
+            Height = height,
+            CFGScale = cfgScale,
+            IMGCFGScale = imgCfgScale,
+            SLGScale = slgScale,
+            Guidance = guidance,
+            Steps = steps,
+            ETA = eta,
+            TimestepShift = timestepShift,
+            Seed = seed,
+            UpscaleFactor = upscaleFactor,
+            Strength = strength,
+            IMG_Canny = canny
+        )
+
+    yield {"files": [{"type": "image", "image": base64.b64encode(result).decode("utf-8")}]}
 
 def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
     # Define globals
@@ -74,7 +213,6 @@ def LoadModel(Name: str, Configuration: dict[str, Any]) -> None:
     
     # Load the model
     if (modelType == "sdcpp"):
-        pass  # TODO
+        model = sdcpp_utils.LoadSDModel(Configuration)
 
-    model = {}  # Temporary patch for it to not crash; will be removed. TODO
     __models__[Name] = Configuration | model
