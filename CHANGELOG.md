@@ -6,12 +6,12 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
-## Development
+## 2-6-2026 (commit `v21.0.0`)
 
 ### Server changes
 
 - Fixed a bug that returned a "model not found" error when a model is not specified in some services.
-- Started creating `imggen` (Image Generation) module (still a WIP).
+- Created `imggen` (Image Generation) module.
 - Fixed a small bug with the configuration.
 - Replaced `tiktoken` with `AutoTokenizer` (HuggingFace Transformers).
 - Users can now fetch information about their API key.
