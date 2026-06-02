@@ -6,6 +6,15 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 2-6-2026
+
+### Server changes
+
+- (imggen service) More parameters can be specified in the model's config.
+- (imggen service) Added custom sampler and scheduler.
+
+---
+
 ## 2-6-2026 (commit `v21.0.0`)
 
 ### Server changes
