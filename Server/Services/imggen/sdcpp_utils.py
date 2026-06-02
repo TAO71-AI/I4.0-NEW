@@ -122,6 +122,8 @@ def Inference(
     Seed: float = -1,
     UpscaleFactor: int = 1,
     Strength: float = 0.75,
+    Sampler: str = "default",
+    Scheduler: str = "default",
     IMG_Canny: bool = False,
     VID_Frames: int = 1,
     **kwargs: dict[str, Any]
@@ -150,7 +152,9 @@ def Inference(
         "slg_scale": SLGScale,
         "seed": Seed,
         "upscale_factor": UpscaleFactor,
-        "strength": Strength
+        "strength": Strength,
+        "scheduler": Scheduler,
+        "sample_method": Sampler
     } | kwargs
 
     if (Type == "image"):

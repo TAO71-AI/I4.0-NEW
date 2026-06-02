@@ -34,6 +34,12 @@ timestep_shift:
   default: 0
 seed: -1
 strength: 0.75
+sampler:
+  modified_by_user: false
+  default: "default"
+scheduler:
+  modified_by_user: false
+  default: "default"
 upscale_factor:
   max: 10
   default: 1

@@ -3,8 +3,6 @@ import logging
 from typing import Any
 from collections.abc import Generator
 import base64
-import json
-import copy
 import Services.imggen.sdcpp_utils as sdcpp_utils
 
 __models__: dict[str, dict[str, Any]] = {}
@@ -66,8 +64,8 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
         raise ValueError("Invalid or empty prompt.")
     
     # Set width and height
-    width = int(UserConfig["width"]) if ("width" in UserConfig and UserConfig["width"] is not None) else ServiceConfiguration["width"]["default"]
-    height = int(UserConfig["height"]) if ("height" in UserConfig and UserConfig["height"] is not None) else ServiceConfiguration["height"]["default"]
+    width = int(UserConfig["width"]) if ("width" in UserConfig and UserConfig["width"] is not None) else __models__[Name]["width"] if ("width" in __models__[Name]) else ServiceConfiguration["width"]["default"]
+    height = int(UserConfig["height"]) if ("height" in UserConfig and UserConfig["height"] is not None) else __models__[Name]["height"] if ("height" in __models__[Name]) else ServiceConfiguration["height"]["default"]
 
     if (width < ServiceConfiguration["width"]["min"]):
         width = ServiceConfiguration["width"]["min"]
@@ -80,8 +78,8 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
         height = ServiceConfiguration["height"]["max"]
     
     # Set CFG scale
-    cfgScale = float(UserConfig["cfg_scale"]) if ("cfg_scale" in UserConfig and UserConfig["cfg_scale"] is not None) else ServiceConfiguration["cfg_scale"]["default"]
-    imgCfgScale = UserConfig["img_cfg_scale"] if ("img_cfg_scale" in UserConfig) else ServiceConfiguration["img_cfg_scale"]["default"]
+    cfgScale = float(UserConfig["cfg_scale"]) if ("cfg_scale" in UserConfig and UserConfig["cfg_scale"] is not None) else __models__[Name]["cfg_scale"] if ("cfg_scale" in __models__[Name]) else ServiceConfiguration["cfg_scale"]["default"]
+    imgCfgScale = UserConfig["img_cfg_scale"] if ("img_cfg_scale" in UserConfig) else __models__[Name]["img_cfg_scale"] if ("img_cfg_scale" in __models__[Name]) else ServiceConfiguration["img_cfg_scale"]["default"]
 
     if (cfgScale < ServiceConfiguration["cfg_scale"]["min"]):
         cfgScale = ServiceConfiguration["cfg_scale"]["min"]
@@ -97,7 +95,7 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
             imgCfgScale = ServiceConfiguration["img_cfg_scale"]["max"]
     
     # Set SLG scale
-    slgScale = float(UserConfig["slg_scale"]) if ("slg_scale" in UserConfig) else ServiceConfiguration["slg_scale"]["default"]
+    slgScale = float(UserConfig["slg_scale"]) if ("slg_scale" in UserConfig) else __models__[Name]["slg_scale"] if ("slg_scale" in __models__[Name]) else ServiceConfiguration["slg_scale"]["default"]
 
     if (slgScale < ServiceConfiguration["slg_scale"]["min"]):
         slgScale = ServiceConfiguration["slg_scale"]["min"]
@@ -105,7 +103,7 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
         slgScale = ServiceConfiguration["slg_scale"]["max"]
 
     # Set guidance
-    guidance = float(UserConfig["guidance"]) if ("guidance" in UserConfig) else ServiceConfiguration["guidance"]["default"]
+    guidance = float(UserConfig["guidance"]) if ("guidance" in UserConfig) else __models__[Name]["guidance"] if ("guidance" in __models__[Name]) else ServiceConfiguration["guidance"]["default"]
 
     if (guidance < ServiceConfiguration["guidance"]["min"]):
         guidance = ServiceConfiguration["guidance"]["min"]
@@ -124,7 +122,7 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
         steps = ServiceConfiguration["steps"]["max"]
     
     # Set ETA
-    eta = float(UserConfig["eta"]) if ("eta" in UserConfig) else ServiceConfiguration["eta"]["default"]
+    eta = float(UserConfig["eta"]) if ("eta" in UserConfig) else __models__[Name]["eta"] if ("eta" in __models__[Name]) else ServiceConfiguration["eta"]["default"]
 
     if (eta < 0):
         eta = 0
@@ -132,7 +130,7 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
         eta = ServiceConfiguration["eta"]["max"]
     
     # Set timestep shift
-    timestepShift = int(UserConfig["timestep_shift"]) if ("timestep_shift" in UserConfig) else ServiceConfiguration["timestep_shift"]["default"]
+    timestepShift = int(UserConfig["timestep_shift"]) if ("timestep_shift" in UserConfig) else __models__[Name]["timestep_shift"] if ("timestep_shift" in __models__[Name]) else ServiceConfiguration["timestep_shift"]["default"]
 
     if (timestepShift < ServiceConfiguration["timestep_shift"]["min"]):
         timestepShift = ServiceConfiguration["timestep_shift"]["min"]
@@ -151,7 +149,7 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
         upscaleFactor = ServiceConfiguration["upscale_factor"]["max"]
 
     # Set strength
-    strength = float(UserConfig["strength"]) if ("strength" in UserConfig) else ServiceConfiguration["strength"]
+    strength = float(UserConfig["strength"]) if ("strength" in UserConfig) else __models__[Name]["strength"] if ("strength" in __models__[Name]) else ServiceConfiguration["strength"]
 
     if (strength < 0.1):
         strength = 0.1
@@ -159,7 +157,13 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
         strength = 1
     
     # Set canny
-    canny = bool(UserConfig["canny"]) if ("canny" in UserConfig) else False
+    canny = bool(UserConfig["canny"]) if ("canny" in UserConfig) else __models__[Name]["canny"] if ("canny" in __models__[Name]) else False
+
+    # Set sampler
+    sampler = str(UserConfig["sampler"]) if ("sampler" in UserConfig and ServiceConfiguration["sampler"]["modified_by_user"]) else __models__[Name]["sampler"] if ("sampler" in __models__[Name]) else ServiceConfiguration["sampler"]["default"]
+
+    # Set scheduler
+    scheduler = str(UserConfig["scheduler"]) if ("scheduler" in UserConfig and ServiceConfiguration["scheduler"]["modified_by_user"]) else __models__[Name]["scheduler"] if ("scheduler" in __models__[Name]) else ServiceConfiguration["scheduler"]["default"]
 
     # Inference model
     if (__models__[Name]["_private_type"] == "sdcpp"):
@@ -181,6 +185,8 @@ def SERVICE_INFERENCE(Name: str, UserConfig: dict[str, Any], UserParameters: dic
             Seed = seed,
             UpscaleFactor = upscaleFactor,
             Strength = strength,
+            Sampler = sampler,
+            Scheduler = scheduler,
             IMG_Canny = canny
         )
 
