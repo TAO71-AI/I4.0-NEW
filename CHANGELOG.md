@@ -6,6 +6,14 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 10-6-2026 (commit `v22.0.1`)
+
+### Client changes
+
+- Fixed a small bug in the C# bindings.
+
+---
+
 ## 10-6-2026 (commit `v22.0.0`)
 
 ### Server changes
