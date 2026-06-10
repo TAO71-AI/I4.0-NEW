@@ -6,6 +6,14 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 11-6-2026 (commit `v22.0.2`)
+
+### Client changes
+
+- Fixed a bug with dictionary conversion in the C# bindings.
+
+---
+
 ## 10-6-2026 (commit `v22.0.1`)
 
 ### Client changes

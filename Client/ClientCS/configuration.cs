@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace TAO71.I4_0
 {
@@ -22,13 +23,7 @@ namespace TAO71.I4_0
 
         public Dictionary<string, object?> ToDict(bool SavePublicKey = false)
         {
-            Dictionary<string, object?> d = new Dictionary<string, object?>();
-            PropertyInfo[] properties = this.GetType().GetProperties();
-
-            foreach (PropertyInfo prop in properties)
-            {
-                d[prop.Name] = prop.GetValue(this);
-            }
+            Dictionary<string, object?> d = JsonConvert.DeserializeObject<Dictionary<string, object?>>(JsonConvert.SerializeObject(this))!;
 
             if (!SavePublicKey)
             {
@@ -41,31 +36,7 @@ namespace TAO71.I4_0
 
         public static ClientConfiguration FromDict(Dictionary<string, object?> Dict)
         {
-            ClientConfiguration instance = new ClientConfiguration();
-
-            if (Dict == null)
-            {
-                throw new ArgumentNullException(nameof(Dict));
-            }
-
-            foreach (KeyValuePair<string, object?> kvp in Dict)
-            {
-                PropertyInfo? prop = instance.GetType().GetProperty(kvp.Key);
-
-                if (prop != null && prop.CanWrite)
-                {
-                    try
-                    {
-                        prop.SetValue(instance, kvp.Value);
-                    }
-                    catch
-                    {
-                        
-                    }
-                }
-            }
-
-            return instance;
+            return JsonConvert.DeserializeObject<ClientConfiguration>(JsonConvert.SerializeObject(Dict))!;
         }
     }
 }
