@@ -16,6 +16,8 @@ Server/Temp/
 Server/API_Keys/
 Server/Logs/
 Server/latest.log
+Server/EnabledModules/*/
+Server/DisabledModules/*/
 
 # Client
 Client/build.sh
@@ -24,6 +26,8 @@ Client/build.sh
 Client/Client/build/
 Client/Client/dist/
 Client/Client/I4_0_Client_PY.egg-info/
+Client/ClientCS/obj/
+Client/ClientCS/bin/
 
 ## Utils
 Client/Utils/build/

@@ -21,7 +21,7 @@ import keys_manager
 import services_queue as queue
 import Utilities.install_requirements as requirements
 
-SERVICES_DIR = "./Services/"
+SERVICES_DIR = "./EnabledModules/"
 SERVICES_FILE_NAME = [
     "service.py",
     "serv.py"
@@ -38,6 +38,7 @@ SERVICES_CONFIG_FILES = [
 ]
 Configuration: dict[str, Any] = {}
 TextEncoder: AutoTokenizer | None = None
+ServerVersion: int = 0
 
 class Service():
     def __init__(
@@ -198,6 +199,15 @@ def __load_modules_and_info__(Models: dict[str, dict[str, Any]]) -> None:
                 not Service.ModuleContainsFunction(service.ServiceModule, "SERVICE_INFERENCE")
             ):
                 raise RuntimeError(f"Service module does not contains the required functions (`{service.Name}`).")
+            
+            serverMinVersion = Service.GetModuleVariable(service.ServiceModule, "SERVER_MIN_VERSION", 170000)
+            serverMaxVersion = Service.GetModuleVariable(service.ServiceModule, "SERVER_MAX_VERSION", 9999999)
+
+            if (serverMaxVersion < serverMinVersion):
+                serverMaxVersion = serverMinVersion
+
+            if (ServerVersion < serverMinVersion or ServerVersion > serverMaxVersion):
+                logging.warning(f"[services_manager] Server version ({ServerVersion}) is NOT RECOMMENDED for the module '{service.Name}'. Errors are expected. Consider {'upgrading' if (ServerVersion < serverMinVersion) else 'downgrading'} to version {serverMinVersion if (ServerVersion < serverMinVersion) else serverMaxVersion} to avoid errors.")
 
             ServicesModules[modelConfig["service"]] = service
         
@@ -229,7 +239,7 @@ def GetServices() -> list[Service]:
         pathDefConfig = None
 
         if (not os.path.isdir(pathDir)):
-            raise FileNotFoundError(f"`{pathDir}` is not a directory.")
+            continue
         
         for name in SERVICES_FILE_NAME:
             fp = os.path.join(pathDir, name)
@@ -271,8 +281,9 @@ def GetServices() -> list[Service]:
     
     return services
 
-def Init(Conf: dict[str, Any]) -> None:
-    global Configuration, TextEncoder
+def Init(Conf: dict[str, Any], SvVersion: int) -> None:
+    global Configuration, TextEncoder, ServerVersion
+    ServerVersion = SvVersion
 
     Configuration = Conf
     keys_manager.Configuration = Configuration

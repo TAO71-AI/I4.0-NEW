@@ -6,7 +6,28 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
-## 2-6-2026
+## 10-6-2026 (commit `v22.0.0`)
+
+### Server changes
+
+- Renamed `Services` directory with `EnabledModules`.
+- Created modules download/update scripts.
+- Separated modules from base repository; modules will be in different repositories.
+
+### Client changes
+
+- Created C# bindings (only client API; utilities and CLI will not be implemented in these bindings).
+- Changed default ping interval in the configuration.
+- Implemented new mode in the CLI.
+
+### Other changes
+
+- Added modules documentation.
+- Updated documentation.
+
+---
+
+## 2-6-2026 (commit `v21.1.0`)
 
 ### Server changes
 

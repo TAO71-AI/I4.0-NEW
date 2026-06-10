@@ -1,2 +1,0 @@
-qwen-tts>=0.0.5
-soundfile

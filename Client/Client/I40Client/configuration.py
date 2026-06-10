@@ -14,7 +14,7 @@ class ClientConfiguration():
         self.Service_DefaultAPIKey: str = "nokey"
 
         # Other configuration
-        self.PingInterval: float = 2
+        self.PingInterval: float = 20
 
     def ToDict(self, SavePublicKey: bool = False) -> dict[str, Any]:
         d = self.__dict__.copy()

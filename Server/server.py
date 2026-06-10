@@ -1,4 +1,4 @@
-SERVER_VERSION: int = 210000
+SERVER_VERSION: int = 220000
 
 import traceback
 
@@ -550,7 +550,7 @@ config.ReadConfiguration(None, True, True)
 
 try:
     logging.info("[server] Loading configuration...")
-    services_manager.Init(config.Configuration)
+    services_manager.Init(config.Configuration, SERVER_VERSION)
 except Exception as ex:
     logging.critical(f"[server] Could not copy configuration in all modules!")
     traceback.print_exception(ex)

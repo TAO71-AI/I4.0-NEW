@@ -282,7 +282,7 @@ def main() -> None:
 
         while (True):
             try:
-                mode = input("Mode ['e', 'scc', 'cc', 'pp', 'up', 'sc', 'cls', 'cs', 'rt', 'h', 'c'*]: ").lower()
+                mode = input("Mode ['e', 'scc', 'cc', 'pp', 'up', 'sc', 'cls', 'cs', 'rt', 'cm', 'h', 'c'*]: ").lower()
 
                 if (mode == "e"):
                     break
@@ -327,6 +327,7 @@ def main() -> None:
                         "'h' - Help - Show this help message.\n"
                         "'cs' - Custom Service - Run different services.\n"
                         "'rt' - Reset Tools - Reset all the tools to it's default state.\n"
+                        "'cm' - Change Model - Changes the model name.\n"
                         "'c' - Continue - Continue with inference.\n\n"
                         "* - Default option."
                     ), flush = True)
@@ -445,6 +446,16 @@ def main() -> None:
 
                     with open(conversationFile, "w") as f:
                         f.write(json.dumps(conversation, indent = 4))
+
+                    continue
+                elif (mode == "cm"):
+                    print(f"Current model: {getattr(conf, 'CLIENT_ModelName')}", flush = True)
+
+                    model = input("New model name: ")
+                    setattr(conf, "CLIENT_ModelName", model)
+
+                    with open(configFile, "w") as f:
+                        f.write(json.dumps(conf.ToDict(SavePublicKey = False), indent = 4))
 
                     continue
                 elif (len(mode) > 0 and mode != "c"):

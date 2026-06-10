@@ -6,16 +6,22 @@ Keep in mind that when enabling or disabling a module a server restart will be r
 
 # How to add or enable a module
 
-First, create or download a module. Then, move or copy the directory of the module to the `Server/Services/` directory.
+First, create or download a module. Then, move or copy the directory of the module to the `Server/EnabledModules/` directory.
 
 > [!IMPORTANT]
 > If you download a module from internet, make sure it's safe, since the server will execute ALL OF THE CODE inside the directory.
 
-All modules in the `Server/Services/` directory are enabled.
+All modules in the `Server/EnabledModules/` directory are enabled.
+
+For more information, go to the `Server/EnabledModules/README.md` file.
 
 # How to remove or disable a module
 
-By just deleting or moving the directory of the module inside the `Server/Services/` directory the module will be disabled.
+By just deleting or moving the directory of the module inside the `Server/EnabledModules/` directory the module will be disabled.
+
+It is recommended that the module is moved to the `Server/DisabledModules/` directory.
+
+For more information, go to the `Server/DisabledModules/README.md` file.
 
 # Module files
 
@@ -24,6 +30,8 @@ By just deleting or moving the directory of the module inside the `Server/Servic
 |service.py|serv.py|true|Main script of the module. This will be executed by the server. All of the server-accessible variables and functions must be in this script.|
 |requirements.py|requirements.txt|false|List of requirements for the module. Recommended to use a Python script because it will have more control over the installation of dependencies.|
 |default_service_configuration.yaml|default_config.yaml|false|Global configuration of the module.|
+|README.md|-|false|Readme document. Often used for additional module documentation.|
+|LICENSE.md|-|false|License for the module. If not specified, default license is the same as this repository.|
 
 > [!NOTE]
 > It is important to see the official modules' files to see examples.
@@ -46,3 +54,5 @@ All of these functions and variables must be in the main module script. These ar
 |----|----|-----------|
 |ServiceConfiguration|dictionary (string, Any), null|Global configuration of the service. Will be provided by the server.|
 |ServerConfiguration|dictionary (string, Any), null|Global configuration of the server. Will be provided by the server.|
+|SERVER_VERSION_MIN|int|Minimum recommended server version.|
+|SERVER_VERSION_MAX|int|Maximum recommended server version.|
