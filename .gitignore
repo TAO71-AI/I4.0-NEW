@@ -4,6 +4,7 @@ __pycache__/
 env/
 .env/
 .vscode/
+Modules/
 
 # Server
 Server/config.yaml

@@ -6,6 +6,14 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 14-6-2026 (commit `v22.1.0`)
+
+### Client changes
+
+- Implemented the new `channel` parameter.
+
+---
+
 ## 11-6-2026 (commit `v22.0.2`)
 
 ### Client changes

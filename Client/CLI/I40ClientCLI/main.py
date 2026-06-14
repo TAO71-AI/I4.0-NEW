@@ -124,12 +124,21 @@ def main() -> None:
             )
             errors = 0
             tools = []
+            currentChannel = None
 
             async for token in gen:
                 if ("conversation_result" in token):
                     conversation["conv"] = token["conversation_result"]
 
                 if ("response" in token):
+                    if ("extra" in token["response"]):
+                        if ("channel" in token["response"]["extra"]):
+                            if (currentChannel != token["response"]["extra"]["channel"]):
+                                currentChannel = token["response"]["extra"]["channel"]
+                                print(f"\nSet channel to '{currentChannel}'.", flush = True)
+
+                            token["response"]["extra"].pop("channel")
+
                     if ("text" in token["response"]):
                         print(token["response"]["text"], end = "", flush = True)
                     

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "I4_0-Client-CLI"
-version = "22.0.0"
+version = "22.1.0"
 description = "Client-side CLI for I4.0."
 authors = [{name = "TAO71-AI"}]
 license = {text = "TAO71 I4.0 License (version 2)"}
