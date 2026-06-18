@@ -4,25 +4,27 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "I4_0-Client-Utils"
-version = "22.0.0"
+version = "22.2.0"
 description = "Client-side utilities for I4.0."
 authors = [{name = "TAO71-AI"}]
 license = {text = "TAO71 I4.0 License (version 2)"}
 requires-python = ">=3.11"
 dependencies = [
-    "html2text",
     "requests",
     "beautifulsoup4",
-    "ddgs",
-    "weasyprint",
-    "pdf2docx",
-    "pypdf"
+    "ddgs"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: Other/Proprietary License",
     "Operating System :: OS Independent"
 ]
+
+[project.optional-dependencies]
+html2markdown = ["html2text"]
+html2pdf = ["weasyprint"]
+pdf2docx = ["pdf2docx"]
+pdf2markdown = ["pypdf"]
 
 [project.urls]
 Homepage = "https://github.com/TAO71-AI/I4.0-NEW"

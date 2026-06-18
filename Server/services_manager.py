@@ -700,22 +700,21 @@ def InferenceModel(
                 if (convResultTxt is None):
                     convResultTxt = ""
                 
-                convResultTxt += token["text"]
+                convResultTxt += token.get("text", "")
             
-            if ("files" in token):
-                convResultFiles += token["files"]
+            convResultFiles += token.get("files", [])
             
             if ("_save_response" in token):
                 saveResponse = token["_save_response"]
 
             outputToken = {
                 "response": {
-                    "text": token["text"] if ("text" in token) else "",
-                    "files": token["files"] if ("files" in token) else [],
-                    "extra": token["extra"] if ("extra" in token) else []
+                    "text": token.get("text", ""),
+                    "files": token.get("files", []),
+                    "extra": token.get("extra", {})
                 },
-                "warnings": token["warnings"] if ("warnings" in token) else [],
-                "errors": token["errors"] if ("errors" in token) else [],
+                "warnings": token.get("warnings", []),
+                "errors": token.get("errors", []),
                 "_queue_uid": queueUID
             }
             tokenPriceData = CalculateTokenPrice(modelConfiguration, True, [

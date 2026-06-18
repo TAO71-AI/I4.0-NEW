@@ -6,6 +6,18 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## 18-6-2026 (commit `v22.2.0`)
+
+### Server changes
+
+- Refactored some code.
+
+### Client changes
+
+- (Utilities) Created optional dependencies for format conversion.
+
+---
+
 ## 14-6-2026 (commit `v22.1.0`)
 
 ### Client changes
