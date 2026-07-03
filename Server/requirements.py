@@ -25,6 +25,20 @@ PYTORCH_REQUIREMENTS = [
     "torchaudio"
 ]
 
+PYTORCH_WHEELS = {
+    "cuda": "https://download.pytorch.org/whl/cu130",
+    "cuda13.2": "https://download.pytorch.org/whl/cu132",  # Fully tested
+    "cuda13.0": "https://download.pytorch.org/whl/cu130",  # Fully tested
+    "cuda12.8": "https://download.pytorch.org/whl/cu128",  # Partially tested
+    "cuda12.6": "https://download.pytorch.org/whl/cu126",  # Partially tested
+
+    "rocm": "https://download.pytorch.org/whl/rocm7.2",
+    "rocm7.2": "https://download.pytorch.org/whl/rocm7.2",  # Not tested
+    "rocm6.4": "https://download.pytorch.org/whl/rocm6.4",  # Not tested
+    
+    "sycl": "https://download.pytorch.org/whl/xpu"  # Not tested
+}
+
 def InstallRequirements() -> None:
     torchIdx = "https://download.pytorch.org/whl/cpu"
     args = []
@@ -42,33 +56,24 @@ def InstallRequirements() -> None:
 
     if ("BASE_TORCH_CIDX" in os.environ and len(os.environ["BASE_TORCH_CIDX"].strip()) > 0):
         torchIdx = os.environ["BASE_TORCH_CIDX"]
+        torchIdxName = None
     elif ("BASE_TORCH_IDX" in os.environ and len(os.environ["BASE_TORCH_IDX"].strip()) > 0):
-        os.environ["BASE_TORCH_IDX"] = os.environ["BASE_TORCH_IDX"].strip().lower()
+        torchIdxName = os.environ["BASE_TORCH_IDX"].strip().lower()
     else:
         gpu = gpu_utils.DetectGPU()
         
         if (gpu == gpu_utils.GPUType.NVIDIA):
-            os.environ["BASE_TORCH_IDX"] = "cuda"
+            torchIdxName = "cuda"
         elif (gpu == gpu_utils.GPUType.AMD):
-            os.environ["BASE_TORCH_IDX"] = "rocm"
+            torchIdxName = "rocm"
         elif (gpu == gpu_utils.GPUType.INTEL):
-            os.environ["BASE_TORCH_IDX"] = "sycl"
+            torchIdxName = "sycl"
         else:
-            os.environ["BASE_TORCH_IDX"] = "cpu"
+            torchIdxName = "cpu"
 
-    if (os.environ["BASE_TORCH_IDX"] == "cuda13.0"):
-        torchIdx = "https://download.pytorch.org/whl/cu130"  # Fully tested
-    elif (os.environ["BASE_TORCH_IDX"] == "cuda12.8"):
-        torchIdx = "https://download.pytorch.org/whl/cu128"  # Partially tested
-    elif (os.environ["BASE_TORCH_IDX"] == "cuda12.6" or os.environ["BASE_TORCH_IDX"] == "cuda"):
-        torchIdx = "https://download.pytorch.org/whl/cu126"  # Partially tested
-    elif (os.environ["BASE_TORCH_IDX"] == "rocm6.4" or os.environ["BASE_TORCH_IDX"] == "rocm"):
-        torchIdx = "https://download.pytorch.org/whl/rocm6.4"  # Not tested
-    elif (os.environ["BASE_TORCH_IDX"] == "sycl"):
-        torchIdx = "https://download.pytorch.org/whl/xpu"  # Not tested
-    elif (os.environ["BASE_TORCH_IDX"] == "disable"):
-        torchIdx = None
-    elif (os.environ["BASE_TORCH_IDX"] != "cpu"):
+    if (torchIdxName is not None and torchIdxName in PYTORCH_WHEELS):
+        torchIdx = PYTORCH_WHEELS[torchIdxName]
+    elif (torchIdxName is not None):
         raise ValueError("Invalid PyTorch idx. Please see documentation.")
     
     if ("BASE_FLASH_ATTN_MAX_JOBS" in os.environ):

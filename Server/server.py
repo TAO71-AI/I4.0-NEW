@@ -1,4 +1,4 @@
-SERVER_VERSION: int = 220000
+SERVER_VERSION: int = 220200
 
 import traceback
 

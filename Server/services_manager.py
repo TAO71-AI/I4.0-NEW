@@ -47,13 +47,15 @@ class Service():
         LoadOnStart: bool | tuple[bool, bool, bool] | list[bool],
         ServFilePath: str,
         ReqFilePath: str | None = None,
-        ConfFilePath: str | None = None
+        ConfFilePath: str | None = None,
+        DefConfFilePath: str | None = None
     ) -> None:
         self.Name: str = Name
 
         self.ServiceFilePath: str = ServFilePath
         self.RequirementsFilePath: str | None = ReqFilePath
-        self.DefaultConfigurationFilePath: str | None = ConfFilePath
+        self.ConfigurationFilePath: str | None = ConfFilePath
+        self.DefaultConfigurationFilePath: str | None = DefConfFilePath
 
         self.ServiceModuleName: str = Name.strip().replace("/", "_").replace(" ", "_")
         self.RequirementsModuleName: str | None = f"req_{self.ServiceModuleName}" if (ReqFilePath is not None and ReqFilePath.endswith(".py")) else None
@@ -61,6 +63,7 @@ class Service():
         self.ServiceModule: types.ModuleType | None = None
         self.RequirementsModule: types.ModuleType | None = None
         self.Configuration: dict[str, Any] | None = None
+        self.DefaultConfiguration: dict[str, Any] | None = None
 
         if (isinstance(LoadOnStart, bool)):
             self.LoadModules(LoadOnStart, LoadOnStart, LoadOnStart)
@@ -90,16 +93,16 @@ class Service():
             self.RequirementsModule = importlib.util.module_from_spec(reqSpec)
             reqSpec.loader.exec_module(self.RequirementsModule)
         
-        if (self.Configuration is None and self.DefaultConfigurationFilePath is not None and LoadConfiguration):
+        if (self.DefaultConfiguration is None and self.DefaultConfigurationFilePath is not None and LoadConfiguration):
+            logging.info(f"[services_manager] Loading service default configuration for `{self.Name}`.")
+            self.DefaultConfiguration = self.__load_configuration__(self.DefaultConfigurationFilePath)
+        
+        if (self.Configuration is None and self.ConfigurationFilePath is not None and LoadConfiguration):
             logging.info(f"[services_manager] Loading service configuration for `{self.Name}`.")
+            self.Configuration = self.DefaultConfiguration if (self.DefaultConfiguration is not None) else {}
 
-            with open(self.DefaultConfigurationFilePath, "r", encoding = "utf-8") as configFile:
-                if (self.DefaultConfigurationFilePath.endswith(".yaml")):
-                    self.Configuration = yaml.safe_load(configFile)
-                elif (self.DefaultConfigurationFilePath.endswith(".json")):
-                    self.Configuration = json.loads(configFile.read())
-                else:
-                    raise TypeError("Invalid configuration file type. Must be YAML or JSON.")
+            for k, v in self.__load_configuration__(self.ConfigurationFilePath).items():
+                self.Configuration[k] = v
             
             if (self.ServiceModule is not None):
                 self.SetModuleVariable(self.ServiceModule, "ServiceConfiguration", self.Configuration, True)
@@ -119,6 +122,10 @@ class Service():
         if (self.Configuration is not None and UnloadConfiguration):
             self.Configuration.clear()
             self.Configuration = None
+        
+        if (self.DefaultConfiguration is not None and UnloadConfiguration):
+            self.DefaultConfiguration.clear()
+            self.DefaultConfiguration = None
     
     def HasModel(self, ModelName: str) -> bool:
         global ServicesModels
@@ -156,6 +163,20 @@ class Service():
             return setattr(Module, VarName, Value)
         
         raise TypeError("Not a variable or doesn't exists.")
+    
+    @staticmethod
+    def __load_configuration__(FilePath: str) -> dict[str, Any]:
+        conf = {}
+
+        with open(FilePath, "r", encoding = "utf-8") as configFile:
+            if (FilePath.endswith(".yaml")):
+                conf = yaml.safe_load(configFile)
+            elif (FilePath.endswith(".json")):
+                conf = json.loads(configFile.read())
+            else:
+                raise TypeError("Invalid configuration file type. Must be YAML or JSON.")
+        
+        return conf
 
 ServicesModules: dict[str, Service] = {}  # {"service name": service class}
 ServicesModels: dict[str, dict[str, dict[str, Any]]] = {}  # {"service name": {"model name": model config}}
@@ -236,6 +257,7 @@ def GetServices() -> list[Service]:
         pathDir = os.path.join(SERVICES_DIR, servDir)
         pathServFile = None
         pathReqFile = None
+        pathConfig = None
         pathDefConfig = None
 
         if (not os.path.isdir(pathDir)):
@@ -257,26 +279,29 @@ def GetServices() -> list[Service]:
                 pathReqFile = fp
                 break
         
+        for name in SERVICES_CONFIG_FILES:
+            fp = os.path.join(pathDir, name)
+
+            if (os.path.exists(fp)):
+                logging.info(f"[services_manager] Got service default configuration file at `{fp}`.")
+                pathDefConfig = fp
+        
         if (os.path.exists(f"./config_{servDir}.yaml")):
-            pathDefConfig = f"./config_{servDir}.yaml"
+            pathConfig = f"./config_{servDir}.yaml"
             logging.info(f"[services_manager] Got service configuration file at `{fp}`. No need to copy.")
-        else:
-            for name in SERVICES_CONFIG_FILES:
-                fp = os.path.join(pathDir, name)
+        elif (pathDefConfig is not None):
+            pathConfig = f"./config_{servDir}.yaml"
 
-                if (os.path.exists(fp)):
-                    logging.info(f"[services_manager] Got service configuration file at `{fp}`. Copying.")
-                    shutil.copy2(fp, f"./config_{servDir}.yaml")
-
-                    pathDefConfig = f"./config_{servDir}.yaml"
-                    break
+            logging.info(f"[services_manager] Got service configuration file at `{fp}`. Copying.")
+            shutil.copy2(pathDefConfig, pathConfig)
         
         services.append(Service(
             Name = servDir,
             LoadOnStart = False,
             ServFilePath = pathServFile,
             ReqFilePath = pathReqFile,
-            ConfFilePath = pathDefConfig
+            ConfFilePath = pathConfig,
+            DefConfFilePath = pathDefConfig
         ))
     
     return services
@@ -333,7 +358,97 @@ def LoadModels(Models: dict[str, dict[str, Any]]) -> None:
     __load_modules_and_info__(Models)
     
     for serviceName, service in ServicesModules.items():
-        Service.RunModuleFunction(service.ServiceModule, "SERVICE_LOAD_MODELS", [{model: conf for model, conf in ServicesModels[serviceName].items() if ("redirect_to" not in conf)}])
+        models = [{model: conf for model, conf in ServicesModels[serviceName].items() if ("redirect_to" not in conf)}]
+
+        t = time.time()
+        logging.info(f"[services_manager] Loading models '{serviceName}:{models}'...")
+
+        Service.RunModuleFunction(service.ServiceModule, "SERVICE_LOAD_MODELS", models)
+
+        t = time.time() - t
+        logging.info(f"[services_manager] Models '{serviceName}:{models}' loaded in {t} seconds.")
+
+        infKey = keys_manager.APIKey(
+            Tokens = 999999,
+            ResetDaily = False,
+            ExpireDate = None,
+            AllowedIPs = None,
+            PrioritizeModels = [],
+            Groups = None
+        )
+        inferenceTest = Configuration.get("services_inference_test", {}).get(serviceName, {})
+        promptParameters = inferenceTest.get("prompt_parameters", {})
+        userParameters = inferenceTest.get("user_parameters", {})
+        conversation = []
+
+        for msg in inferenceTest.get("conversation", []):
+            resultMsg = {"role": msg["role"], "content": ""}
+
+            if (isinstance(msg["content"], list)):
+                resultMsg["content"] = []
+
+                for content in msg["content"]:
+                    if (content["type"] == "text"):
+                        resultMsg["content"].append({"type": content["type"], content["type"]: content[content["type"]]})
+                    else:
+                        fileName = content[content["type"]]
+
+                        if (not os.path.exists(fileName)):
+                            raise FileNotFoundError(f"Inference file '{fileName}' does not exist.")
+                        
+                        with open(fileName, "rb") as f:
+                            resultMsg["content"].append({"type": content["type"], content["type"]: base64.b64encode(f.read()).decode("utf-8")})
+            else:
+                resultMsg["content"] = str(msg["content"])
+            
+            conversation.append(resultMsg)
+
+        for model in models:
+            for modelName, modelConfiguration in model:
+                if (modelConfiguration.get("_private_inference_test", False) and len(conversation) > 0):
+                    response = InferenceModel(
+                        ModelName = modelName,
+                        Prompt = {"conversation": conversation, "parameters": promptParameters},
+                        UserParameters = userParameters | {"key_info": infKey.__dict__}
+                    )
+                    responseTxt = ""
+                    responseFiles = []
+                    warnings = []
+                    errors = []
+
+                    for token in response:
+                        tr = token.get("response", {})
+                        responseTxt += tr.get("text", "")
+                        responseFiles += tr.get("files", [])
+                        warnings += tr.get("warnings", [])
+                        errors += tr.get("errors", [])
+
+                        if (len(errors) > 0):
+                            break
+                    
+                    filesResult = []
+                    
+                    for idx, file in enumerate(responseFiles):
+                        if (file["type"] == "audio"):
+                            ext = "wav"
+                        elif (file["type"] == "image"):
+                            ext = "webp"
+                        elif (file["type"] == "video"):
+                            ext = "webm"
+                        else:
+                            ext = "unknown"
+                        
+                        filePath = f"/tmp/I4.0_{serviceName}_{modelName}_{idx}.{ext}"
+
+                        try:
+                            with open(filePath, "wb") as f:
+                                f.write(base64.b64decode(file[file["type"]]))
+                            
+                            filesResult.append(filePath)
+                        except Exception as ex:
+                            errors.append(f"[INFERENCE TEST] Could not save file '{filePath}'. Error: {ex}")
+                    
+                    logging.info(f"[services_manager] Inference done in for the model '{serviceName}:{modelName}'. Inference results:\n  - Text: \"{responseTxt}\"\n  - Files: {responseFiles}\n  - Warnings: {warnings}\n  - Errors: {errors}")
 
 def FindServiceForModel(ModelName: str, ReturnServiceName: bool = False) -> Service | str:
     global ServicesModules

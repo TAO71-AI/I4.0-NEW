@@ -22,13 +22,13 @@ def main() -> None:
         system != "darwin" and
         system != "linux"
     ):
-        raise OSError("Unsupported OS.")
+        print("WARNING! Unsuppoted OS. Errors are expected.", flush = True)
     
     if (system == "win32"):
         homePath = os.environ["LOCALAPPDATA"] + "/I4.0-Client"
     elif (system == "darwin"):
         homePath = f"{os.path.expanduser('~')}/Library/Application Support/I4.0-Client"
-    elif (system == "linux"):
+    else:
         homePath = f"{os.path.expanduser('~')}/.local/share/I4.0-Client"
     
     if (not os.path.exists(homePath)):
@@ -110,7 +110,7 @@ def main() -> None:
                             if (c["type"] != "text"):
                                 continue
 
-                            c[c["type"]] = f"Attached document tpye: {cont['document_type'] if ('document_type' in cont) else 'unknown'}\nAttached document content:\n```\n{cont[cont['type']]}\n```\n\n{c[c['type']]}"
+                            c[c["type"]] = f"Attached document type: {cont['document_type'] if ('document_type' in cont) else 'unknown'}\nAttached document content:\n```\n{cont[cont['type']]}\n```\n\n{c[c['type']]}"
                         
                         msg["content"].remove(cont)
 

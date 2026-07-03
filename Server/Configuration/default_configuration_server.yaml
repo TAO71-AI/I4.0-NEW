@@ -15,7 +15,7 @@
 services: {}
 
 # Server configuration
-server_encoder: "openai-community/gpt2"
+server_encoder: "Qwen/Qwen3.5-0.8B"
 server_api:
   min_length: 64  # Min key length: 16
   max_length: 128  # Replace with `null` to make this the same as min_length
@@ -89,3 +89,20 @@ server_listen:
   - type: "websockets"
     host: "0.0.0.0"
     port: 8060
+services_inference_test: {}
+# Example:
+# {
+#     "service_name": {
+#         "conversation": [
+#             {"role": "system", "content": "Placeholder text"},
+#             {"role": "user", "content": [{"type": "image", "image": "./placeholder_image.webp"}, {"type": "text", "text": "Placeholder text"}]},
+#             ...
+#         ],
+#         "prompt_parameters": {
+#             "max_length": 256,
+#             ...
+#         },
+#         "user_parameters": {}
+#     },
+#     ...
+# }

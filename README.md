@@ -21,7 +21,7 @@ I4.0-NEW is a new, rewritten version of [I4.0](https://github.com/TAO71-AI/I4.0)
 ## To do
 
 - Gaming modules (client-side)
-    - [ ] VRChat
+    - [ ] [VRChat](https://github.com/TAO71-AI/I4.0-VRChat) (WIP)
     - [ ] Minecraft
     - [ ] HoloCure
     - [ ] Half-Life

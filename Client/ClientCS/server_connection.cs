@@ -14,7 +14,7 @@ namespace TAO71.I4_0
 {
     public static class ServerConnection
     {
-        public const int VERSION = 220000;
+        public const int VERSION = 220200;
         public const int TRANSFER_RATE = 8192 * 1024;
     }
 
@@ -262,7 +262,7 @@ namespace TAO71.I4_0
 
             if (redirectNode != null)
             {
-                (string, string, int, bool)? previousConnection = null;
+                (string, string, int, bool)? previousConnection = CurrentConnection;
 
                 string? rHost = redirectNode["host"]?.GetValue<string>();
                 int? rPort = redirectNode["port"]?.GetValue<int>();
@@ -270,16 +270,37 @@ namespace TAO71.I4_0
                 bool? rSecure = redirectNode["secure"]?.GetValue<bool>();
                 string? rModel = redirectNode["model"]?.GetValue<string>();
 
-                if (rHost != null && rPort != null && rModel != null)
+                if (rHost == null)
                 {
-                    previousConnection = CurrentConnection;
-                    SockType = (rType == "ws") ? "websocket" : "";
-
-                    await Connect(rHost, rPort.Value, rSecure ?? false);
+                    rHost = CurrentConnection!.Value.Item2;
                 }
 
+                if (rPort == null)
+                {
+                    rPort = CurrentConnection!.Value.Item3;
+                }
+
+                if (rType == "ws")
+                {
+                    SockType = "websocket";
+                }
+                else if (rType == "s")
+                {
+                    SockType = "socket";
+                }
+                else
+                {
+                    SockType = CurrentConnection!.Value.Item1;
+                }
+
+                await Connect(
+                    rHost == null ? CurrentConnection!.Value.Item2 : rHost,
+                    rPort == null ? CurrentConnection!.Value.Item3 : rPort.Value,
+                    rSecure == null ? CurrentConnection!.Value.Item4 : rSecure.Value
+                );
+
                 IAsyncEnumerable<JsonNode> innerGen = AdvancedSendAndReceive(
-                    rModel ?? ModelName,
+                    rModel == null ? ModelName : rModel,
                     Key,
                     PromptConversation,
                     PromptParameters,

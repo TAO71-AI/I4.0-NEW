@@ -6,6 +6,24 @@ Keep in mind that these are only the more relevant changes.
 
 ---
 
+## Development
+
+### Server changes
+
+- Updated requirements (PyTorch).
+- Added default configuration to fix a bug when the base service configuration is updated.
+- Inference tests are now in the server. This will inference the model once loaded. TODO: Documentation.
+- Changed default encoder in the configuration.
+
+### Client changes
+
+- (CLI) Fixed a small typo.
+- (CLI) The app doesn't crashes anymore when being executed on an unsupported OS.
+- (API PY & CS) Fixed a bug when connecting to the server. Also fixed a bug when using model redirection.
+- (Utilities) Replaced user agent.
+
+---
+
 ## 18-6-2026 (commit `v22.2.0`)
 
 ### Server changes

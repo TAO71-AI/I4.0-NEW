@@ -1,4 +1,4 @@
-VERSION: int = 200000
+VERSION: int = 200200
 
 from typing import Any, Literal
 from collections.abc import AsyncGenerator
@@ -53,6 +53,9 @@ class ClientSocket():
         
             while (self.__socket__.state == WS_State.CONNECTING):
                 await asyncio.sleep(0.1)
+
+            if (self.__socket__.state != WS_State.OPEN):
+                raise ConnectionError(f"Could not connect to the server (socket state {self.__socket__.state}).")
         
         self.__current_connection__ = [self.__socket_type__, Host, Port, Secure]
         await self.__set_server_public_key__()
@@ -170,20 +173,17 @@ class ClientSocket():
                 break
         
         if (redirectTo is not None):
-            previousConnection = None
+            previousConnection = self.__current_connection__.copy()
 
-            if (token["redirect_to"]["host"] is not None and token["redirect_to"]["port"] is not None):
-                previousConnection = self.__current_connection__.copy()
-                self.__socket_type__ = "websocket" if (token["redirect_to"]["type"] == "ws") else "socket" if (token["redirect_to"]["type"] == "s") else None
-
-                await self.Connect(
-                    Host = token["redirect_to"]["host"],
-                    Port = token["redirect_to"]["port"],
-                    Secure = token["redirect_to"]["secure"]
-                )
+            self.__socket_type__ = "websocket" if (redirectTo["type"] == "ws") else "socket" if (redirectTo["type"] == "s") else self.__current_connection__[0]
+            await self.Connect(
+                Host = redirectTo["host"] if (redirectTo["host"] is not None) else self.__current_connection__[1],
+                Port = redirectTo["port"] if (redirectTo["port"] is not None) else self.__current_connection__[2],
+                Secure = redirectTo["secure"] if (redirectTo["secure"] is not None) else self.__current_connection__[3]
+            )
 
             gen = self.AdvancedSendAndReceive(
-                ModelName = token["redirect_to"]["model"],
+                ModelName = redirectTo["model"] if (redirectTo["model"] is not None) else ModelName,
                 Key = Key,
                 PromptConversation = PromptConversation,
                 PromptParameters = PromptParameters,
