@@ -231,9 +231,6 @@ def Decrypt(Hash: hashes.HashAlgorithm | None, PrivateKey: rsa.RSAPrivateKey, Da
     return "".join([p.decode("utf-8") for p in results])
 
 def HashContent(Content: str | bytes, Hash: hashes.HashAlgorithm) -> str:
-    if (Hash is None):
-        raise TypeError("Hash is None. None type is not valid for hashing content.")
-    
     content = Content.encode("utf-8") if (isinstance(Content, str)) else Content
     
     if (isinstance(Hash, hashes.SHA224)):
@@ -246,7 +243,8 @@ def HashContent(Content: str | bytes, Hash: hashes.HashAlgorithm) -> str:
         hashObj = hashlib.sha512(content)
     elif (isinstance(Hash, hashes.SHA1)):
         hashObj = hashlib.sha1(content)
+    else:
+        raise ValueError("Invalid hash.")
     
     hashHex = hashObj.hexdigest()
-    
     return hashHex

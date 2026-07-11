@@ -10,9 +10,9 @@ Keep in mind that these are only the more relevant changes.
 
 ### Server changes
 
-- Updated requirements (PyTorch).
+- Updated requirements (PyTorch). **TODO: Refactor requirements.**
 - Added default configuration to fix a bug when the base service configuration is updated.
-- Inference tests are now in the server. This will inference the model once loaded. TODO: Documentation.
+- Inference tests are now in the server. This will inference the model once loaded. **TODO: Documentation.**
 - Changed default encoder in the configuration.
 
 ### Client changes
@@ -21,6 +21,11 @@ Keep in mind that these are only the more relevant changes.
 - (CLI) The app doesn't crashes anymore when being executed on an unsupported OS.
 - (API PY & CS) Fixed a bug when connecting to the server. Also fixed a bug when using model redirection.
 - (Utilities) Replaced user agent.
+
+### Other changes
+
+- Created a to-do file (`TODO.md`).
+- Updated `README.md`.
 
 ---
 

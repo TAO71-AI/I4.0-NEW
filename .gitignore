@@ -18,7 +18,9 @@ Server/API_Keys/
 Server/Logs/
 Server/latest.log
 Server/EnabledModules/*/
+Server/EnabledModules/*.zip
 Server/DisabledModules/*/
+Server/DisabledModules/*.zip
 
 # Client
 Client/build.sh
