@@ -19,6 +19,7 @@ import av
 import exceptions
 import keys_manager
 import services_queue as queue
+import Utilities.gpu_utils as gpu_utils
 import Utilities.install_requirements as requirements
 
 SERVICES_DIR = "./EnabledModules/"
@@ -327,28 +328,48 @@ def IsServiceInstalled(Name: str) -> bool:
         
     return False
 
-def InstallAllRequirements(Services: list[Service] | None = None, ExtraArgs: list[str] = []) -> None:
+def InstallAllRequirements(
+    GPU: gpu_utils.GPUType = gpu_utils.GPUType.NO_GPU,
+    Vulkan: bool = False,
+    Services: list[Service] | None = None,
+    PIP_Args: list[str] = [],
+    PIP_EnvVars: dict[str, Any] | None = None
+) -> None:
     if (Services is None):
         Services = GetServices()
+    
+    if (PIP_EnvVars is None):
+        PIP_EnvVars = os.environ
     
     for service in Services:
         if (service.RequirementsFilePath is None):
             logging.warning(f"[services_manager] No requirements for the service `{service.Name}`. Ignoring.")
             continue
 
+        logging.info(f"[services_manager] Installing requirements for module '{service.Name}'...")
+
         if (service.RequirementsFilePath is not None and service.RequirementsModuleName is None):
             with open(service.RequirementsFilePath, "r") as f:
                 reqs = f.read()
             
             logging.info(f"[services_manager] Installing requirements for the service `{service.Name}` (using requirements file)...")
-            requirements.InstallPackage(reqs.splitlines(), PIPOptions = ExtraArgs)
+            requirements.InstallPackage(reqs.splitlines(), PIPOptions = PIP_Args)
             logging.info(f"[services_manager] Requirements for the service `{service.Name}` installed!")
         else:
             logging.info(f"[services_manager] Installing requirements for the service `{service.Name}` (using module)...")
             service.LoadModules(False, True, False)
+            reqVersion = Service.GetModuleVariable(service.RequirementsModule, "REQ_VERSION", 0)
+
+            if (reqVersion == 1):
+                args = [GPU, Vulkan, PIP_EnvVars, PIP_Args]
+            else:
+                if (reqVersion != 0):
+                    logging.warning(f"[services_manager] Module '{service.Name}' has an invalid requirements version. Setting to default.")
+                
+                args = [PIP_EnvVars, PIP_Args]
 
             if (Service.ModuleContainsFunction(service.RequirementsModule, "Install")):
-                Service.RunModuleFunction(service.RequirementsModule, "Install", [None, ExtraArgs])
+                Service.RunModuleFunction(service.RequirementsModule, "Install", args)
                 logging.info(f"[services_manager] Requirements for the service `{service.Name}` installed!")
             else:
                 logging.error(f"[services_manager] Could not install requirements for the service `{service.Name}`. Possibly no `Install` function.")
@@ -404,7 +425,7 @@ def LoadModels(Models: dict[str, dict[str, Any]]) -> None:
             conversation.append(resultMsg)
 
         for model in models:
-            for modelName, modelConfiguration in model:
+            for modelName, modelConfiguration in model.items():
                 if (modelConfiguration.get("_private_inference_test", False) and len(conversation) > 0):
                     response = InferenceModel(
                         ModelName = modelName,

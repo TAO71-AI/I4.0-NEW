@@ -1,28 +1,29 @@
-# TO DO
+# TO-DO list
 
 ## Long-term
 
-- [ ] [VRChat (gaming addon)](https://github.com/TAO71-AI/I4.0-VRChat) (WIP)
-- [ ] Minecraft (gaming addon)
-- [ ] HoloCure (gaming addon)
-- [ ] Half-Life (gaming addon)
+- [ ] Client: [VRChat (gaming addon)](https://github.com/TAO71-AI/I4.0-VRChat) (WIP)
+- [ ] Client: Minecraft (gaming addon)
+- [ ] Client: HoloCure (gaming addon)
+- [ ] Client: Half-Life (gaming addon)
 
 ## Medium-term
 
-- [ ] DOCX file reading
-- [ ] PPTX file reading
-- [ ] PPTX file creation
-- [ ] Support `.zip` files as modules.
+- [ ] Client: DOCX file reading
+- [ ] Client: PPTX file reading
+- [ ] Client: PPTX file creation
+- [ ] Server: Support `.zip` files as modules
+- [ ] Client: OpenAI to I4.0 API translation
 
 ## Short-term
 
-- [ ] OpenAI-like API support
-- [ ] Refactor text search
+- [ ] Client: Refactor text search
+- [ ] Server: `textclass` (Text Classification) service
 
 # Completed
 
-- [X] Images search
-- [X] DOCX file creation
-- [X] PDF file reading
-- [X] PDF file creation
-- [X] Other documents/code reading
+- [X] Client: Images search
+- [X] Client: DOCX file creation
+- [X] Client: PDF file reading
+- [X] Client: PDF file creation
+- [X] Client: Other documents/code reading

@@ -1,18 +1,30 @@
-from bs4 import BeautifulSoup
+import logging
 from typing import Any, Literal
+import base64
+import re
+import logging
 from urllib.parse import urlparse
 from urllib.robotparser import RobotFileParser
+import requests
+from bs4 import BeautifulSoup
 from ddgs.ddgs import DDGS
 from . import format_conversion
-import base64
-import requests
-import re
 
 __DDGS__: DDGS = DDGS()
 SCRAPE_HEADERS: dict[str, Any] = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0"
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+    "Accept-Charset": "ISO-8859-1,utf-8;q=0.7,*;q=0.3",
+    "Accept-Language": "en-US,en;q=0.8",
+    "Accept-Encoding": "none",
+    "refere": "https://tao71.org/I4.0_scr",
+    "Connection": "keep-alive"
 }
 FollowScrapeGuidelines: bool = True
+
+logging.getLogger("ddgs.ddgs").setLevel(logging.CRITICAL)
+logging.getLogger("primp").setLevel(logging.CRITICAL)
+logging.getLogger("httpx").setLevel(logging.CRITICAL)
 
 class ScrapeGuidelinesError(BaseException):
     def __init__(self) -> None:
@@ -146,6 +158,7 @@ def Scrape_Base(URL: str) -> BeautifulSoup:
     response = __get_requests_response__(URL)
     soup = BeautifulSoup(response.text, "html.parser")
 
+    response.close()
     return soup
 
 def Scrape_Wikipedia(URL: str) -> dict[str, str | list[dict[str, str]]]:
@@ -249,6 +262,7 @@ def Scrape_Reddit_Subreddit(
         postUrl = post["data"]["url"]
         posts.append(Scrape_Reddit_Post(postUrl) if (ScrapePosts) else postUrl)
     
+    response.close()
     return posts
 
 def Scrape_Wikidot(URL: str) -> dict[str, str | list[dict[str, str]]]:

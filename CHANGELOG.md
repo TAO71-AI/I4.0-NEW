@@ -10,7 +10,9 @@ Keep in mind that these are only the more relevant changes.
 
 ### Server changes
 
-- Updated requirements (PyTorch). **TODO: Refactor requirements.**
+- Fixed a bug that prevented the server from starting.
+- Updated requirements (PyTorch).
+- Refactored requirements installation code. **TODO: Update documentation.**
 - Added default configuration to fix a bug when the base service configuration is updated.
 - Inference tests are now in the server. This will inference the model once loaded. **TODO: Documentation.**
 - Changed default encoder in the configuration.
@@ -20,7 +22,7 @@ Keep in mind that these are only the more relevant changes.
 - (CLI) Fixed a small typo.
 - (CLI) The app doesn't crashes anymore when being executed on an unsupported OS.
 - (API PY & CS) Fixed a bug when connecting to the server. Also fixed a bug when using model redirection.
-- (Utilities) Replaced user agent.
+- (Utilities) Replaced user agent and other variables, so the websites think it is a real web browser.
 
 ### Other changes
 

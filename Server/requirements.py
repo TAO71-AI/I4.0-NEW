@@ -1,104 +1,121 @@
 import os
+import logging
+import json
 import Utilities.install_requirements as requirements
 import Utilities.gpu_utils as gpu_utils
 
-GENERAL_REQUIREMENTS = [
+PYTORCH_WHEELS = {
+    # Testing levels:
+    # 0: Works out-of-the-box, fully tested, no configuration changes required
+    # 1: Works fine, but requires small configuration changes
+    # 2: Might be a bit buggy or requires small code changes
+    # 3: Not tested, unknown if it works or not
+    # 4: Not tested, but probably works
+    # 5: Not tested, and probably does not work
+    # 6: Does not have support and will not work
+
+    "cuda": "https://download.pytorch.org/whl/cu130",
+    "cuda13.2": "https://download.pytorch.org/whl/cu132",  # 0
+    "cuda13.0": "https://download.pytorch.org/whl/cu130",  # 0
+    "cuda12.8": "https://download.pytorch.org/whl/cu128",  # 4
+    "cuda12.6": "https://download.pytorch.org/whl/cu126",  # 4
+
+    "rocm": "https://download.pytorch.org/whl/rocm7.2",
+    "rocm7.2": "https://download.pytorch.org/whl/rocm7.2",  # 3
+    "rocm6.4": "https://download.pytorch.org/whl/rocm6.4",  # 3
+    
+    "sycl": "https://download.pytorch.org/whl/xpu",  # 2
+
+    "cpu": "https://download.pytorch.org/whl/cpu"  # 0
+}
+BASE_REQUIREMENTS = [
     "PyYAML",
     "requests",
     "pydub",
-    "websockets>=15.0.0,<16.0.0",
+    "websockets>=16.0.0",
     "asyncio",
     "av",
     "cryptography",
     "Pillow",
     "numpy",
     "accelerate",
-    "transformers>=4.57.3"
-]
-OPTIONAL_REQUIREMENTS = [
-    "bitsandbytes",
-    #"flash-attn"
-]
-PYTORCH_REQUIREMENTS = [
+    "transformers>=4.57.3",
     "torch>=2.10.0",
     "torchvision",
     "torchaudio"
 ]
-
-PYTORCH_WHEELS = {
-    "cuda": "https://download.pytorch.org/whl/cu130",
-    "cuda13.2": "https://download.pytorch.org/whl/cu132",  # Fully tested
-    "cuda13.0": "https://download.pytorch.org/whl/cu130",  # Fully tested
-    "cuda12.8": "https://download.pytorch.org/whl/cu128",  # Partially tested
-    "cuda12.6": "https://download.pytorch.org/whl/cu126",  # Partially tested
-
-    "rocm": "https://download.pytorch.org/whl/rocm7.2",
-    "rocm7.2": "https://download.pytorch.org/whl/rocm7.2",  # Not tested
-    "rocm6.4": "https://download.pytorch.org/whl/rocm6.4",  # Not tested
-    
-    "sycl": "https://download.pytorch.org/whl/xpu"  # Not tested
-}
+OPTIONAL_REQUIREMENTS = [
+    "bitsandbytes",
+    "flash-attn"
+]
 
 def InstallRequirements() -> None:
-    torchIdx = "https://download.pytorch.org/whl/cpu"
-    args = []
-    extraArgs = []
-
-    if ("FORCE_UPGRADE" in os.environ and len(os.environ["FORCE_UPGRADE"].strip()) > 0 and bool(os.environ["FORCE_UPGRADE"])):
-        args.append("--upgrade")
-    
-    if ("VERBOSE" in os.environ and len(os.environ["VERBOSE"].strip()) > 0 and bool(os.environ["VERBOSE"])):
-        args.append("--verbose")
-        extraArgs.append("--verbose")
-    
-    if ("EXTRA_ARGS" in os.environ):
-        extraArgs += os.environ["EXTRA_ARGS"].split(" ")
-
-    if ("BASE_TORCH_CIDX" in os.environ and len(os.environ["BASE_TORCH_CIDX"].strip()) > 0):
-        torchIdx = os.environ["BASE_TORCH_CIDX"]
-        torchIdxName = None
-    elif ("BASE_TORCH_IDX" in os.environ and len(os.environ["BASE_TORCH_IDX"].strip()) > 0):
-        torchIdxName = os.environ["BASE_TORCH_IDX"].strip().lower()
-    else:
-        gpu = gpu_utils.DetectGPU()
-        
-        if (gpu == gpu_utils.GPUType.NVIDIA):
-            torchIdxName = "cuda"
-        elif (gpu == gpu_utils.GPUType.AMD):
-            torchIdxName = "rocm"
-        elif (gpu == gpu_utils.GPUType.INTEL):
-            torchIdxName = "sycl"
-        else:
-            torchIdxName = "cpu"
-
-    if (torchIdxName is not None and torchIdxName in PYTORCH_WHEELS):
-        torchIdx = PYTORCH_WHEELS[torchIdxName]
-    elif (torchIdxName is not None):
-        raise ValueError("Invalid PyTorch idx. Please see documentation.")
-    
-    if ("BASE_FLASH_ATTN_MAX_JOBS" in os.environ):
-        faMj = int(os.environ["BASE_FLASH_ATTN_MAX_JOBS"])
-    else:
-        faMj = None
-    
-    requirements.InstallPackage(Packages = GENERAL_REQUIREMENTS, PIPOptions = args)
-
     import services_manager as servMgr
-    servMgr.InstallAllRequirements(ExtraArgs = extraArgs)
+    logging.info("[requirements] Preparing for installation...")
 
-    if (torchIdx is not None):
-        requirements.InstallPackage(
-            Packages = PYTORCH_REQUIREMENTS,
-            PIPOptions = ["--index-url", torchIdx] + args
-        )
+    upgrade = os.environ.get("I4_UPGRADE", True)
+    verbose = os.environ.get("I4_VERBOSE", False)
+    installOptional = os.environ.get("I4_INSTALL_OPTIONAL", False)
+    pytorchWhlName = os.environ.get("I4_PT_WHL", "auto")
+    gpu = os.environ.get("I4_GPU", None)
+    gpuHasVulkan = os.environ.get("I4_GPU_VULKAN", None)
+    pipArgs = json.loads(os.environ.get("I4_PIP_ARGS", "[]"))
+
+    if (gpu in [None, "auto"]):
+        gpu = gpu_utils.DetectGPU()
+    elif (gpu in ["nvidia", "cuda"]):
+        gpu = gpu_utils.GPUType.NVIDIA
+    elif (gpu in ["amd", "radeon", "rocm"]):
+        gpu = gpu_utils.GPUType.AMD
+    elif (gpu in ["intel", "sycl"]):
+        gpu = gpu_utils.GPUType.INTEL
+    else:
+        gpu = gpu_utils.GPUType.NO_GPU
     
-    if ("INSTALL_OPTIONAL" in os.environ and len(os.environ["INSTALL_OPTIONAL"].strip()) > 0):
-        requirements.InstallPackage(Packages = OPTIONAL_REQUIREMENTS, PIPOptions = args)
+    if (gpuHasVulkan in [None, "auto"]):
+        gpuHasVulkan = gpu_utils.GPUHasVulkan()
+    elif (gpuHasVulkan in ["1", "true", "True", "TRUE"]):
+        gpuHasVulkan = True
+    else:
+        gpuHasVulkan = False
+    
+    if (pytorchWhlName == "auto"):
+        if (gpu == gpu_utils.GPUType.NVIDIA):
+            pytorchWhlName = "nvidia"
+        elif (gpu == gpu_utils.GPUType.AMD):
+            pytorchWhlName = "rocm"
+        elif (gpu == gpu_utils.GPUType.INTEL):
+            pytorchWhlName = "sycl"
+        else:
+            pytorchWhlName = "cpu"
+    
+    pytorchWhlIndex = PYTORCH_WHEELS.get(pytorchWhlName, PYTORCH_WHEELS["cpu"])
+
+    if (pytorchWhlIndex == PYTORCH_WHEELS["cpu"]):
+        pytorchWhlName = "cpu"
+    
+    logging.info(f"[requirements] Installation parameters:\n- GPU: {gpu.name}\n- Vulkan available: {gpuHasVulkan}\n- PyTorch wheel: {pytorchWhlName}\n- Install optional requirements: {installOptional}\n- Upgrade: {upgrade}\n- Verbose: {verbose}")
+    
+    if (upgrade):
+        pipArgs.append("--upgrade")
+    
+    if (verbose):
+        pipArgs.append("--verbose")
+
+    servMgr.InstallAllRequirements(GPU = gpu, Vulkan = gpuHasVulkan, Services = None, ExtraArgs = pipArgs)
+
+    if (installOptional):
         requirements.InstallPackage(
-            Packages = ["flash-attn"],
-            PIPOptions = ["--no-build-isolation"] + args,
-            EnvVars = {"MAX_JOBS": faMj} if (faMj is not None) else {}
+            Packages = OPTIONAL_REQUIREMENTS,
+            EnvVars = os.environ,
+            PIPOptions = pipArgs
         )
+
+    requirements.InstallPackage(
+        Packages = BASE_REQUIREMENTS,
+        EnvVars = os.environ,
+        PIPOptions = pipArgs
+    )
 
 if (__name__ == "__main__"):
     InstallRequirements()
