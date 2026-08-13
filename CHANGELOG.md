@@ -23,6 +23,7 @@ Keep in mind that these are only the more relevant changes.
 - (CLI) The app doesn't crashes anymore when being executed on an unsupported OS.
 - (API PY & CS) Fixed a bug when connecting to the server. Also fixed a bug when using model redirection.
 - (Utilities) Replaced user agent and other variables, so the websites think it is a real web browser.
+- (API GD) New client bindings for Godot using (mostly) GDScript.
 
 ### Other changes
 

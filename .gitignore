@@ -31,6 +31,10 @@ Client/Client/dist/
 Client/Client/I4_0_Client_PY.egg-info/
 Client/ClientCS/obj/
 Client/ClientCS/bin/
+Client/ClientCS/*.uid
+Client/ClientGD/obj/
+Client/ClientGD/bin/
+Client/ClientGD/*.uid
 
 ## Utils
 Client/Utils/build/

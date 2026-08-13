@@ -14,7 +14,7 @@ namespace TAO71.I4_0
 {
     public static class ServerConnection
     {
-        public const int VERSION = 220200;
+        public const int VERSION = 220300;
         public const int TRANSFER_RATE = 8192 * 1024;
     }
 
@@ -41,8 +41,16 @@ namespace TAO71.I4_0
             if (Configuration.Encryption_PublicKey == null || Configuration.Encryption_PrivateKey == null)
             {
                 (RSA, RSA) keys = Encryption.GenerateRSAKeys(Configuration.Encryption_RSASize);
+
                 PrivateKey = keys.Item1;
                 PublicKey = keys.Item2;
+            }
+            else
+            {
+                (RSA?, RSA?) keys = Encryption.LoadKeysFromContent(Configuration.Encryption_PrivateKey, Configuration.Encryption_PrivateKeyPassword, Configuration.Encryption_PublicKey);
+
+                PrivateKey = keys.Item1!;
+                PublicKey = keys.Item2!;
             }
 
             (byte[]?, byte[]?) keysBytes = Encryption.SaveKeys(null, null, "", PublicKey, null);
@@ -195,11 +203,6 @@ namespace TAO71.I4_0
             PromptConversation ??= new List<JsonNode>();
             PromptParameters ??= new JsonObject();
             UserParameters ??= new JsonObject();
-
-            if (ServerPublicKey == null)
-            {
-                await _SetServerPublicKey();
-            }
 
             HashAlgorithm? h = Encryption.ParseHash(Config.Encryption_Hash);
             string conversationJson = JsonSerializer.Serialize(PromptConversation);
@@ -379,7 +382,7 @@ namespace TAO71.I4_0
         }
 
         public async Task<string> CreateAPIKey(
-            int Tokens = 0,
+            float Tokens = 0,
             bool ResetDaily = false,
             JsonNode? ExpireDate = null,
             List<string>? AllowedIPs = null,

@@ -1,5 +1,3 @@
-VERSION: int = 200200
-
 from typing import Any, Literal
 from collections.abc import AsyncGenerator
 from websockets import connect as WS_Connect
@@ -10,6 +8,7 @@ import base64
 import asyncio
 
 TRANSFER_RATE = 8192 * 1024
+VERSION: int = 200300
 
 class ClientSocket():
     def __init__(
@@ -26,6 +25,12 @@ class ClientSocket():
 
         if (Configuration.Encryption_PublicKey is None or Configuration.Encryption_PrivateKey is None):
             self.__private_key__, self.__public_key__ = encryption.GenerateRSAKeys(Size = Configuration.Encryption_RSASize)
+        else:
+            self.__private_key__, self.__public_key__ = encryption.LoadKeysFromContent(
+                PrivateContent = Configuration.Encryption_PrivateKey,
+                PrivatePassword = Configuration.Encryption_PrivateKeyPassword,
+                PublicContent = Configuration.Encryption_PublicKey
+            )
         
         _, self.__public_key_str__ = encryption.SaveKeys(None, None, "", self.__public_key__, None)
         self.__public_key_str__ = self.__public_key_str__.decode("utf-8")
@@ -128,9 +133,6 @@ class ClientSocket():
         UserParameters: dict[str, Any] = {},
         Service: str = "inference"
     ) -> AsyncGenerator[dict[str, Any]]:
-        if (self.__server_public_key__ is None):
-            await self.__set_server_public_key__()
-
         h = encryption.ParseHash(self.__configuration__.Encryption_Hash)
         data = {
             "hash": self.__configuration__.Encryption_Hash,
@@ -253,7 +255,7 @@ class ClientSocket():
     
     async def CreateAPIKey(
         self,
-        Tokens: int = 0,
+        Tokens: float = 0,
         ResetDaily: bool = False,
         ExpireDate: dict[str, int] | None = None,
         AllowedIPs: list[str] | None = None,
