@@ -12,7 +12,6 @@ from . import format_conversion
 
 __DDGS__: DDGS = DDGS()
 SCRAPE_HEADERS: dict[str, Any] = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
     "Accept-Charset": "ISO-8859-1,utf-8;q=0.7,*;q=0.3",
     "Accept-Language": "en-US,en;q=0.8",
@@ -20,6 +19,13 @@ SCRAPE_HEADERS: dict[str, Any] = {
     "refere": "https://tao71.org/I4.0_scr",
     "Connection": "keep-alive"
 }
+USER_AGENTS: list[str] = [
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:155.0) Gecko/20100101 Firefox/155.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5.2 Safari/605.1.15",
+    "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
+]
 FollowScrapeGuidelines: bool = True
 
 logging.getLogger("ddgs.ddgs").setLevel(logging.CRITICAL)
@@ -30,10 +36,18 @@ class ScrapeGuidelinesError(BaseException):
     def __init__(self) -> None:
         super().__init__("Scrapping not allowed here. Please disable the scrapping guidelines or scrape another website if you see this error often.")
 
-def __get_requests_response__(URL: str) -> requests.Response:
-    response = requests.get(URL, headers = SCRAPE_HEADERS)
-    response.raise_for_status()
+def __get_requests_response__(URL: str, UserAgent: int | str = 0) -> requests.Response:
+    if (isinstance(UserAgent, int)):
+        userAgent = USER_AGENTS[UserAgent]
+    else:
+        userAgent = str(UserAgent)
 
+    response = requests.get(URL, headers = SCRAPE_HEADERS | {"User-Agent": userAgent})
+
+    if (isinstance(userAgent, int) and userAgent + 1 < len(USER_AGENTS) and response.status_code == 403):
+        return __get_requests_response__(URL = URL, UserAgent = userAgent + 1)
+    
+    response.raise_for_status()
     return response
 
 def DownloadContent(URL: str, ReturnAsBase64: bool = False, ReturnAsString: bool = False) -> bytes | str:

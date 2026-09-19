@@ -899,8 +899,12 @@ def InferenceModel(
             "_queue_uid": queueUID
         }
     except StopIteration:
-        pass
+        if (Service.ModuleContainsFunction(serviceModule.ServiceModule, "SERVICE_STOP_INFERENCE")):
+            Service.RunModuleFunction(serviceModule.ServiceModule, "SERVICE_STOP_INFERENCE", [ModelName, UserParameters])
     finally:
+        if (Service.ModuleContainsFunction(serviceModule.ServiceModule, "SERVICE_END_INFERENCE")):
+            Service.RunModuleFunction(serviceModule.ServiceModule, "SERVICE_END_INFERENCE", [ModelName, UserParameters])
+
         if (tokensProcessingTime is not None):
             if (modelQueue.TokensPerSecond is not None):
                 tokensProcessingTime = (1 / modelQueue.TokensPerSecond + tokensProcessingTime) / 2

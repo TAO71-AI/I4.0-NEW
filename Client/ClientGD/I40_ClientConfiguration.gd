@@ -18,7 +18,7 @@ func ToDict(SavePublicKey: bool = false) -> Dictionary:
 	var d = {}
 	
 	for prop in get_property_list():
-		if (prop.name in ["script", "I4.0_ClientConfiguration.gd", "instance"]):
+		if (prop.name.to_lower() in ["script", "i40_clientconfiguration.gd", "instance"]):
 			continue
 		
 		if (!SavePublicKey && prop.name in ["Encryption_PublicKey", "Encryption_PrivateKey"]):

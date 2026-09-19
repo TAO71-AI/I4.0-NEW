@@ -8,6 +8,7 @@ import base64
 import copy
 import traceback
 import asyncio
+import colorama
 
 def main() -> None:
     system = sys.platform
@@ -131,16 +132,26 @@ def main() -> None:
                     conversation["conv"] = token["conversation_result"]
 
                 if ("response" in token):
+                    extraText = ""
+
                     if ("extra" in token["response"]):
+                        if ("channel_tags" in token["response"]["extra"]):
+                            if ("reasoning" in token["response"]["extra"]["channel_tags"]):
+                                extraText = colorama.Fore.MAGENTA
+                            else:
+                                extraText = colorama.Fore.RESET
+
+                            token["response"]["extra"].pop("channel_tags")
+
                         if ("channel" in token["response"]["extra"]):
                             if (currentChannel != token["response"]["extra"]["channel"]):
                                 currentChannel = token["response"]["extra"]["channel"]
-                                print(f"\nSet channel to '{currentChannel}'.", flush = True)
+                                print(f"\n{extraText}Set channel to '{currentChannel}'.", flush = True)
 
                             token["response"]["extra"].pop("channel")
 
                     if ("text" in token["response"]):
-                        print(token["response"]["text"], end = "", flush = True)
+                        print(extraText + token["response"]["text"], end = "", flush = True)
                     
                     if ("files" in token["response"]):
                         for file in token["response"]["files"]:
@@ -266,7 +277,7 @@ def main() -> None:
                         "role": "tool",
                         "content": toolsResponse
                     })
-                    await __send__(False, Service)
+                    await __send__(True, Service)
 
                     return
             

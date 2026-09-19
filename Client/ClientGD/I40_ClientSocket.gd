@@ -29,7 +29,7 @@ func Init(EncryptionScript: CSharpScript, Type: String, Configuration: Object) -
 	_Configuration = Configuration
 	
 	if (_Configuration.Encryption_PublicKey.size() == 0 || _Configuration.Encryption_PrivateKey.size() == 0):
-		var keys = _EncryptionScript.GenerateRSAKeys(_Configuration.Encryption_RSASize)
+		var keys = _EncryptionScript.GenerateRSAKeys(_Configuration.Encryption_RSASize, _Configuration.Encryption_PrivateKeyPassword)
 		
 		_PrivateKey = keys[0]
 		_PublicKey = keys[1]
@@ -62,6 +62,10 @@ func Connect(Host: String, Port: int, Secure: bool = false) -> void:
 			_UpdateSocket()
 		
 		await get_tree().create_timer(0.1).timeout
+		_UpdateSocket()
+
+		if (_Socket.get_ready_state() == WebSocketPeer.STATE_CLOSED):
+			return
 	
 	_CurrentConnection = [_Type, Host, Port, Secure]
 	_SetServerPublicKey()
@@ -91,7 +95,7 @@ func _Send(Data: String) -> void:
 func _Receive() -> String:
 	if (!IsConnected()):
 		push_error("Socket not connected.")
-		return ""
+		return "--END--"
 	
 	var data = ""
 	
@@ -194,6 +198,7 @@ func AdvancedSendAndReceive(
 		recvData = _EncryptionScript.Decrypt(
 			recvData["hash"],
 			_PrivateKey,
+			_Configuration.Encryption_PrivateKeyPassword,
 			recvData["data"],
 			_Configuration.Encryption_Threads
 		)

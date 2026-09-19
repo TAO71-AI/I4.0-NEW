@@ -316,10 +316,10 @@ namespace TAO71.I4_0_Godot
 
         // Godot-adapted functions
 
-        public static Godot.Collections.Array<byte[]> GenerateRSAKeys(int Size = 8192)
+        public static Godot.Collections.Array<byte[]> GenerateRSAKeys(int Size = 8192, string PrivatePassword = "")
         {
             (RSA priv, RSA pub) keys = _GenerateRSAKeys(Size);
-            (byte[]? priv, byte[]? pub) savedKeys = _SaveKeys(keys.priv, null, "", keys.pub, null);
+            (byte[]? priv, byte[]? pub) savedKeys = _SaveKeys(keys.priv, null, PrivatePassword, keys.pub, null);
 
             return new Godot.Collections.Array<byte[]>()
             {
@@ -384,8 +384,13 @@ namespace TAO71.I4_0_Godot
                 keys.pub = Encoding.UTF8.GetBytes(PublicContent);
             }
 
-            (RSA? priv, RSA? pub) loadedKeys = _LoadKeysFromContent(keys.priv, PrivatePassword, keys.pub);
-            (byte[]? priv, byte[]? pub) savedKeys = _SaveKeys(loadedKeys.priv, null, PrivatePassword, loadedKeys.pub, null);
+            (byte[]? priv, byte[]? pub) savedKeys = (null, null);
+
+            try
+            {
+                (RSA? priv, RSA? pub) loadedKeys = _LoadKeysFromContent(keys.priv, PrivatePassword, keys.pub);
+                savedKeys = _SaveKeys(loadedKeys.priv, null, PrivatePassword, loadedKeys.pub, null);
+            } catch {}
 
             if (savedKeys.priv == null)
             {
@@ -416,8 +421,13 @@ namespace TAO71.I4_0_Godot
                 PublicFile = null;
             }
 
-            (RSA priv, RSA pub) keys = _LoadKeysFromFile(PrivateFile, PrivatePassword, PublicFile);
-            (byte[]? priv, byte[]? pub) savedKeys = _SaveKeys(keys.priv, null, PrivatePassword, keys.pub, null);
+            (byte[]? priv, byte[]? pub) savedKeys = (null, null);
+
+            try
+            {
+                (RSA priv, RSA pub) keys = _LoadKeysFromFile(PrivateFile, PrivatePassword, PublicFile);
+                savedKeys = _SaveKeys(keys.priv, null, PrivatePassword, keys.pub, null);
+            } catch {}
 
             if (savedKeys.priv == null)
             {
@@ -456,21 +466,21 @@ namespace TAO71.I4_0_Godot
             );
         }
 
-        public static string Decrypt(string Hash, byte[] PrivateKey, string Data, int MaxThreads)
+        public static string Decrypt(string Hash, byte[] PrivateKey, string PrivatePassword, string Data, int MaxThreads)
         {
             return _DecryptBasic(
                 _ParseHash(Hash),
-                _LoadKeysFromContent(PrivateKey, "", null).PrivateKey,
+                _LoadKeysFromContent(PrivateKey, PrivatePassword, null).PrivateKey,
                 Data,
                 MaxThreads
             );
         }
 
-        public static byte[] Decrypt(string Hash, byte[] PrivateKey, byte[] Data, int MaxThreads)
+        public static byte[] Decrypt(string Hash, byte[] PrivateKey, string PrivatePassword, byte[] Data, int MaxThreads)
         {
             return _DecryptBasic(
                 _ParseHash(Hash),
-                _LoadKeysFromContent(PrivateKey, "", null).PrivateKey,
+                _LoadKeysFromContent(PrivateKey, PrivatePassword, null).PrivateKey,
                 Data,
                 MaxThreads
             );

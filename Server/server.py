@@ -343,7 +343,8 @@ def __process_client__(Message: str, EndPoint: tuple[str, int]) -> Generator[dic
                     ModelName = modelName,
                     Prompt = prompt,
                     UserParameters = userParams | {
-                        "key_info": keyInstance.__dict__
+                        "key_info": keyInstance.__dict__,
+                        "user_hash": hash(EndPoint)
                     }
                 )
                 

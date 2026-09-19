@@ -16,6 +16,8 @@ Keep in mind that these are only the more relevant changes.
 - Added default configuration to fix a bug when the base service configuration is updated.
 - Inference tests are now in the server. This will inference the model once loaded. **TODO: Documentation.**
 - Changed default encoder in the configuration.
+- Added new (optional) module function `SERVICE_STOP_INFERENCE`. This function will be executed when the user disconnects mid-inference, cancels it, or the server receives a **StopIteration** exception.
+- **TODO: Update API keys.**
 
 ### Client changes
 
@@ -24,11 +26,15 @@ Keep in mind that these are only the more relevant changes.
 - (API PY & CS) Fixed a bug when connecting to the server. Also fixed a bug when using model redirection.
 - (Utilities) Replaced user agent and other variables, so the websites think it is a real web browser.
 - (API GD) New client bindings for Godot using (mostly) GDScript.
+- (API GD) Keys can now be generated with a custom password.
+- (Utilities) Multiple user agents can be used if a website returns a 403 error response.
+- (CLI) Support for multiple tool executions without a new user prompt.
 
 ### Other changes
 
 - Created a to-do file (`TODO.md`).
 - Updated `README.md`.
+- Updated documentation.
 
 ---
 
