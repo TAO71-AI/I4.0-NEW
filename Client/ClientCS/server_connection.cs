@@ -265,13 +265,13 @@ namespace TAO71.I4_0
 
             if (redirectNode != null)
             {
-                (string, string, int, bool)? previousConnection = CurrentConnection;
+                (string, string, int, bool)? previousConnection = null;
 
-                string? rHost = redirectNode["host"]?.GetValue<string>();
-                int? rPort = redirectNode["port"]?.GetValue<int>();
-                string? rType = redirectNode["type"]?.GetValue<string>();
-                bool? rSecure = redirectNode["secure"]?.GetValue<bool>();
-                string? rModel = redirectNode["model"]?.GetValue<string>();
+                string? rHost = redirectNode["host"]?.GetValue<string?>();
+                int? rPort = redirectNode["port"]?.GetValue<int?>();
+                string? rType = redirectNode["type"]?.GetValue<string?>();
+                bool? rSecure = redirectNode["secure"]?.GetValue<bool?>();
+                string? rModel = redirectNode["model"]?.GetValue<string?>();
 
                 if (rHost == null)
                 {
@@ -295,6 +295,8 @@ namespace TAO71.I4_0
                 {
                     SockType = CurrentConnection!.Value.Item1;
                 }
+
+                // TODO: Connect only if the connection is different
 
                 await Connect(
                     rHost == null ? CurrentConnection!.Value.Item2 : rHost,

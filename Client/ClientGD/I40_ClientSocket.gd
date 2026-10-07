@@ -63,12 +63,12 @@ func Connect(Host: String, Port: int, Secure: bool = false) -> void:
 		
 		await get_tree().create_timer(0.1).timeout
 		_UpdateSocket()
-
+		
 		if (_Socket.get_ready_state() == WebSocketPeer.STATE_CLOSED):
 			return
 	
 	_CurrentConnection = [_Type, Host, Port, Secure]
-	_SetServerPublicKey()
+	await _SetServerPublicKey()
 
 func Close() -> void:
 	if (_Socket == null):
@@ -82,7 +82,7 @@ func Close() -> void:
 	_Processing = false
 
 func _SetServerPublicKey() -> void:
-	_ServerPublicKey = Marshalls.base64_to_utf8(SendAndReceive("get_public_key")).to_utf8_buffer()
+	_ServerPublicKey = Marshalls.base64_to_utf8(await SendAndReceive("get_public_key")).to_utf8_buffer()
 
 func _Send(Data: String) -> void:
 	if (!IsConnected()):
@@ -101,6 +101,7 @@ func _Receive() -> String:
 	
 	while (_Socket.get_available_packet_count() == 0):
 		_UpdateSocket()
+		await get_tree().process_frame
 	
 	while (_Socket.get_available_packet_count() > 0):
 		var packet = _Socket.get_packet()
@@ -138,7 +139,7 @@ func Receive() -> String:
 		return data
 	
 	while (true):
-		var chunk = _Receive()
+		var chunk = await _Receive()
 		
 		if ("--END--" in chunk):
 			data += chunk.substr(0, chunk.find("--END--"))
@@ -154,7 +155,7 @@ func Receive() -> String:
 
 func SendAndReceive(Data: String) -> String:
 	Send(Data)
-	return Receive()
+	return await Receive()
 
 func AdvancedSendAndReceive(
 	ModelName: String,
@@ -163,8 +164,13 @@ func AdvancedSendAndReceive(
 	PromptParameters: Dictionary = {},
 	UserParameters: Dictionary = {},
 	Service: String = "inference",
-	OnReceivedToken: Callable = func(_token): pass
+	OnReceivedToken: Callable = func(_token): pass,
+	WaitToProcessFrame: bool = false
 ) -> void:
+	if (!IsConnected()):
+		push_error("Socket not connected.")
+		return
+	
 	var data = {
 		"hash": _Configuration.Encryption_Hash,
 		"public_key": _PublicKeyStr,
@@ -193,7 +199,7 @@ func AdvancedSendAndReceive(
 	var redirectTo = null
 	
 	while (true):
-		var recvData = Receive()
+		var recvData = await Receive()
 		recvData = JSON.parse_string(recvData)
 		recvData = _EncryptionScript.Decrypt(
 			recvData["hash"],
@@ -209,7 +215,9 @@ func AdvancedSendAndReceive(
 			break
 		
 		AdvancedSendAndReceive_OnToken.emit(recvData)
-		await get_tree().process_frame
+		
+		if (WaitToProcessFrame):
+			await get_tree().process_frame
 		
 		if ("ended" in recvData && recvData["ended"]):
 			break
@@ -218,16 +226,20 @@ func AdvancedSendAndReceive(
 	
 	if (redirectTo != null):
 		var previousConnection = null
+		var socType = "websocket" if (redirectTo["type"] == "ws") else "socket" if (redirectTo["type"] == "s") else _CurrentConnection[0]
+		var host = redirectTo["host"] if (redirectTo["host"] != null) else _CurrentConnection[1]
+		var port = redirectTo["port"] if (redirectTo["port"] != null) else _CurrentConnection[2]
+		var secure = redirectTo["secure"] if (redirectTo["secure"] != null) else _CurrentConnection[3]
 		
-		if (redirectTo["host"] != null && redirectTo["port"] != null):
+		if (socType != _CurrentConnection[0] || host != _CurrentConnection[1] || port != _CurrentConnection[2] || secure != _CurrentConnection[3]):
 			previousConnection = _CurrentConnection
 			
-			_Type = "websocket" if (redirectTo["type"] == "ws") else "socket" if (redirectTo["type"] == "s") else ""
-			await Connect(redirectTo["host"], redirectTo["port"], redirectTo["secure"])
+			_Type = socType
+			await Connect(host, port, secure)
 		
 		_UpdateSocket()
 		await AdvancedSendAndReceive(
-			redirectTo["model"],
+			redirectTo["model"] if (redirectTo["model"] != null) else ModelName,
 			APIKey,
 			PromptConversation,
 			PromptParameters,

@@ -175,26 +175,31 @@ class ClientSocket():
                 break
         
         if (redirectTo is not None):
-            previousConnection = self.__current_connection__.copy()
+            previousConnection = None
+            socType = "websocket" if (redirectTo["type"] == "ws") else "socket" if (redirectTo["type"] == "s") else self.__current_connection__[0]
+            host = redirectTo["host"] if (redirectTo["host"] is not None) else self.__current_connection__[1]
+            port = redirectTo["port"] if (redirectTo["port"] is not None) else self.__current_connection__[2]
+            secure = redirectTo["secure"] if (redirectTo["secure"] is not None) else self.__current_connection__[3]
 
-            self.__socket_type__ = "websocket" if (redirectTo["type"] == "ws") else "socket" if (redirectTo["type"] == "s") else self.__current_connection__[0]
-            await self.Connect(
-                Host = redirectTo["host"] if (redirectTo["host"] is not None) else self.__current_connection__[1],
-                Port = redirectTo["port"] if (redirectTo["port"] is not None) else self.__current_connection__[2],
-                Secure = redirectTo["secure"] if (redirectTo["secure"] is not None) else self.__current_connection__[3]
-            )
+            if (socType != self.__current_connection__[0] or host != self.__current_connection__[1] or port != self.__current_connection__[2] or secure != self.__current_connection__[3]):
+                previousConnection = self.__current_connection__.copy()
 
-            gen = self.AdvancedSendAndReceive(
-                ModelName = redirectTo["model"] if (redirectTo["model"] is not None) else ModelName,
-                Key = Key,
-                PromptConversation = PromptConversation,
-                PromptParameters = PromptParameters,
-                UserParameters = UserParameters,
-                Service = Service
-            )
+                self.__socket_type__ = socType
+                await self.Connect(
+                    Host = host,
+                    Port = port,
+                    Secure = secure
+                )
 
             try:
-                async for token in gen:
+                async for token in self.AdvancedSendAndReceive(
+                    ModelName = redirectTo["model"] if (redirectTo["model"] is not None) else ModelName,
+                    Key = Key,
+                    PromptConversation = PromptConversation,
+                    PromptParameters = PromptParameters,
+                    UserParameters = UserParameters,
+                    Service = Service
+                ):
                     yield token
             except Exception as ex:
                 raise ex
